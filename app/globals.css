@@ -251,6 +251,51 @@ a {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.sb-image-upload {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fbf8f5;
+  outline: none;
+}
+.sb-image-upload:focus-within {
+  border-color: var(--emerald);
+}
+.sb-image-upload-preview {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+.sb-image-upload-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.sb-image-upload-placeholder {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f2f1ef;
+  border: 1px dashed var(--line);
+  color: #a6a29d;
+}
+.sb-image-upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
 .sb-section-title {
   font-family: "Space Grotesk", sans-serif;
   font-weight: 600;
