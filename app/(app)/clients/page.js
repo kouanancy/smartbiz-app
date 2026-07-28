@@ -99,31 +99,39 @@ export default function ClientsPage() {
 
       {showForm && (
         <form onSubmit={submit} className="sb-card sb-form-grid" style={{ marginBottom: 18 }}>
-          <input
-            className="sb-input"
-            placeholder="Nom et prénoms"
-            value={form.nom}
-            onChange={(e) => setForm({ ...form, nom: e.target.value })}
-            style={{ gridColumn: "1 / 3" }}
-          />
-          <input
-            className="sb-input"
-            placeholder="Adresse"
-            value={form.adresse}
-            onChange={(e) => setForm({ ...form, adresse: e.target.value })}
-            style={{ gridColumn: "1 / 3" }}
-          />
-          <input
-            className="sb-input"
-            placeholder="E-mail (facultatif)"
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-          />
-          <div>
+          <div className="sb-field" style={{ gridColumn: "1 / 3" }}>
+            <label>Nom et prénoms</label>
             <input
               className="sb-input"
-              placeholder="Téléphone *"
+              placeholder="Ex. Aïcha Koné"
+              value={form.nom}
+              onChange={(e) => setForm({ ...form, nom: e.target.value })}
+            />
+          </div>
+          <div className="sb-field" style={{ gridColumn: "1 / 3" }}>
+            <label>Adresse</label>
+            <input
+              className="sb-input"
+              placeholder="Ex. Cocody, Abidjan"
+              value={form.adresse}
+              onChange={(e) => setForm({ ...form, adresse: e.target.value })}
+            />
+          </div>
+          <div className="sb-field">
+            <label>E-mail (facultatif)</label>
+            <input
+              className="sb-input"
+              placeholder="ex. cliente@example.com"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </div>
+          <div className="sb-field">
+            <label>Téléphone</label>
+            <input
+              className="sb-input"
+              placeholder="Ex. 07 01 22 33 44"
               value={form.telephone}
               onChange={(e) => {
                 setForm({ ...form, telephone: e.target.value });

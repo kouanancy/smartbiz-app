@@ -111,26 +111,32 @@ export default function ParametresPage() {
           <div className="sb-logo-preview">
             {logoDraft ? <img src={logoDraft} alt="Logo" /> : <Palette size={20} color="#A6A29D" />}
           </div>
-          <input
-            className="sb-input"
-            placeholder="URL du logo (facultatif)"
-            value={logoDraft}
-            onChange={(e) => {
-              setLogoDraft(e.target.value);
-              setSavedMsg("");
-            }}
-          />
+          <div className="sb-field" style={{ flex: 1 }}>
+            <label>Logo (URL) — facultatif</label>
+            <input
+              className="sb-input"
+              placeholder="https://..."
+              value={logoDraft}
+              onChange={(e) => {
+                setLogoDraft(e.target.value);
+                setSavedMsg("");
+              }}
+            />
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            className="sb-input"
-            placeholder="Ex. Chez Aïcha Beauté"
-            value={nameDraft}
-            onChange={(e) => {
-              setNameDraft(e.target.value);
-              setSavedMsg("");
-            }}
-          />
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+          <div className="sb-field" style={{ flex: 1 }}>
+            <label>Nom de la boutique</label>
+            <input
+              className="sb-input"
+              placeholder="Ex. Chez Aïcha Beauté"
+              value={nameDraft}
+              onChange={(e) => {
+                setNameDraft(e.target.value);
+                setSavedMsg("");
+              }}
+            />
+          </div>
           <button className="sb-btn sb-btn-primary" onClick={enregistrerNom}>
             Enregistrer
           </button>
@@ -173,22 +179,26 @@ export default function ParametresPage() {
             ))}
           </div>
         )}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input
-            className="sb-input"
-            placeholder="Zone (ex. Cocody)"
-            value={zoneForm.zone}
-            onChange={(e) => setZoneForm({ ...zoneForm, zone: e.target.value })}
-            style={{ flex: 2, minWidth: 140 }}
-          />
-          <input
-            className="sb-input"
-            placeholder="Frais (FCFA)"
-            type="number"
-            value={zoneForm.frais}
-            onChange={(e) => setZoneForm({ ...zoneForm, frais: e.target.value })}
-            style={{ flex: 1, minWidth: 100 }}
-          />
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div className="sb-field" style={{ flex: 2, minWidth: 140 }}>
+            <label>Zone</label>
+            <input
+              className="sb-input"
+              placeholder="Ex. Cocody"
+              value={zoneForm.zone}
+              onChange={(e) => setZoneForm({ ...zoneForm, zone: e.target.value })}
+            />
+          </div>
+          <div className="sb-field" style={{ flex: 1, minWidth: 100 }}>
+            <label>Frais de livraison (FCFA)</label>
+            <input
+              className="sb-input"
+              placeholder="Ex. 1000"
+              type="number"
+              value={zoneForm.frais}
+              onChange={(e) => setZoneForm({ ...zoneForm, frais: e.target.value })}
+            />
+          </div>
           <button className="sb-btn sb-btn-primary" onClick={ajouterZone}>
             <Plus size={14} /> Ajouter
           </button>

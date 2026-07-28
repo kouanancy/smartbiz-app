@@ -259,8 +259,11 @@ export default function ArticlesPage() {
               </span>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input className="sb-input" placeholder="Nouvelle catégorie (ex. Accessoires)" value={newCat} onChange={(e) => setNewCat(e.target.value)} />
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+            <div className="sb-field" style={{ flex: 1 }}>
+              <label>Nouvelle catégorie</label>
+              <input className="sb-input" placeholder="Ex. Accessoires" value={newCat} onChange={(e) => setNewCat(e.target.value)} />
+            </div>
             <button className="sb-btn sb-btn-primary" onClick={addCategory}>
               <Plus size={14} /> Ajouter
             </button>
@@ -271,44 +274,64 @@ export default function ArticlesPage() {
 
       {showForm && (
         <form onSubmit={submit} className="sb-card sb-form-grid" style={{ marginBottom: 18 }}>
-          <input
-            className="sb-input"
-            placeholder="Nom de l'article"
-            value={form.nom}
-            onChange={(e) => setForm({ ...form, nom: e.target.value })}
-            style={{ gridColumn: "1 / 3" }}
-          />
-          <select className="sb-input" value={form.categorie_id} onChange={(e) => setForm({ ...form, categorie_id: e.target.value })}>
-            <option value="">{SANS_CATEGORIE}</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nom}
-              </option>
-            ))}
-          </select>
-          <input className="sb-input" placeholder="Stock initial" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
-          <input
-            className="sb-input"
-            placeholder="Prix d'achat (FCFA)"
-            type="number"
-            value={form.prix_achat}
-            onChange={(e) => setForm({ ...form, prix_achat: e.target.value })}
-          />
-          <input
-            className="sb-input"
-            placeholder="Frais annexes / unité — facultatif (transport, import...)"
-            type="number"
-            value={form.frais_annexes}
-            onChange={(e) => setForm({ ...form, frais_annexes: e.target.value })}
-          />
-          <input
-            className="sb-input"
-            placeholder="Prix de vente (FCFA)"
-            type="number"
-            value={form.prix_vente}
-            onChange={(e) => setForm({ ...form, prix_vente: e.target.value })}
-          />
-          <input className="sb-input" placeholder="Seuil d'alerte" type="number" value={form.seuil} onChange={(e) => setForm({ ...form, seuil: e.target.value })} />
+          <div className="sb-field" style={{ gridColumn: "1 / 3" }}>
+            <label>Nom de l&apos;article</label>
+            <input
+              className="sb-input"
+              placeholder="Ex. Perruque Lace Front 20 pouces"
+              value={form.nom}
+              onChange={(e) => setForm({ ...form, nom: e.target.value })}
+            />
+          </div>
+          <div className="sb-field">
+            <label>Catégorie</label>
+            <select className="sb-input" value={form.categorie_id} onChange={(e) => setForm({ ...form, categorie_id: e.target.value })}>
+              <option value="">{SANS_CATEGORIE}</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nom}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="sb-field">
+            <label>Stock initial</label>
+            <input className="sb-input" placeholder="Ex. 10" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
+          </div>
+          <div className="sb-field">
+            <label>Prix d&apos;achat (FCFA)</label>
+            <input
+              className="sb-input"
+              placeholder="Ex. 8000"
+              type="number"
+              value={form.prix_achat}
+              onChange={(e) => setForm({ ...form, prix_achat: e.target.value })}
+            />
+          </div>
+          <div className="sb-field">
+            <label>Frais annexes / unité (FCFA) — facultatif</label>
+            <input
+              className="sb-input"
+              placeholder="Ex. 1000"
+              type="number"
+              value={form.frais_annexes}
+              onChange={(e) => setForm({ ...form, frais_annexes: e.target.value })}
+            />
+          </div>
+          <div className="sb-field">
+            <label>Prix de vente (FCFA)</label>
+            <input
+              className="sb-input"
+              placeholder="Ex. 15000"
+              type="number"
+              value={form.prix_vente}
+              onChange={(e) => setForm({ ...form, prix_vente: e.target.value })}
+            />
+          </div>
+          <div className="sb-field">
+            <label>Seuil d&apos;alerte</label>
+            <input className="sb-input" placeholder="Ex. 3" type="number" value={form.seuil} onChange={(e) => setForm({ ...form, seuil: e.target.value })} />
+          </div>
           <div style={{ gridColumn: "1 / 3" }}>
             <ImageUploadField
               label="Photo du produit"
