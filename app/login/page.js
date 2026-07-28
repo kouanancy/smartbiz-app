@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { rememberPendingBusinessName, useAuth } from "@/lib/AuthProvider";
 
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState("login"); // 'login' | 'signup'
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [businessName, setBusinessName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -120,15 +122,26 @@ export default function LoginPage() {
           </div>
           <div className="sb-auth-field">
             <label>Mot de passe</label>
-            <input
-              className="sb-input"
-              type="password"
-              required
-              minLength={6}
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="sb-auth-password-wrap">
+              <input
+                className="sb-input"
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={6}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="sb-auth-password-toggle"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                aria-pressed={showPassword}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
           <button
             className="sb-btn sb-btn-emerald"
