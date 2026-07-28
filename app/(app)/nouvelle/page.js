@@ -106,6 +106,12 @@ export default function NouvelleCommandePage() {
       return;
     }
     setErreurTel(false);
+    const normTel = nouveauTel.replace(/\D/g, "");
+    const doublon = clients.find((c) => c.telephone?.replace(/\D/g, "") === normTel);
+    if (doublon) {
+      setClientMsg(`Erreur : ${doublon.nom || "une autre cliente"} utilise déjà ce numéro de téléphone.`);
+      return;
+    }
     const { data, error } = await supabase
       .from("clients")
       .insert({

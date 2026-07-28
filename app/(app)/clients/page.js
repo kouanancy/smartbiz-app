@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Plus, RotateCcw, Search, Trash2, UserX } from "lucide-react";
+import { CheckCircle2, Pencil, Plus, RotateCcw, Search, Trash2, UserX, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt } from "@/lib/format";
+
+const normalizeTel = (tel) => (tel || "").replace(/\D/g, "");
 
 export default function ClientsPage() {
   const { business } = useAuth();
@@ -17,6 +19,11 @@ export default function ClientsPage() {
   const [erreurTel, setErreurTel] = useState(false);
   const [msg, setMsg] = useState("");
   const [showDesactives, setShowDesactives] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ nom: "", adresse: "", email: "", telephone: "" });
+  const [editOriginalTelephone, setEditOriginalTelephone] = useState("");
+  const [editErreurTel, setEditErreurTel] = useState(false);
+  const [editError, setEditError] = useState("");
 
   useEffect(() => {
     if (!business?.id) return;
@@ -47,6 +54,15 @@ export default function ClientsPage() {
     return c.nom.toLowerCase().includes(q.toLowerCase());
   });
 
+  // Un même numéro de téléphone ne doit pas être partagé par deux clients de
+  // la boutique. excludeId permet d'ignorer le client lui-même lors d'une
+  // modification.
+  function trouverDoublonTelephone(telephone, excludeId) {
+    const norm = normalizeTel(telephone);
+    if (!norm) return null;
+    return clients.find((c) => c.id !== excludeId && normalizeTel(c.telephone) === norm) || null;
+  }
+
   async function submit(e) {
     e.preventDefault();
     if (!form.telephone.trim()) {
@@ -54,6 +70,11 @@ export default function ClientsPage() {
       return;
     }
     setErreurTel(false);
+    const doublon = trouverDoublonTelephone(form.telephone, null);
+    if (doublon) {
+      setMsg(`Erreur : ${doublon.nom || "un autre client"} utilise déjà ce numéro de téléphone.`);
+      return;
+    }
     const { data, error } = await supabase
       .from("clients")
       .insert({
@@ -73,6 +94,55 @@ export default function ClientsPage() {
     setMsg(`✅ ${data.nom || "Client"} enregistré(e) avec succès`);
     setForm({ nom: "", adresse: "", email: "", telephone: "" });
     setShowForm(false);
+  }
+
+  function ouvrirEdition(client) {
+    setEditingId(client.id);
+    setEditForm({
+      nom: client.nom || "",
+      adresse: client.adresse || "",
+      email: client.email || "",
+      telephone: client.telephone || "",
+    });
+    setEditOriginalTelephone(client.telephone || "");
+    setEditErreurTel(false);
+    setEditError("");
+  }
+
+  async function validerEdition(e) {
+    e.preventDefault();
+    if (!editForm.telephone.trim()) {
+      setEditErreurTel(true);
+      return;
+    }
+    setEditErreurTel(false);
+
+    const telephoneChange = normalizeTel(editForm.telephone) !== normalizeTel(editOriginalTelephone);
+    if (telephoneChange) {
+      const doublon = trouverDoublonTelephone(editForm.telephone, editingId);
+      if (doublon) {
+        setEditError(`${doublon.nom || "Un autre client"} utilise déjà ce numéro de téléphone.`);
+        return;
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("clients")
+      .update({
+        nom: editForm.nom.trim(),
+        adresse: editForm.adresse.trim() || null,
+        email: editForm.email.trim() || null,
+        telephone: editForm.telephone.trim(),
+      })
+      .eq("id", editingId)
+      .select()
+      .single();
+    if (error) {
+      setEditError(error.message);
+      return;
+    }
+    setClients((prev) => prev.map((c) => (c.id === editingId ? data : c)).sort((a, b) => a.nom.localeCompare(b.nom)));
+    setEditingId(null);
   }
 
   async function desactiverClient(client) {
@@ -234,23 +304,28 @@ export default function ClientsPage() {
                       )}
                     </td>
                     <td>
-                      {desactive ? (
-                        <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => reactiverClient(c)}>
-                          <RotateCcw size={12} /> Réactiver
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirEdition(c)}>
+                          <Pencil size={12} /> Modifier
                         </button>
-                      ) : s.count === 0 ? (
-                        <button
-                          className="sb-btn sb-btn-ghost"
-                          style={{ padding: "4px 8px", color: "#C24E37" }}
-                          onClick={() => supprimerClient(c)}
-                        >
-                          <Trash2 size={12} /> Supprimer
-                        </button>
-                      ) : (
-                        <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => desactiverClient(c)}>
-                          <UserX size={12} /> Désactiver
-                        </button>
-                      )}
+                        {desactive ? (
+                          <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => reactiverClient(c)}>
+                            <RotateCcw size={12} /> Réactiver
+                          </button>
+                        ) : s.count === 0 ? (
+                          <button
+                            className="sb-btn sb-btn-ghost"
+                            style={{ padding: "4px 8px", color: "#C24E37" }}
+                            onClick={() => supprimerClient(c)}
+                          >
+                            <Trash2 size={12} /> Supprimer
+                          </button>
+                        ) : (
+                          <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => desactiverClient(c)}>
+                            <UserX size={12} /> Désactiver
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -259,6 +334,72 @@ export default function ClientsPage() {
           </table>
         </div>
       </div>
+
+      {editingId && (
+        <div className="sb-modal-overlay" onClick={() => setEditingId(null)}>
+          <div className="sb-card" style={{ width: 380, background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+              <div className="sb-section-title" style={{ margin: 0 }}>
+                Modifier le client
+              </div>
+              <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={validerEdition} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+              <div className="sb-field">
+                <label>Nom et prénoms</label>
+                <input
+                  className="sb-input"
+                  placeholder="Ex. Aïcha Koné"
+                  value={editForm.nom}
+                  onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
+                />
+              </div>
+              <div className="sb-field">
+                <label>Adresse</label>
+                <input
+                  className="sb-input"
+                  placeholder="Ex. Cocody, Abidjan"
+                  value={editForm.adresse}
+                  onChange={(e) => setEditForm({ ...editForm, adresse: e.target.value })}
+                />
+              </div>
+              <div className="sb-field">
+                <label>E-mail (facultatif)</label>
+                <input
+                  className="sb-input"
+                  placeholder="ex. cliente@example.com"
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                />
+              </div>
+              <div className="sb-field">
+                <label>Téléphone</label>
+                <input
+                  className="sb-input"
+                  placeholder="Ex. 07 01 22 33 44"
+                  value={editForm.telephone}
+                  onChange={(e) => {
+                    setEditForm({ ...editForm, telephone: e.target.value });
+                    if (editErreurTel) setEditErreurTel(false);
+                  }}
+                  style={editErreurTel ? { borderColor: "#C24E37" } : undefined}
+                />
+                <p style={{ fontSize: 11, color: editErreurTel ? "#C24E37" : "#6E6B68", margin: "5px 2px 0" }}>
+                  {editErreurTel ? "Le numéro de téléphone est obligatoire." : "Obligatoire — de préférence un numéro WhatsApp."}
+                </p>
+              </div>
+              {editError && <p style={{ fontSize: 12, color: "#C24E37", margin: 0 }}>{editError}</p>}
+              <button className="sb-btn sb-btn-emerald" type="submit" style={{ justifyContent: "center" }}>
+                <CheckCircle2 size={14} /> Enregistrer les modifications
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
