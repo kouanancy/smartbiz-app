@@ -5,7 +5,7 @@ import { Copy, Printer, Share2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt } from "@/lib/format";
-import { THEMES } from "@/lib/constants";
+import { THEMES, SANS_CATEGORIE } from "@/lib/constants";
 
 export default function CataloguePage() {
   const { business } = useAuth();
@@ -38,7 +38,10 @@ export default function CataloguePage() {
   }, [business?.id]);
 
   const disponibles = articles.filter((a) => a.stock > 0);
-  const filtres = filtreCategorie === "Toutes" ? disponibles : disponibles.filter((a) => a.categories?.nom === filtreCategorie);
+  const filtres =
+    filtreCategorie === "Toutes"
+      ? disponibles
+      : disponibles.filter((a) => (a.categories?.nom ?? SANS_CATEGORIE) === filtreCategorie);
 
   function buildTexte() {
     const titre = `🛍️ Catalogue — ${business?.name || "SmartBiz"}`;
@@ -88,7 +91,7 @@ export default function CataloguePage() {
       )}
 
       <div className="sb-toggle-group sb-no-print" style={{ margin: "14px 0", flexWrap: "wrap", display: "inline-flex" }}>
-        {["Toutes", ...categories.map((c) => c.nom)].map((c) => (
+        {["Toutes", SANS_CATEGORIE, ...categories.map((c) => c.nom)].map((c) => (
           <button key={c} className={`sb-toggle-item${filtreCategorie === c ? " active" : ""}`} onClick={() => setFiltreCategorie(c)}>
             {c}
           </button>
@@ -126,7 +129,7 @@ export default function CataloguePage() {
                   {a.nom.slice(0, 1).toUpperCase()}
                 </div>
               )}
-              <div className="sb-catalogue-cat">{a.categories?.nom ?? "Sans catégorie"}</div>
+              <div className="sb-catalogue-cat">{a.categories?.nom ?? SANS_CATEGORIE}</div>
               <div className="sb-catalogue-nom">{a.nom}</div>
               <div className="sb-catalogue-prix">{fmt(a.prix_vente)}</div>
             </div>
