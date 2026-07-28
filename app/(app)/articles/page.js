@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt } from "@/lib/format";
 import { SANS_CATEGORIE } from "@/lib/constants";
+import ImageUploadField from "@/components/ImageUploadField";
 
 const emptyForm = { nom: "", categorie_id: "", prix_achat: "", frais_annexes: "", prix_vente: "", stock: "", seuil: "3", image_url: "" };
 
@@ -303,13 +304,14 @@ export default function ArticlesPage() {
             onChange={(e) => setForm({ ...form, prix_vente: e.target.value })}
           />
           <input className="sb-input" placeholder="Seuil d'alerte" type="number" value={form.seuil} onChange={(e) => setForm({ ...form, seuil: e.target.value })} />
-          <input
-            className="sb-input"
-            placeholder="URL de la photo du produit — facultatif"
-            value={form.image_url}
-            onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-            style={{ gridColumn: "1 / 3" }}
-          />
+          <div style={{ gridColumn: "1 / 3" }}>
+            <ImageUploadField
+              label="Photo du produit"
+              businessId={business.id}
+              value={form.image_url}
+              onChange={(url) => setForm((f) => ({ ...f, image_url: url }))}
+            />
+          </div>
           <button className="sb-btn sb-btn-emerald" type="submit" style={{ gridColumn: "1 / 3", justifyContent: "center" }}>
             Ajouter l&apos;article
           </button>
@@ -638,15 +640,12 @@ export default function ArticlesPage() {
                       historique du prix d&apos;achat.
                     </p>
                   </div>
-                  <div className="sb-field">
-                    <label>Photo du produit (URL)</label>
-                    <input
-                      className="sb-input"
-                      placeholder="https://... — facultatif"
-                      value={editForm.image_url}
-                      onChange={(e) => setEditForm({ ...editForm, image_url: e.target.value })}
-                    />
-                  </div>
+                  <ImageUploadField
+                    label="Photo du produit"
+                    businessId={business.id}
+                    value={editForm.image_url}
+                    onChange={(url) => setEditForm((f) => ({ ...f, image_url: url }))}
+                  />
                   {editError && <p style={{ fontSize: 12, color: "#C24E37", margin: 0 }}>{editError}</p>}
                   <button className="sb-btn sb-btn-emerald" type="submit" style={{ justifyContent: "center" }}>
                     <CheckCircle2 size={14} /> Enregistrer les modifications

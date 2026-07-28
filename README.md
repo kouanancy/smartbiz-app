@@ -22,6 +22,11 @@ npm run dev
 
 L'app tourne sur http://localhost:3000.
 
+Avant de pouvoir uploader des photos d'articles, exécute une fois
+`supabase-storage-setup.sql` dans l'éditeur SQL de ton projet Supabase (crée
+le bucket `article-photos` et ses règles d'accès) — voir la section
+« Photos d'articles » plus bas.
+
 ## Variables d'environnement
 
 Voir `.env.local.example`. Ces deux clés viennent de **Project Settings →
@@ -45,6 +50,26 @@ clé.
 4. Le passage à `actif` se fera via le webhook CinetPay (voir
    `smartbiz-backend-roadmap.md`), pas encore branché à ce stade.
 
+## Photos d'articles
+
+Les photos (formulaires « Nouvel article » et « Modifier l'article ») sont
+envoyées vers **Supabase Storage**, bucket `article-photos` :
+
+1. Choix de fichier classique (sélecteur natif du navigateur — sur mobile,
+   ça propose automatiquement appareil photo ou galerie) ou copier-coller
+   d'image (Ctrl+V, une fois la zone cliquée).
+2. Aperçu immédiat pendant l'envoi (`components/ImageUploadField.js`).
+3. Le fichier est stocké sous `<business_id>/<uuid>.<extension>` et l'URL
+   publique renvoyée par Supabase est enregistrée dans `articles.image_url`.
+
+**Configuration requise (une seule fois par projet Supabase)** : exécute
+`supabase-storage-setup.sql` dans l'éditeur SQL — il crée le bucket
+`article-photos` (lecture publique, écriture/suppression réservées au
+propriétaire de la boutique via une policy sur `storage.objects`, sur le
+même modèle que les policies RLS de `smartbiz-schema.sql`). Sans cette
+étape, l'upload échoue avec un message explicite invitant à exécuter ce
+script.
+
 ## Structure
 
 ```
@@ -61,7 +86,7 @@ app/
   (app)/catalogue/         catalogue partageable (WhatsApp / impression)
   (app)/parametres/        boutique, thème, zones de livraison, notifications
 components/
-  Sidebar.js, PendingSubscription.js, Receipt.js
+  Sidebar.js, PendingSubscription.js, Receipt.js, ImageUploadField.js
 lib/
   supabaseClient.js        client Supabase (browser)
   AuthProvider.js          contexte auth + création automatique de la ligne business
@@ -78,10 +103,13 @@ lib/
   exposée au client), il est recommandé de restreindre l'`UPDATE` de cette
   table aux colonnes non liées à la facturation (ex. policy dédiée ou
   colonnes gérées uniquement via une fonction serveur).
-- **Image produit / logo** : le prototype d'origine utilisait un upload de
-  fichier converti en base64. Cette version utilise un simple champ URL
-  (`image_url`, `logo_url`) — l'intégration d'un vrai upload vers Supabase
-  Storage reste à faire.
+- **Photo d'article** : upload réel vers Supabase Storage (voir section
+  dédiée ci-dessus). Le **logo de la boutique** (`businesses.logo_url`,
+  page Paramètres) utilise encore un simple champ URL — le même composant
+  `ImageUploadField` pourrait s'y brancher si besoin.
+- Remplacer une photo (ou repasser sur « Sans catégorie » côté image) ne
+  supprime pas l'ancien fichier du bucket — nettoyage à prévoir plus tard
+  si le volume de fichiers orphelins devient significatif.
 - **Numérotation des commandes** (`next_numero`) et mise à jour du stock ne
   sont pas transactionnelles (plusieurs appels Supabase séquentiels) — rare
   collision possible en cas d'usage concurrent intense. À terme, une fonction
