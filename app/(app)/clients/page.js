@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Plus, Search } from "lucide-react";
+import { CheckCircle2, Plus, RotateCcw, Search, Trash2, UserX } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt } from "@/lib/format";
@@ -16,6 +16,7 @@ export default function ClientsPage() {
   const [form, setForm] = useState({ nom: "", adresse: "", email: "", telephone: "" });
   const [erreurTel, setErreurTel] = useState(false);
   const [msg, setMsg] = useState("");
+  const [showDesactives, setShowDesactives] = useState(false);
 
   useEffect(() => {
     if (!business?.id) return;
@@ -41,7 +42,10 @@ export default function ClientsPage() {
     const own = commandes.filter((c) => c.client_id === id);
     return { count: own.length, total: own.reduce((s, c) => s + c.ca, 0) };
   };
-  const filtered = clients.filter((c) => c.nom.toLowerCase().includes(q.toLowerCase()));
+  const filtered = clients.filter((c) => {
+    if (!showDesactives && c.actif === false) return false;
+    return c.nom.toLowerCase().includes(q.toLowerCase());
+  });
 
   async function submit(e) {
     e.preventDefault();
@@ -69,6 +73,41 @@ export default function ClientsPage() {
     setMsg(`✅ ${data.nom || "Client"} enregistré(e) avec succès`);
     setForm({ nom: "", adresse: "", email: "", telephone: "" });
     setShowForm(false);
+  }
+
+  async function desactiverClient(client) {
+    const { data, error } = await supabase.from("clients").update({ actif: false }).eq("id", client.id).select().single();
+    if (error) {
+      window.alert(`Impossible de désactiver ce client : ${error.message}`);
+      return;
+    }
+    setClients((prev) => prev.map((c) => (c.id === client.id ? data : c)));
+  }
+
+  async function reactiverClient(client) {
+    const { data, error } = await supabase.from("clients").update({ actif: true }).eq("id", client.id).select().single();
+    if (error) {
+      window.alert(`Impossible de réactiver ce client : ${error.message}`);
+      return;
+    }
+    setClients((prev) => prev.map((c) => (c.id === client.id ? data : c)));
+  }
+
+  async function supprimerClient(client) {
+    const confirmed = window.confirm(`Supprimer définitivement « ${client.nom} » ? Cette action est irréversible.`);
+    if (!confirmed) return;
+    const { error } = await supabase.from("clients").delete().eq("id", client.id);
+    if (error) {
+      if (error.code === "23503") {
+        window.alert(
+          `« ${client.nom} » a déjà des commandes enregistrées et ne peut pas être supprimé — utilise plutôt « Désactiver ».`
+        );
+      } else {
+        window.alert(`Impossible de supprimer ce client : ${error.message}`);
+      }
+      return;
+    }
+    setClients((prev) => prev.filter((c) => c.id !== client.id));
   }
 
   if (loading) return <p className="sb-sub">Chargement…</p>;
@@ -149,9 +188,15 @@ export default function ClientsPage() {
         </form>
       )}
 
-      <div style={{ position: "relative", marginBottom: 14, maxWidth: 280 }}>
-        <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "#6B6A63" }} />
-        <input className="sb-input" style={{ paddingLeft: 30 }} placeholder="Rechercher un client" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 14 }}>
+        <div style={{ position: "relative", maxWidth: 280, flex: 1, minWidth: 220 }}>
+          <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "#6B6A63" }} />
+          <input className="sb-input" style={{ paddingLeft: 30 }} placeholder="Rechercher un client" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#6E6B68", cursor: "pointer" }}>
+          <input type="checkbox" checked={showDesactives} onChange={(e) => setShowDesactives(e.target.checked)} />
+          Afficher aussi les clients désactivés
+        </label>
       </div>
 
       <div className="sb-card">
@@ -165,11 +210,14 @@ export default function ClientsPage() {
                 <th>E-mail</th>
                 <th>Commandes</th>
                 <th>Total achats</th>
+                <th>Statut</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((c) => {
                 const s = stats(c.id);
+                const desactive = c.actif === false;
                 return (
                   <tr key={c.id}>
                     <td>{c.nom}</td>
@@ -178,6 +226,32 @@ export default function ClientsPage() {
                     <td style={{ color: "#6B6A63" }}>{c.email || "—"}</td>
                     <td className="sb-mono">{s.count}</td>
                     <td className="sb-mono">{fmt(s.total)}</td>
+                    <td>
+                      {desactive ? (
+                        <span className="sb-badge sb-badge-amber">Désactivé</span>
+                      ) : (
+                        <span className="sb-badge sb-badge-emerald">Actif</span>
+                      )}
+                    </td>
+                    <td>
+                      {desactive ? (
+                        <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => reactiverClient(c)}>
+                          <RotateCcw size={12} /> Réactiver
+                        </button>
+                      ) : s.count === 0 ? (
+                        <button
+                          className="sb-btn sb-btn-ghost"
+                          style={{ padding: "4px 8px", color: "#C24E37" }}
+                          onClick={() => supprimerClient(c)}
+                        >
+                          <Trash2 size={12} /> Supprimer
+                        </button>
+                      ) : (
+                        <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => desactiverClient(c)}>
+                          <UserX size={12} /> Désactiver
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

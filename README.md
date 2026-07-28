@@ -27,6 +27,10 @@ Avant de pouvoir uploader des photos d'articles, exécute une fois
 le bucket `article-photos` et ses règles d'accès) — voir la section
 « Photos d'articles » plus bas.
 
+Exécute aussi une fois `supabase-clients-actif-migration.sql` (ajoute la
+colonne `clients.actif`, nécessaire à la désactivation de clients — voir
+« Clients : suppression vs désactivation » plus bas).
+
 ## Variables d'environnement
 
 Voir `.env.local.example`. Ces deux clés viennent de **Project Settings →
@@ -69,6 +73,21 @@ propriétaire de la boutique via une policy sur `storage.objects`, sur le
 même modèle que les policies RLS de `smartbiz-schema.sql`). Sans cette
 étape, l'upload échoue avec un message explicite invitant à exécuter ce
 script.
+
+## Clients : suppression vs désactivation
+
+- Un client **sans commande enregistrée** peut être supprimé définitivement
+  (bouton « Supprimer », confirmation demandée).
+- Un client **avec au moins une commande** ne peut pas être supprimé — la
+  contrainte de clé étrangère `commandes.client_id` l'en empêcherait de
+  toute façon (`ON DELETE` par défaut = `RESTRICT`). Le bouton proposé est
+  alors « Désactiver » (`clients.actif = false`) : le client disparaît de la
+  liste par défaut et du sélecteur de « Nouvelle commande », mais reste
+  intact pour l'historique de ses commandes passées.
+- La case « Afficher aussi les clients désactivés » réaffiche ces clients
+  dans le tableau, avec un bouton « Réactiver ».
+- Nécessite la migration `supabase-clients-actif-migration.sql` (voir
+  Démarrage).
 
 ## Structure
 

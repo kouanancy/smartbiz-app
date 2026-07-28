@@ -44,7 +44,7 @@ export default function NouvelleCommandePage() {
     async function load() {
       setLoading(true);
       const [clientsRes, articlesRes, zonesRes] = await Promise.all([
-        supabase.from("clients").select("*").eq("business_id", business.id).order("nom"),
+        supabase.from("clients").select("*").eq("business_id", business.id).eq("actif", true).order("nom"),
         supabase.from("articles").select("*").eq("business_id", business.id).order("nom"),
         supabase.from("zones_livraison").select("*").eq("business_id", business.id).order("zone"),
       ]);
