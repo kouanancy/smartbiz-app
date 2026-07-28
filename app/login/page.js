@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { rememberPendingBusinessName, useAuth } from "@/lib/AuthProvider";
+import { useAuth } from "@/lib/AuthProvider";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,8 +33,12 @@ export default function LoginPage() {
         if (password.length < 6) {
           throw new Error("Le mot de passe doit contenir au moins 6 caractères.");
         }
-        rememberPendingBusinessName(businessName);
-        const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+        const trimmedBusinessName = businessName.trim();
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: trimmedBusinessName ? { data: { business_name: trimmedBusinessName } } : undefined,
+        });
         if (signUpError) throw signUpError;
 
         if (data.session) {
