@@ -276,13 +276,16 @@ export default function NouvelleCommandePage() {
             <p style={{ fontSize: 13, color: "#6B6A63" }}>Aucune cliente enregistrée — crée-en une nouvelle.</p>
           ) : (
             <>
-              <select className="sb-input" value={clientId} onChange={(e) => setClientId(e.target.value)}>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nom} — {c.telephone}
-                  </option>
-                ))}
-              </select>
+              <div className="sb-field">
+                <label>Cliente</label>
+                <select className="sb-input" value={clientId} onChange={(e) => setClientId(e.target.value)}>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nom} — {c.telephone}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {clientSelectionne && (
                 <div className="sb-client-fiche">
                   <div>
@@ -303,31 +306,39 @@ export default function NouvelleCommandePage() {
           )
         ) : (
           <div className="sb-form-grid">
-            <input
-              className="sb-input"
-              placeholder="Nom et prénoms"
-              value={nouveauNom}
-              onChange={(e) => setNouveauNom(e.target.value)}
-              style={{ gridColumn: "1 / 3" }}
-            />
-            <input
-              className="sb-input"
-              placeholder="Adresse"
-              value={nouveauAdresse}
-              onChange={(e) => setNouveauAdresse(e.target.value)}
-              style={{ gridColumn: "1 / 3" }}
-            />
-            <input
-              className="sb-input"
-              placeholder="E-mail (facultatif)"
-              type="email"
-              value={nouveauEmail}
-              onChange={(e) => setNouveauEmail(e.target.value)}
-            />
-            <div>
+            <div className="sb-field" style={{ gridColumn: "1 / 3" }}>
+              <label>Nom et prénoms</label>
               <input
                 className="sb-input"
-                placeholder="Téléphone *"
+                placeholder="Ex. Aïcha Koné"
+                value={nouveauNom}
+                onChange={(e) => setNouveauNom(e.target.value)}
+              />
+            </div>
+            <div className="sb-field" style={{ gridColumn: "1 / 3" }}>
+              <label>Adresse</label>
+              <input
+                className="sb-input"
+                placeholder="Ex. Cocody, Abidjan"
+                value={nouveauAdresse}
+                onChange={(e) => setNouveauAdresse(e.target.value)}
+              />
+            </div>
+            <div className="sb-field">
+              <label>E-mail (facultatif)</label>
+              <input
+                className="sb-input"
+                placeholder="ex. cliente@example.com"
+                type="email"
+                value={nouveauEmail}
+                onChange={(e) => setNouveauEmail(e.target.value)}
+              />
+            </div>
+            <div className="sb-field">
+              <label>Téléphone</label>
+              <input
+                className="sb-input"
+                placeholder="Ex. 07 01 22 33 44"
                 value={nouveauTel}
                 onChange={(e) => {
                   setNouveauTel(e.target.value);
@@ -358,28 +369,28 @@ export default function NouvelleCommandePage() {
           </p>
         ) : (
           <>
-            <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-              <select
-                className="sb-input"
-                value={articleSel}
-                onChange={(e) => setArticleSel(e.target.value)}
-                style={{ flex: 2, minWidth: 160 }}
-              >
-                {articles.map((a) => (
-                  <option key={a.id} value={a.id} disabled={a.stock === 0}>
-                    {a.nom} — {fmt(a.prix_vente)} ({a.stock} en stock)
-                  </option>
-                ))}
-              </select>
-              <input
-                className="sb-input"
-                type="number"
-                min={1}
-                max={stockDispo(articleSel)}
-                value={qte}
-                onChange={(e) => setQte(Number(e.target.value))}
-                style={{ flex: 0.5, minWidth: 70 }}
-              />
+            <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div className="sb-field" style={{ flex: 2, minWidth: 160 }}>
+                <label>Article</label>
+                <select className="sb-input" value={articleSel} onChange={(e) => setArticleSel(e.target.value)}>
+                  {articles.map((a) => (
+                    <option key={a.id} value={a.id} disabled={a.stock === 0}>
+                      {a.nom} — {fmt(a.prix_vente)} ({a.stock} en stock)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="sb-field" style={{ flex: 0.5, minWidth: 70 }}>
+                <label>Quantité</label>
+                <input
+                  className="sb-input"
+                  type="number"
+                  min={1}
+                  max={stockDispo(articleSel)}
+                  value={qte}
+                  onChange={(e) => setQte(Number(e.target.value))}
+                />
+              </div>
               <button className="sb-btn sb-btn-primary" onClick={addLigne} disabled={stockDispo(articleSel) < 1}>
                 <Plus size={14} /> Ajouter
               </button>
@@ -475,13 +486,16 @@ export default function NouvelleCommandePage() {
           </button>
         </div>
         {typeLivraison === "livraison" ? (
-          <select className="sb-input" value={zoneLivraison} onChange={(e) => setZoneLivraison(e.target.value)}>
-            {zones.map((z) => (
-              <option key={z.id} value={z.zone}>
-                {z.zone} — {fmt(z.frais)}
-              </option>
-            ))}
-          </select>
+          <div className="sb-field">
+            <label>Zone de livraison</label>
+            <select className="sb-input" value={zoneLivraison} onChange={(e) => setZoneLivraison(e.target.value)}>
+              {zones.map((z) => (
+                <option key={z.id} value={z.zone}>
+                  {z.zone} — {fmt(z.frais)}
+                </option>
+              ))}
+            </select>
+          </div>
         ) : zones.length === 0 ? (
           <p style={{ fontSize: 12.5, color: "#6E6B68", margin: 0 }}>
             Aucune zone de livraison configurée — ajoute-en depuis <Link href="/parametres">Paramètres</Link>.
@@ -508,13 +522,16 @@ export default function NouvelleCommandePage() {
           </button>
         </div>
         {modePaiement === "mobile_money" && (
-          <select className="sb-input" value={operateur} onChange={(e) => setOperateur(e.target.value)}>
-            {OPERATEURS_MOBILE_MONEY.map((op) => (
-              <option key={op} value={op}>
-                {op}
-              </option>
-            ))}
-          </select>
+          <div className="sb-field">
+            <label>Opérateur</label>
+            <select className="sb-input" value={operateur} onChange={(e) => setOperateur(e.target.value)}>
+              {OPERATEURS_MOBILE_MONEY.map((op) => (
+                <option key={op} value={op}>
+                  {op}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
       </div>
 
