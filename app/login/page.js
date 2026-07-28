@@ -62,7 +62,7 @@ export default function LoginPage() {
         <div className="sb-auth-brand">
           Smart<span>Biz</span>
         </div>
-        <p className="sb-auth-sub">Le mini ERP pour petits commerçants</p>
+        <p className="sb-auth-sub">Pilotez votre commerce, simplement.</p>
 
         <div className="sb-auth-tabs">
           <button
