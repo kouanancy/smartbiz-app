@@ -28,7 +28,10 @@ a {
 /*  SmartBiz — design system (repris du prototype smartbiz.jsx)       */
 /* ------------------------------------------------------------------ */
 
-.sb-root {
+/* Déclarées au niveau :root (pas seulement .sb-root) car des écrans
+   hors du shell applicatif (connexion, abonnement en attente) utilisent
+   aussi les classes sb-btn/sb-input/sb-badge qui en dépendent. */
+:root {
   --ink: #2e2c2b;
   --ink-soft: #4a4745;
   --paper: #f2f1ef;
@@ -41,6 +44,9 @@ a {
   --accent: #e07a29;
   --accent-soft: #f3b278;
   --accent-deep: #c7601a;
+}
+
+.sb-root {
   font-family: "Inter", sans-serif;
   background: var(--paper);
   color: var(--ink);
