@@ -50,7 +50,10 @@ export default function LoginPage() {
         router.replace("/dashboard");
       }
     } catch (err) {
-      setError(translateError(err?.message));
+      // Toujours logguer l'erreur brute : utile pour diagnostiquer via la
+      // console du navigateur si le message affiché reste générique.
+      console.error("Erreur d'authentification Supabase :", err);
+      setError(getAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -147,11 +150,30 @@ export default function LoginPage() {
   );
 }
 
-function translateError(message) {
-  if (!message) return "Une erreur est survenue, réessaie.";
+function getAuthErrorMessage(err) {
+  const message = typeof err?.message === "string" ? err.message : "";
+  const status = err?.status;
+
   if (message.includes("Invalid login credentials")) return "E-mail ou mot de passe incorrect.";
   if (message.includes("User already registered")) return "Un compte existe déjà avec cet e-mail.";
   if (message.includes("Email not confirmed"))
     return "Confirme d'abord ton adresse e-mail (lien envoyé à l'inscription).";
+  if (message.includes("rate limit"))
+    return "Trop de tentatives — patiente quelques minutes avant de réessayer.";
+  if (message.toLowerCase().includes("password"))
+    return "Le mot de passe ne respecte pas les critères requis (6 caractères minimum).";
+
+  // La librairie Supabase renvoie parfois un message vide ou "{}" quand la
+  // réponse du serveur ne correspond à aucun format attendu (ex. panne
+  // réseau, mauvaise URL de projet, service temporairement indisponible).
+  // Dans ce cas on affiche un message clair plutôt que de montrer ce texte
+  // brut — le détail exact reste visible dans la console du navigateur.
+  const isUnusableMessage = !message || message === "{}" || message === "[object Object]";
+  if (isUnusableMessage) {
+    return status
+      ? `Le service d'authentification est inaccessible ou a répondu de façon inattendue (code ${status}). Réessaie dans un instant.`
+      : "Impossible de contacter le service d'authentification. Vérifie ta connexion et réessaie.";
+  }
+
   return message;
 }
