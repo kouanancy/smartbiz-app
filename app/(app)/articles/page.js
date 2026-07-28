@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Minus, Plus, RefreshCw, X } from "lucide-react";
+import { CheckCircle2, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt } from "@/lib/format";
@@ -24,6 +24,9 @@ export default function ArticlesPage() {
   const [filtreCategorie, setFiltreCategorie] = useState("Toutes");
   const [reapproId, setReapproId] = useState(null);
   const [reapproForm, setReapproForm] = useState({ quantite: "", prix_achat: "", frais_annexes: "" });
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [editError, setEditError] = useState("");
 
   useEffect(() => {
     if (!business?.id) return;
@@ -91,11 +94,66 @@ export default function ArticlesPage() {
     setReapproId(null);
   }
 
-  async function adjustStock(id, delta) {
-    const article = articles.find((a) => a.id === id);
-    const stock = Math.max(0, article.stock + delta);
-    const { data } = await supabase.from("articles").update({ stock }).eq("id", id).select().single();
-    if (data) setArticles((prev) => prev.map((a) => (a.id === id ? data : a)));
+  function ouvrirEdition(article) {
+    setEditingId(article.id);
+    setEditError("");
+    setEditForm({
+      nom: article.nom,
+      categorie_id: article.categorie_id || "",
+      prix_achat: String(article.prix_achat),
+      frais_annexes: String(article.frais_annexes || 0),
+      prix_vente: String(article.prix_vente),
+      stock: String(article.stock),
+      seuil: String(article.seuil),
+      image_url: article.image_url || "",
+    });
+  }
+
+  async function validerEdition(e) {
+    e.preventDefault();
+    if (!editForm.nom.trim() || !editForm.prix_vente) {
+      setEditError("Le nom et le prix de vente sont obligatoires.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("articles")
+      .update({
+        nom: editForm.nom.trim(),
+        categorie_id: editForm.categorie_id || null,
+        prix_achat: Number(editForm.prix_achat) || 0,
+        frais_annexes: Number(editForm.frais_annexes) || 0,
+        prix_vente: Number(editForm.prix_vente) || 0,
+        stock: Math.max(0, Number(editForm.stock) || 0),
+        seuil: Number(editForm.seuil) || 3,
+        image_url: editForm.image_url.trim() || null,
+      })
+      .eq("id", editingId)
+      .select()
+      .single();
+    if (error) {
+      setEditError(error.message);
+      return;
+    }
+    setArticles((prev) => prev.map((a) => (a.id === editingId ? data : a)).sort((a, b) => a.nom.localeCompare(b.nom)));
+    setEditingId(null);
+    setEditError("");
+  }
+
+  async function supprimerArticle(article) {
+    const confirmed = window.confirm(`Supprimer définitivement « ${article.nom} » ? Cette action est irréversible.`);
+    if (!confirmed) return;
+    const { error } = await supabase.from("articles").delete().eq("id", article.id);
+    if (error) {
+      if (error.code === "23503") {
+        window.alert(
+          `« ${article.nom} » est lié à des commandes déjà enregistrées et ne peut pas être supprimé. Tu peux le laisser à 0 en stock à la place.`
+        );
+      } else {
+        window.alert(`Impossible de supprimer cet article : ${error.message}`);
+      }
+      return;
+    }
+    setArticles((prev) => prev.filter((a) => a.id !== article.id));
   }
 
   async function submit(e) {
@@ -303,19 +361,7 @@ export default function ArticlesPage() {
                     <td className="sb-mono" style={{ color: margeReelle >= 0 ? "#0E8F6E" : "#C24E37" }}>
                       {fmt(margeReelle)}
                     </td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <button className="sb-btn sb-btn-ghost" style={{ padding: "3px 6px" }} onClick={() => adjustStock(a.id, -1)}>
-                          <Minus size={12} />
-                        </button>
-                        <span className="sb-mono" style={{ minWidth: 20, textAlign: "center" }}>
-                          {a.stock}
-                        </span>
-                        <button className="sb-btn sb-btn-ghost" style={{ padding: "3px 6px" }} onClick={() => adjustStock(a.id, 1)}>
-                          <Plus size={12} />
-                        </button>
-                      </div>
-                    </td>
+                    <td className="sb-mono">{a.stock}</td>
                     <td>
                       {a.stock === 0 ? (
                         <span className="sb-badge sb-badge-coral">Rupture</span>
@@ -326,9 +372,21 @@ export default function ArticlesPage() {
                       )}
                     </td>
                     <td>
-                      <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirReappro(a)}>
-                        <RefreshCw size={12} /> Réappro.
-                      </button>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirReappro(a)}>
+                          <RefreshCw size={12} /> Réappro.
+                        </button>
+                        <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirEdition(a)}>
+                          <Pencil size={12} /> Modifier
+                        </button>
+                        <button
+                          className="sb-btn sb-btn-ghost"
+                          style={{ padding: "4px 8px", color: "#C24E37" }}
+                          onClick={() => supprimerArticle(a)}
+                        >
+                          <Trash2 size={12} /> Supprimer
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -467,6 +525,115 @@ export default function ArticlesPage() {
                     <CheckCircle2 size={14} /> Confirmer le réapprovisionnement
                   </button>
                 </div>
+              </div>
+            </div>
+          );
+        })()}
+
+      {editingId &&
+        (() => {
+          const art = articles.find((a) => a.id === editingId);
+          if (!art) return null;
+          return (
+            <div className="sb-modal-overlay" onClick={() => setEditingId(null)}>
+              <div
+                className="sb-card"
+                style={{ width: 380, background: "#fff", maxHeight: "90vh", overflowY: "auto" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                  <div className="sb-section-title" style={{ margin: 0 }}>
+                    Modifier l&apos;article
+                  </div>
+                  <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <form onSubmit={validerEdition} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+                  <input
+                    className="sb-input"
+                    placeholder="Nom de l'article"
+                    value={editForm.nom}
+                    onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
+                  />
+                  <select className="sb-input" value={editForm.categorie_id} onChange={(e) => setEditForm({ ...editForm, categorie_id: e.target.value })}>
+                    <option value="">{SANS_CATEGORIE}</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nom}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="sb-form-grid">
+                    <input
+                      className="sb-input"
+                      placeholder="Prix d'achat (FCFA)"
+                      type="number"
+                      value={editForm.prix_achat}
+                      onChange={(e) => setEditForm({ ...editForm, prix_achat: e.target.value })}
+                    />
+                    <input
+                      className="sb-input"
+                      placeholder="Frais annexes / unité"
+                      type="number"
+                      value={editForm.frais_annexes}
+                      onChange={(e) => setEditForm({ ...editForm, frais_annexes: e.target.value })}
+                    />
+                    <input
+                      className="sb-input"
+                      placeholder="Prix de vente (FCFA)"
+                      type="number"
+                      value={editForm.prix_vente}
+                      onChange={(e) => setEditForm({ ...editForm, prix_vente: e.target.value })}
+                    />
+                    <input
+                      className="sb-input"
+                      placeholder="Seuil d'alerte"
+                      type="number"
+                      value={editForm.seuil}
+                      onChange={(e) => setEditForm({ ...editForm, seuil: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        color: "#6E6B68",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                        display: "block",
+                        marginBottom: 5,
+                      }}
+                    >
+                      Stock actuel
+                    </label>
+                    <input
+                      className="sb-input"
+                      placeholder="Stock"
+                      type="number"
+                      min={0}
+                      value={editForm.stock}
+                      onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
+                    />
+                    <p style={{ fontSize: 11, color: "#6E6B68", margin: "5px 2px 0" }}>
+                      Corrige ici directement la quantité en stock (ex. erreur d&apos;inventaire). Pour un
+                      réapprovisionnement lié à un achat, utilise plutôt le bouton « Réappro. » — il garde un
+                      historique du prix d&apos;achat.
+                    </p>
+                  </div>
+                  <input
+                    className="sb-input"
+                    placeholder="URL de la photo du produit — facultatif"
+                    value={editForm.image_url}
+                    onChange={(e) => setEditForm({ ...editForm, image_url: e.target.value })}
+                  />
+                  {editError && <p style={{ fontSize: 12, color: "#C24E37", margin: 0 }}>{editError}</p>}
+                  <button className="sb-btn sb-btn-emerald" type="submit" style={{ justifyContent: "center" }}>
+                    <CheckCircle2 size={14} /> Enregistrer les modifications
+                  </button>
+                </form>
               </div>
             </div>
           );
