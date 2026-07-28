@@ -5,6 +5,7 @@ import { CheckCircle2, Minus, Plus, RefreshCw, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt } from "@/lib/format";
+import { SANS_CATEGORIE } from "@/lib/constants";
 
 const emptyForm = { nom: "", categorie_id: "", prix_achat: "", frais_annexes: "", prix_vente: "", stock: "", seuil: "3", image_url: "" };
 
@@ -43,7 +44,6 @@ export default function ArticlesPage() {
       setArticles(articlesRes.data || []);
       setCategories(categoriesRes.data || []);
       setReappros(reapprosRes.data || []);
-      setForm((f) => ({ ...f, categorie_id: categoriesRes.data?.[0]?.id ?? "" }));
       setLoading(false);
     }
     load();
@@ -52,7 +52,7 @@ export default function ArticlesPage() {
     };
   }, [business?.id]);
 
-  const categorieName = (id) => categories.find((c) => c.id === id)?.nom ?? "Sans catégorie";
+  const categorieName = (id) => categories.find((c) => c.id === id)?.nom ?? SANS_CATEGORIE;
 
   function ouvrirReappro(article) {
     setReapproId(article.id);
@@ -118,13 +118,17 @@ export default function ArticlesPage() {
       .single();
     if (error) return;
     setArticles((prev) => [...prev, data].sort((a, b) => a.nom.localeCompare(b.nom)));
-    setForm({ ...emptyForm, categorie_id: categories[0]?.id ?? "" });
+    setForm(emptyForm);
     setShowForm(false);
   }
 
   async function addCategory() {
     const nom = newCat.trim();
     if (!nom) return;
+    if (nom.toLowerCase() === SANS_CATEGORIE.toLowerCase()) {
+      setCatMsg(`« ${SANS_CATEGORIE} » est un libellé réservé aux articles sans catégorie — choisis un autre nom.`);
+      return;
+    }
     if (categories.some((c) => c.nom.toLowerCase() === nom.toLowerCase())) {
       setCatMsg("Cette catégorie existe déjà.");
       return;
@@ -211,15 +215,12 @@ export default function ArticlesPage() {
             style={{ gridColumn: "1 / 3" }}
           />
           <select className="sb-input" value={form.categorie_id} onChange={(e) => setForm({ ...form, categorie_id: e.target.value })}>
-            {categories.length === 0 ? (
-              <option value="">Aucune catégorie — ajoute-en une d&apos;abord</option>
-            ) : (
-              categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nom}
-                </option>
-              ))
-            )}
+            <option value="">{SANS_CATEGORIE}</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nom}
+              </option>
+            ))}
           </select>
           <input className="sb-input" placeholder="Stock initial" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
           <input
@@ -258,7 +259,7 @@ export default function ArticlesPage() {
       )}
 
       <div className="sb-toggle-group" style={{ marginBottom: 14, flexWrap: "wrap", display: "inline-flex" }}>
-        {["Toutes", ...categories.map((c) => c.nom)].map((c) => (
+        {["Toutes", SANS_CATEGORIE, ...categories.map((c) => c.nom)].map((c) => (
           <button key={c} className={`sb-toggle-item${filtreCategorie === c ? " active" : ""}`} onClick={() => setFiltreCategorie(c)}>
             {c}
           </button>
