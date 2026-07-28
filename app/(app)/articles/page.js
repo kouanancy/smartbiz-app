@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { CheckCircle2, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt } from "@/lib/format";
@@ -23,6 +23,7 @@ export default function ArticlesPage() {
   const [newCat, setNewCat] = useState("");
   const [catMsg, setCatMsg] = useState("");
   const [filtreCategorie, setFiltreCategorie] = useState("Toutes");
+  const [recherche, setRecherche] = useState("");
   const [reapproId, setReapproId] = useState(null);
   const [reapproForm, setReapproForm] = useState({ quantite: "", prix_achat: "", frais_annexes: "" });
   const [editingId, setEditingId] = useState(null);
@@ -218,8 +219,12 @@ export default function ArticlesPage() {
     if (filtreCategorie === cat.nom) setFiltreCategorie("Toutes");
   }
 
-  const articlesFiltres =
-    filtreCategorie === "Toutes" ? articles : articles.filter((a) => categorieName(a.categorie_id) === filtreCategorie);
+  const rechercheNormalisee = recherche.trim().toLowerCase();
+  const articlesFiltres = articles.filter((a) => {
+    const matchCategorie = filtreCategorie === "Toutes" || categorieName(a.categorie_id) === filtreCategorie;
+    const matchRecherche = !rechercheNormalisee || a.nom.toLowerCase().includes(rechercheNormalisee);
+    return matchCategorie && matchRecherche;
+  });
 
   if (loading) return <p className="sb-sub">Chargement…</p>;
 
@@ -317,6 +322,17 @@ export default function ArticlesPage() {
           </button>
         </form>
       )}
+
+      <div style={{ position: "relative", marginBottom: 14, maxWidth: 280 }}>
+        <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "#6B6A63" }} />
+        <input
+          className="sb-input"
+          style={{ paddingLeft: 30 }}
+          placeholder="Rechercher un article"
+          value={recherche}
+          onChange={(e) => setRecherche(e.target.value)}
+        />
+      </div>
 
       <div className="sb-toggle-group" style={{ marginBottom: 14, flexWrap: "wrap", display: "inline-flex" }}>
         {["Toutes", SANS_CATEGORIE, ...categories.map((c) => c.nom)].map((c) => (
