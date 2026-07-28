@@ -496,28 +496,37 @@ export default function ArticlesPage() {
                 <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 14px" }}>{art?.nom}</p>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <input
-                    className="sb-input"
-                    placeholder="Quantité ajoutée *"
-                    type="number"
-                    min={1}
-                    value={reapproForm.quantite}
-                    onChange={(e) => setReapproForm({ ...reapproForm, quantite: e.target.value })}
-                  />
-                  <input
-                    className="sb-input"
-                    placeholder="Nouveau prix d'achat (FCFA)"
-                    type="number"
-                    value={reapproForm.prix_achat}
-                    onChange={(e) => setReapproForm({ ...reapproForm, prix_achat: e.target.value })}
-                  />
-                  <input
-                    className="sb-input"
-                    placeholder="Frais annexes / unité — facultatif"
-                    type="number"
-                    value={reapproForm.frais_annexes}
-                    onChange={(e) => setReapproForm({ ...reapproForm, frais_annexes: e.target.value })}
-                  />
+                  <div className="sb-field">
+                    <label>Quantité ajoutée</label>
+                    <input
+                      className="sb-input"
+                      placeholder="Ex. 10"
+                      type="number"
+                      min={1}
+                      value={reapproForm.quantite}
+                      onChange={(e) => setReapproForm({ ...reapproForm, quantite: e.target.value })}
+                    />
+                  </div>
+                  <div className="sb-field">
+                    <label>Nouveau prix d&apos;achat (FCFA)</label>
+                    <input
+                      className="sb-input"
+                      placeholder="Ex. 8000"
+                      type="number"
+                      value={reapproForm.prix_achat}
+                      onChange={(e) => setReapproForm({ ...reapproForm, prix_achat: e.target.value })}
+                    />
+                  </div>
+                  <div className="sb-field">
+                    <label>Frais annexes / unité (FCFA) — facultatif</label>
+                    <input
+                      className="sb-input"
+                      placeholder="Ex. 1000"
+                      type="number"
+                      value={reapproForm.frais_annexes}
+                      onChange={(e) => setReapproForm({ ...reapproForm, frais_annexes: e.target.value })}
+                    />
+                  </div>
                   <p style={{ fontSize: 11, color: "#6E6B68", margin: 0 }}>
                     Le stock, le prix d&apos;achat et les frais annexes de l&apos;article seront mis à jour avec ces valeurs.
                   </p>
@@ -551,84 +560,93 @@ export default function ArticlesPage() {
                 </div>
 
                 <form onSubmit={validerEdition} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-                  <input
-                    className="sb-input"
-                    placeholder="Nom de l'article"
-                    value={editForm.nom}
-                    onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
-                  />
-                  <select className="sb-input" value={editForm.categorie_id} onChange={(e) => setEditForm({ ...editForm, categorie_id: e.target.value })}>
-                    <option value="">{SANS_CATEGORIE}</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nom}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="sb-form-grid">
+                  <div className="sb-field">
+                    <label>Nom de l&apos;article</label>
                     <input
                       className="sb-input"
-                      placeholder="Prix d'achat (FCFA)"
-                      type="number"
-                      value={editForm.prix_achat}
-                      onChange={(e) => setEditForm({ ...editForm, prix_achat: e.target.value })}
-                    />
-                    <input
-                      className="sb-input"
-                      placeholder="Frais annexes / unité"
-                      type="number"
-                      value={editForm.frais_annexes}
-                      onChange={(e) => setEditForm({ ...editForm, frais_annexes: e.target.value })}
-                    />
-                    <input
-                      className="sb-input"
-                      placeholder="Prix de vente (FCFA)"
-                      type="number"
-                      value={editForm.prix_vente}
-                      onChange={(e) => setEditForm({ ...editForm, prix_vente: e.target.value })}
-                    />
-                    <input
-                      className="sb-input"
-                      placeholder="Seuil d'alerte"
-                      type="number"
-                      value={editForm.seuil}
-                      onChange={(e) => setEditForm({ ...editForm, seuil: e.target.value })}
+                      placeholder="Ex. Perruque Lace Front 20 pouces"
+                      value={editForm.nom}
+                      onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
                     />
                   </div>
-                  <div>
-                    <label
-                      style={{
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        color: "#6E6B68",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                        display: "block",
-                        marginBottom: 5,
-                      }}
-                    >
-                      Stock actuel
-                    </label>
+                  <div className="sb-field">
+                    <label>Catégorie</label>
+                    <select className="sb-input" value={editForm.categorie_id} onChange={(e) => setEditForm({ ...editForm, categorie_id: e.target.value })}>
+                      <option value="">{SANS_CATEGORIE}</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nom}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="sb-form-grid">
+                    <div className="sb-field">
+                      <label>Prix d&apos;achat (FCFA)</label>
+                      <input
+                        className="sb-input"
+                        placeholder="Ex. 8000"
+                        type="number"
+                        value={editForm.prix_achat}
+                        onChange={(e) => setEditForm({ ...editForm, prix_achat: e.target.value })}
+                      />
+                    </div>
+                    <div className="sb-field">
+                      <label>Frais annexes / unité (FCFA)</label>
+                      <input
+                        className="sb-input"
+                        placeholder="Ex. 1000"
+                        type="number"
+                        value={editForm.frais_annexes}
+                        onChange={(e) => setEditForm({ ...editForm, frais_annexes: e.target.value })}
+                      />
+                    </div>
+                    <div className="sb-field">
+                      <label>Prix de vente (FCFA)</label>
+                      <input
+                        className="sb-input"
+                        placeholder="Ex. 15000"
+                        type="number"
+                        value={editForm.prix_vente}
+                        onChange={(e) => setEditForm({ ...editForm, prix_vente: e.target.value })}
+                      />
+                    </div>
+                    <div className="sb-field">
+                      <label>Seuil d&apos;alerte</label>
+                      <input
+                        className="sb-input"
+                        placeholder="Ex. 3"
+                        type="number"
+                        value={editForm.seuil}
+                        onChange={(e) => setEditForm({ ...editForm, seuil: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="sb-field">
+                    <label>Stock actuel</label>
                     <input
                       className="sb-input"
-                      placeholder="Stock"
+                      placeholder="Ex. 12"
                       type="number"
                       min={0}
                       value={editForm.stock}
                       onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
                     />
-                    <p style={{ fontSize: 11, color: "#6E6B68", margin: "5px 2px 0" }}>
+                    <p style={{ fontSize: 11, color: "#6E6B68", margin: 0 }}>
                       Corrige ici directement la quantité en stock (ex. erreur d&apos;inventaire). Pour un
                       réapprovisionnement lié à un achat, utilise plutôt le bouton « Réappro. » — il garde un
                       historique du prix d&apos;achat.
                     </p>
                   </div>
-                  <input
-                    className="sb-input"
-                    placeholder="URL de la photo du produit — facultatif"
-                    value={editForm.image_url}
-                    onChange={(e) => setEditForm({ ...editForm, image_url: e.target.value })}
-                  />
+                  <div className="sb-field">
+                    <label>Photo du produit (URL)</label>
+                    <input
+                      className="sb-input"
+                      placeholder="https://... — facultatif"
+                      value={editForm.image_url}
+                      onChange={(e) => setEditForm({ ...editForm, image_url: e.target.value })}
+                    />
+                  </div>
                   {editError && <p style={{ fontSize: 12, color: "#C24E37", margin: 0 }}>{editError}</p>}
                   <button className="sb-btn sb-btn-emerald" type="submit" style={{ justifyContent: "center" }}>
                     <CheckCircle2 size={14} /> Enregistrer les modifications
