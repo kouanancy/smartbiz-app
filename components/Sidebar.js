@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   Palette,
   LogOut,
+  Clock,
 } from "lucide-react";
 import { t as tBase } from "@/lib/i18n";
 
@@ -26,9 +27,14 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ business, onSignOut }) {
   const pathname = usePathname();
-  const t = (key) => tBase(business?.langue, key);
+  const t = (key, vars) => tBase(business?.langue, key, vars);
   const businessName = business?.name;
   const logo = business?.logo_url;
+
+  const joursRestants =
+    business?.subscription_status === "essai" && business?.subscription_expires_at
+      ? Math.max(1, Math.ceil((new Date(business.subscription_expires_at) - new Date()) / (1000 * 60 * 60 * 24)))
+      : null;
 
   return (
     <aside className="sb-sidebar">
@@ -44,6 +50,11 @@ export default function Sidebar({ business, onSignOut }) {
           <>
             Smart<span>Biz</span>
           </>
+        )}
+        {joursRestants !== null && (
+          <div className="sb-trial-badge">
+            <Clock size={11} /> {t("sidebar.essaiJoursRestants", { n: joursRestants })}
+          </div>
         )}
       </div>
       <nav className="sb-nav">

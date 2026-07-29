@@ -52,14 +52,25 @@ clé.
 
 1. Un commerçant crée un compte sur `/login` (onglet « Créer un compte »).
 2. À la première connexion, une ligne est automatiquement créée dans
-   `businesses` avec `owner_id = auth.uid()` et le statut par défaut
-   `subscription_status = 'en_attente_paiement'` (valeur par défaut de la
-   colonne, définie dans le schéma).
-3. Tant que ce statut n'est pas `actif`, l'accès à l'application (Tableau de
-   bord, Commandes, Articles, Clients, Catalogue, Paramètres) est bloqué —
-   l'utilisateur voit un écran « Abonnement en attente de paiement ».
-4. Le passage à `actif` se fera via le webhook CinetPay (voir
-   `smartbiz-backend-roadmap.md`), pas encore branché à ce stade.
+   `businesses` avec `owner_id = auth.uid()`, `subscription_status = 'essai'`
+   et `subscription_expires_at` = date de création + 7 jours (colonne déjà
+   présente dans `smartbiz-schema.sql`, jusque-là inutilisée — voir
+   `lib/AuthProvider.js`, `ensureBusiness`).
+3. **Pendant l'essai**, l'accès à l'application est complet, comme avec un
+   abonnement `actif`. La sidebar affiche un indicateur discret du nombre de
+   jours restants (« Essai — X jours restants »).
+4. **À l'expiration** des 7 jours, le statut bascule automatiquement vers
+   `en_attente_paiement` — l'application n'ayant pas de tâche planifiée
+   côté serveur, cette bascule est vérifiée paresseusement à chaque
+   chargement de la boutique (`expireEssaiSiDepasse` dans
+   `lib/AuthProvider.js`) plutôt que par un cron. Une fois `en_attente_paiement`
+   (essai expiré ou abonnement classique jamais payé), l'accès à
+   l'application (Tableau de bord, Commandes, Articles, Clients, Catalogue,
+   Paramètres) est bloqué — l'utilisateur voit l'écran « Abonnement en
+   attente de paiement ».
+5. Le passage à `actif` (fin d'essai payée ou renouvellement classique) se
+   fera via le webhook CinetPay (voir `smartbiz-backend-roadmap.md`), pas
+   encore branché à ce stade — indépendamment du statut précédent.
 
 ## Photos d'articles (et logo de la boutique)
 
@@ -241,11 +252,13 @@ lib/
 - **Sécurité RLS à durcir avant la mise en prod payante** : la policy
   `businesses for all using (owner_id = auth.uid())` du schéma autorise un
   commerçant à modifier n'importe quelle colonne de sa propre ligne,
-  y compris `subscription_status`. Tant que le paiement CinetPay n'est pas
-  branché (qui devra passer par une clé `service_role` côté serveur, jamais
-  exposée au client), il est recommandé de restreindre l'`UPDATE` de cette
-  table aux colonnes non liées à la facturation (ex. policy dédiée ou
-  colonnes gérées uniquement via une fonction serveur).
+  y compris `subscription_status` et `subscription_expires_at` (donc,
+  potentiellement, à se prolonger un essai indéfiniment). Tant que le
+  paiement CinetPay n'est pas branché (qui devra passer par une clé
+  `service_role` côté serveur, jamais exposée au client), il est recommandé
+  de restreindre l'`UPDATE` de cette table aux colonnes non liées à la
+  facturation (ex. policy dédiée ou colonnes gérées uniquement via une
+  fonction serveur).
 - **Photo d'article et logo de la boutique** : upload réel vers Supabase
   Storage (voir section dédiée ci-dessus).
 - Remplacer une photo (ou repasser sur « Sans catégorie » côté image, ou

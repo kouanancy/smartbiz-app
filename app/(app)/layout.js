@@ -48,7 +48,12 @@ export default function AppLayout({ children }) {
     return <div className="sb-loading-screen">{t("layout.loadError")}</div>;
   }
 
-  if (business.subscription_status !== "actif") {
+  // 'essai' donne un accès complet, au même titre que 'actif' — seule la
+  // sidebar affiche un indicateur du temps d'essai restant (voir
+  // Sidebar.js). L'expiration de l'essai est gérée en amont dans
+  // AuthProvider (bascule vers 'en_attente_paiement' dès que la date est
+  // dépassée), donc arriver ici avec 'essai' signifie qu'il reste du temps.
+  if (business.subscription_status !== "actif" && business.subscription_status !== "essai") {
     return <PendingSubscription business={business} />;
   }
 
