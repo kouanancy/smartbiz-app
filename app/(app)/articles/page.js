@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt } from "@/lib/format";
+import { fmt as fmtBase } from "@/lib/format";
 import { SANS_CATEGORIE } from "@/lib/constants";
 import ImageUploadField from "@/components/ImageUploadField";
 
@@ -12,6 +12,7 @@ const emptyForm = { nom: "", categorie_id: "", prix_achat: "", frais_annexes: ""
 
 export default function ArticlesPage() {
   const { business } = useAuth();
+  const fmt = (n) => fmtBase(n, business?.devise);
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [reappros, setReappros] = useState([]);
@@ -499,7 +500,7 @@ export default function ArticlesPage() {
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
-                <td className="sb-mono" style={{ fontWeight: 700, borderTop: "1px solid var(--line)", color: "#E07A29" }}>
+                <td className="sb-mono" style={{ fontWeight: 700, borderTop: "1px solid var(--line)", color: "var(--accent-deep)" }}>
                   {fmt(articlesFiltres.reduce((s, a) => s + (a.prix_vente - a.prix_achat - (a.frais_annexes || 0)) * a.stock, 0))}
                 </td>
               </tr>
@@ -511,7 +512,7 @@ export default function ArticlesPage() {
       {reappros.length > 0 && (
         <div className="sb-card" style={{ marginTop: 20 }}>
           <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <RefreshCw size={15} color="#E07A29" /> Historique des réapprovisionnements
+            <RefreshCw size={15} color="var(--accent-deep)" /> Historique des réapprovisionnements
           </div>
           <div className="sb-table-scroll">
             <table className="sb-table">

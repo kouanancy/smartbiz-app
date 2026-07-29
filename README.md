@@ -32,7 +32,9 @@ Exécute aussi une fois, dans l'ordre, `supabase-clients-actif-migration.sql`
 clients — voir « Clients : suppression vs désactivation » plus bas),
 `supabase-commandes-statut-migration.sql` puis
 `supabase-commandes-livraison-migration.sql` (ajoutent et font évoluer
-`commandes.statut` — voir « Commandes : cycle de vie » plus bas).
+`commandes.statut` — voir « Commandes : cycle de vie » plus bas), et enfin
+`supabase-businesses-devise-migration.sql` (ajoute la colonne
+`businesses.devise` — voir « Devise » plus bas).
 
 ## Variables d'environnement
 
@@ -57,7 +59,7 @@ clé.
 4. Le passage à `actif` se fera via le webhook CinetPay (voir
    `smartbiz-backend-roadmap.md`), pas encore branché à ce stade.
 
-## Photos d'articles
+## Photos d'articles (et logo de la boutique)
 
 Les photos (formulaires « Nouvel article » et « Modifier l'article ») sont
 envoyées vers **Supabase Storage**, bucket `article-photos` :
@@ -68,6 +70,11 @@ envoyées vers **Supabase Storage**, bucket `article-photos` :
 2. Aperçu immédiat pendant l'envoi (`components/ImageUploadField.js`).
 3. Le fichier est stocké sous `<business_id>/<uuid>.<extension>` et l'URL
    publique renvoyée par Supabase est enregistrée dans `articles.image_url`.
+
+Le **logo de la boutique** (page Paramètres, `businesses.logo_url`) réutilise
+exactement le même composant `ImageUploadField`, avec un préfixe de dossier
+dédié (`folder="logo"` → `<business_id>/logo/<uuid>.<extension>`) — même
+bucket, pas de migration Storage supplémentaire.
 
 **Configuration requise (une seule fois par projet Supabase)** : exécute
 `supabase-storage-setup.sql` dans l'éditeur SQL — il crée le bucket
@@ -139,6 +146,39 @@ déjà totalement commandé... ») — l'article reste sélectionnable tant que 
 stock réel le permet, l'avertissement sert seulement à prévenir un
 sur-engagement avant de valider.
 
+## Devise
+
+`businesses.devise` (`'FCFA' | 'EUR' | 'USD'`, `'FCFA'` par défaut pour tout
+nouveau compte) contrôle le formatage de **tous** les montants affichés dans
+l'application — Dashboard, Articles, Commandes, Catalogue, Paramètres et
+reçus. Choix modifiable dans Paramètres → Devise, sans rechargement.
+
+`lib/format.js` fait la conversion via `Intl.NumberFormat` (code ISO 4217
+associé : XOF pour FCFA, EUR, USD). Chaque page importe le formateur brut
+sous le nom `fmtBase` et le ré-enveloppe localement :
+`const fmt = (n) => fmtBase(n, business?.devise);` — ce qui laisse tous les
+appels `fmt(x)` déjà existants inchangés tout en les rendant sensibles à la
+devise choisie. Nécessite la migration
+`supabase-businesses-devise-migration.sql` (voir Démarrage).
+
+## Thème de couleur
+
+La couleur d'accent choisie dans Paramètres (`businesses.theme_key`) ne se
+limite pas à un détail du graphique du Dashboard : elle pilote trois
+variables CSS globales — `--accent`, `--accent-deep`, `--accent-soft`
+(définies dans `lib/constants.js`, `THEMES`) — injectées sur
+`document.documentElement` par un effet dans `(app)/layout.js`. Elles
+cascadent ainsi vers toute l'application (y compris le reçu imprimé, rendu
+via un portail directement dans `<body>`) : sidebar, boutons principaux
+(`.sb-btn-primary`), éléments actifs de la navigation, badges et accents des
+différents modules.
+
+Les couleurs à signification fixe (badges de statut Rupture/Faible/OK,
+Confirmée/Annulée/En attente, Actif/Désactivé, et les boutons emerald de
+succès) restent volontairement indépendantes du thème — elles portent un
+sens (danger/avertissement/succès) qui ne doit pas varier avec la couleur de
+marque choisie par le commerçant.
+
 ## Structure
 
 ```
@@ -172,13 +212,11 @@ lib/
   exposée au client), il est recommandé de restreindre l'`UPDATE` de cette
   table aux colonnes non liées à la facturation (ex. policy dédiée ou
   colonnes gérées uniquement via une fonction serveur).
-- **Photo d'article** : upload réel vers Supabase Storage (voir section
-  dédiée ci-dessus). Le **logo de la boutique** (`businesses.logo_url`,
-  page Paramètres) utilise encore un simple champ URL — le même composant
-  `ImageUploadField` pourrait s'y brancher si besoin.
-- Remplacer une photo (ou repasser sur « Sans catégorie » côté image) ne
-  supprime pas l'ancien fichier du bucket — nettoyage à prévoir plus tard
-  si le volume de fichiers orphelins devient significatif.
+- **Photo d'article et logo de la boutique** : upload réel vers Supabase
+  Storage (voir section dédiée ci-dessus).
+- Remplacer une photo (ou repasser sur « Sans catégorie » côté image, ou
+  changer le logo) ne supprime pas l'ancien fichier du bucket — nettoyage à
+  prévoir plus tard si le volume de fichiers orphelins devient significatif.
 - **Numérotation des commandes** (`next_numero`) et mise à jour du stock
   (au passage « Livré ») ne sont pas transactionnelles (plusieurs appels
   Supabase séquentiels) — rare collision possible en cas d'usage concurrent

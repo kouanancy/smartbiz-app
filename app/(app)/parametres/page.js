@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, Palette, Plus, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt } from "@/lib/format";
+import { fmt as fmtBase } from "@/lib/format";
 import { THEMES } from "@/lib/constants";
+import ImageUploadField from "@/components/ImageUploadField";
 
 export default function ParametresPage() {
   const { business, setBusiness } = useAuth();
+  const fmt = (n) => fmtBase(n, business?.devise);
   const [nameDraft, setNameDraft] = useState(business?.name || "");
   const [logoDraft, setLogoDraft] = useState(business?.logo_url || "");
   const [emailDraft, setEmailDraft] = useState(business?.notif_email || "");
@@ -50,6 +52,10 @@ export default function ParametresPage() {
 
   async function enregistrerTheme(key) {
     await updateBusiness({ theme_key: key });
+  }
+
+  async function enregistrerDevise(d) {
+    await updateBusiness({ devise: d });
   }
 
   async function enregistrerNotifications() {
@@ -107,22 +113,23 @@ export default function ParametresPage() {
             {savedMsg}
           </div>
         )}
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-          <div className="sb-logo-preview">
-            {logoDraft ? <img src={logoDraft} alt="Logo" /> : <Palette size={20} color="#A6A29D" />}
-          </div>
-          <div className="sb-field" style={{ flex: 1 }}>
-            <label>Logo (URL) — facultatif</label>
-            <input
-              className="sb-input"
-              placeholder="https://..."
+        <div style={{ marginBottom: 14 }}>
+          {business?.id ? (
+            <ImageUploadField
+              label="Logo — facultatif"
+              businessId={business.id}
+              folder="logo"
               value={logoDraft}
-              onChange={(e) => {
-                setLogoDraft(e.target.value);
+              onChange={(url) => {
+                setLogoDraft(url);
                 setSavedMsg("");
               }}
             />
-          </div>
+          ) : (
+            <div className="sb-logo-preview">
+              <Palette size={20} color="#A6A29D" />
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
           <div className="sb-field" style={{ flex: 1 }}>
@@ -157,6 +164,29 @@ export default function ParametresPage() {
               type="button"
             >
               {themeKey === key && <CheckCircle2 size={14} color="#fff" />}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="sb-card" style={{ marginBottom: 16 }}>
+        <div className="sb-section-title">Devise</div>
+        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>
+          S&apos;applique à tous les montants affichés dans l&apos;application (Dashboard, Articles, Commandes,
+          Catalogue, reçus...).
+        </p>
+        <div className="sb-toggle-group" style={{ display: "inline-flex" }}>
+          {[
+            { key: "FCFA", label: "FCFA" },
+            { key: "EUR", label: "EUR (€)" },
+            { key: "USD", label: "USD ($)" },
+          ].map((opt) => (
+            <button
+              key={opt.key}
+              className={`sb-toggle-item${(business?.devise || "FCFA") === opt.key ? " active" : ""}`}
+              onClick={() => enregistrerDevise(opt.key)}
+            >
+              {opt.label}
             </button>
           ))}
         </div>

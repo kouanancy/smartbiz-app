@@ -90,6 +90,7 @@ a {
   gap: 10px;
   padding: 9px 12px;
   border-radius: 8px;
+  font-family: inherit;
   font-size: 13.5px;
   font-weight: 500;
   cursor: pointer;
@@ -207,11 +208,11 @@ a {
   gap: 6px;
 }
 .sb-btn-primary {
-  background: linear-gradient(135deg, var(--ink-soft), var(--ink));
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
   color: #fff;
 }
 .sb-btn-primary:hover {
-  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+  background: linear-gradient(135deg, var(--accent-deep), var(--ink));
 }
 .sb-btn-emerald {
   background: var(--emerald);

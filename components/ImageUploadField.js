@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 const BUCKET = "article-photos";
 const MAX_SIZE_MB = 5;
 
-export default function ImageUploadField({ label, businessId, value, onChange }) {
+export default function ImageUploadField({ label, businessId, folder, value, onChange }) {
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -42,7 +42,7 @@ export default function ImageUploadField({ label, businessId, value, onChange })
 
     try {
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
-      const path = `${businessId}/${crypto.randomUUID()}.${ext}`;
+      const path = `${businessId}/${folder ? `${folder}/` : ""}${crypto.randomUUID()}.${ext}`;
       const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
         cacheControl: "3600",
         upsert: false,

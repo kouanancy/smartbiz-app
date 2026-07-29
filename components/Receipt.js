@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { CheckCircle2, MessageCircle, Printer, X } from "lucide-react";
-import { fmt } from "@/lib/format";
+import { fmt as fmtBase } from "@/lib/format";
 
 function toWhatsAppNumber(tel) {
   const digits = (tel || "").replace(/\D/g, "");
@@ -13,6 +13,7 @@ function toWhatsAppNumber(tel) {
 }
 
 export default function Receipt({ commande, business, onClose }) {
+  const fmt = (n) => fmtBase(n, business?.devise);
   const client = commande.client;
   const totalGeneral = commande.ca + (commande.livraison_frais || 0);
   const businessName = business?.name;
