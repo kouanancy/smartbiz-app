@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, Pencil, Plus, RotateCcw, Search, Trash2, UserX, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt } from "@/lib/format";
+import { fmt as fmtBase } from "@/lib/format";
 
 const normalizeTel = (tel) => (tel || "").replace(/\D/g, "");
 
 export default function ClientsPage() {
   const { business } = useAuth();
+  const fmt = (n) => fmtBase(n, business?.devise);
   const [clients, setClients] = useState([]);
   const [commandes, setCommandes] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Ban, CheckCircle2, Pencil, Plus, Printer, TruckIcon, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt } from "@/lib/format";
+import { fmt as fmtBase } from "@/lib/format";
 import { COMMANDE_STATUT_LABELS, OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
 import Receipt from "@/components/Receipt";
 
@@ -16,6 +16,7 @@ const STATUT_BADGE_CLASS = {
 
 export default function CommandesPage() {
   const { business } = useAuth();
+  const fmt = (n) => fmtBase(n, business?.devise);
   const [commandes, setCommandes] = useState([]);
   const [clients, setClients] = useState([]);
   const [articles, setArticles] = useState([]);

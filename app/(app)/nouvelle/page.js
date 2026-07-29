@@ -5,12 +5,13 @@ import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt } from "@/lib/format";
+import { fmt as fmtBase } from "@/lib/format";
 import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
 import Receipt from "@/components/Receipt";
 
 export default function NouvelleCommandePage() {
   const { business, setBusiness } = useAuth();
+  const fmt = (n) => fmtBase(n, business?.devise);
   const [clients, setClients] = useState([]);
   const [articles, setArticles] = useState([]);
   const [zones, setZones] = useState([]);

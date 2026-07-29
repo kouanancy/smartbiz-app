@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { Copy, Printer, Share2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt } from "@/lib/format";
+import { fmt as fmtBase } from "@/lib/format";
 import { THEMES, SANS_CATEGORIE } from "@/lib/constants";
 
 export default function CataloguePage() {
   const { business } = useAuth();
+  const fmt = (n) => fmtBase(n, business?.devise);
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);

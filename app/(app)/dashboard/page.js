@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt, monthLabel } from "@/lib/format";
+import { fmt as fmtBase, monthLabel } from "@/lib/format";
 import { THEMES } from "@/lib/constants";
 
 function buildEvolution(commandes, mode) {
@@ -50,6 +50,7 @@ function buildEvolution(commandes, mode) {
 
 export default function DashboardPage() {
   const { business } = useAuth();
+  const fmt = (n) => fmtBase(n, business?.devise);
   const [commandes, setCommandes] = useState([]);
   const [articles, setArticles] = useState([]);
   const [nbClients, setNbClients] = useState(0);
