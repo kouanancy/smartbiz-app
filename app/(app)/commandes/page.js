@@ -20,7 +20,9 @@ export default function CommandesPage() {
       setLoading(true);
       const { data } = await supabase
         .from("commandes")
-        .select("*, clients(nom, telephone), commande_lignes(quantite, prix_vente, prix_achat, frais_annexes, articles(nom))")
+        .select(
+          "*, clients(nom, telephone, adresse, email), commande_lignes(quantite, prix_vente, prix_achat, frais_annexes, articles(nom))"
+        )
         .eq("business_id", business.id)
         .order("created_at", { ascending: false });
       if (!active) return;
