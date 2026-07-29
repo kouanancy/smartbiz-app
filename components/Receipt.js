@@ -2,7 +2,8 @@
 
 import { createPortal } from "react-dom";
 import { CheckCircle2, MessageCircle, Printer, X } from "lucide-react";
-import { fmt as fmtBase } from "@/lib/format";
+import { fmt as fmtBase, dateLocale } from "@/lib/format";
+import { t as tBase } from "@/lib/i18n";
 
 function toWhatsAppNumber(tel) {
   const digits = (tel || "").replace(/\D/g, "");
@@ -14,12 +15,13 @@ function toWhatsAppNumber(tel) {
 
 export default function Receipt({ commande, business, onClose }) {
   const fmt = (n) => fmtBase(n, business?.devise);
+  const t = (key, vars) => tBase(business?.langue, key, vars);
   const client = commande.client;
   const totalGeneral = commande.ca + (commande.livraison_frais || 0);
   const businessName = business?.name;
   const logo = business?.logo_url;
   const accent = "#E07A29";
-  const dateStr = new Date(commande.created_at).toLocaleDateString("fr-FR", {
+  const dateStr = new Date(commande.created_at).toLocaleDateString(dateLocale(business?.langue), {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -29,12 +31,14 @@ export default function Receipt({ commande, business, onClose }) {
     const numero = toWhatsAppNumber(client?.telephone);
     if (!numero) return;
     const lignesTxt = commande.lignes.map((l) => `- ${l.nom} ×${l.quantite}`).join("\n");
-    const message =
-      `Bonjour ${client?.nom || ""}, voici la confirmation de votre commande ${commande.numero} chez ${businessName || "SmartBiz"} :\n\n` +
-      `${lignesTxt}\n\n` +
-      (commande.livraison_frais > 0 ? `Frais de livraison : ${fmt(commande.livraison_frais)}\n` : "") +
-      `Total : ${fmt(totalGeneral)}\n\n` +
-      `Merci pour votre confiance ! ✅`;
+    const message = t("receipt.whatsappMessage", {
+      clientNom: client?.nom || "",
+      numero: commande.numero,
+      businessName: businessName || "SmartBiz",
+      lignesTxt,
+      livraisonLine: commande.livraison_frais > 0 ? t("receipt.whatsappLivraisonLine", { frais: fmt(commande.livraison_frais) }) : "",
+      total: fmt(totalGeneral),
+    });
     window.open(`https://wa.me/${numero}?text=${encodeURIComponent(message)}`, "_blank");
   }
 
@@ -47,7 +51,7 @@ export default function Receipt({ commande, business, onClose }) {
             {logo ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <img src={logo} alt={businessName || "Logo"} style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover" }} />
-                <span className="sb-display" style={{ fontWeight: 700, fontSize: 16 }}>{businessName || "Ma boutique"}</span>
+                <span className="sb-display" style={{ fontWeight: 700, fontSize: 16 }}>{businessName || t("common.defaultBusinessName")}</span>
               </div>
             ) : businessName ? (
               <span className="sb-display" style={{ fontWeight: 700, fontSize: 17 }}>{businessName}</span>
@@ -60,32 +64,32 @@ export default function Receipt({ commande, business, onClose }) {
               <X size={16} />
             </button>
           </div>
-          <p style={{ fontSize: 12, color: "#6B6A63", margin: "0 0 14px" }}>Confirmation de commande</p>
+          <p style={{ fontSize: 12, color: "#6B6A63", margin: "0 0 14px" }}>{t("receipt.confirmationTitle")}</p>
 
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
-            <span style={{ color: "#6B6A63" }}>N° commande</span>
+            <span style={{ color: "#6B6A63" }}>{t("receipt.numeroCommande")}</span>
             <span className="sb-mono">{commande.numero}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
-            <span style={{ color: "#6B6A63" }}>Date</span>
-            <span>{new Date(commande.created_at).toLocaleDateString("fr-FR")}</span>
+            <span style={{ color: "#6B6A63" }}>{t("receipt.date")}</span>
+            <span>{new Date(commande.created_at).toLocaleDateString(dateLocale(business?.langue))}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 12 }}>
-            <span style={{ color: "#6B6A63" }}>Cliente</span>
+            <span style={{ color: "#6B6A63" }}>{t("receipt.cliente")}</span>
             <span>{client?.nom ?? "—"}</span>
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
-            <span style={{ color: "#6B6A63" }}>Livraison</span>
+            <span style={{ color: "#6B6A63" }}>{t("receipt.livraison")}</span>
             <span>
               {commande.livraison_type === "livraison"
                 ? `${commande.livraison_zone} (${fmt(commande.livraison_frais)})`
-                : "Récupération en boutique"}
+                : t("receipt.recuperationBoutique")}
             </span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 12 }}>
-            <span style={{ color: "#6B6A63" }}>Paiement</span>
-            <span>{commande.paiement_mode === "mobile_money" ? commande.paiement_operateur : "À la livraison"}</span>
+            <span style={{ color: "#6B6A63" }}>{t("receipt.paiement")}</span>
+            <span>{commande.paiement_mode === "mobile_money" ? commande.paiement_operateur : t("receipt.paiementLivraison")}</span>
           </div>
 
           <div style={{ borderTop: "1px dashed #E4E2D8", borderBottom: "1px dashed #E4E2D8", padding: "10px 0", marginBottom: 12 }}>
@@ -97,20 +101,20 @@ export default function Receipt({ commande, business, onClose }) {
             ))}
             {commande.livraison_frais > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5 }}>
-                <span>Frais de livraison</span>
+                <span>{t("receipt.fraisLivraison")}</span>
                 <span className="sb-mono">{fmt(commande.livraison_frais)}</span>
               </div>
             )}
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 14.5, marginBottom: 16 }}>
-            <span>Total</span>
+            <span>{t("receipt.total")}</span>
             <span className="sb-mono">{fmt(totalGeneral)}</span>
           </div>
 
           <div style={{ textAlign: "center", marginBottom: 12 }}>
             <span className="sb-stamp">
-              <CheckCircle2 size={15} /> CONFIRMÉE
+              <CheckCircle2 size={15} /> {t("receipt.confirmee")}
             </span>
           </div>
 
@@ -121,14 +125,14 @@ export default function Receipt({ commande, business, onClose }) {
               onClick={envoyerWhatsApp}
               disabled={!toWhatsAppNumber(client?.telephone)}
             >
-              <MessageCircle size={14} /> Envoyer par WhatsApp
+              <MessageCircle size={14} /> {t("receipt.envoyerWhatsApp")}
             </button>
             <button className="sb-btn sb-btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => window.print()}>
-              <Printer size={14} /> Imprimer / Télécharger en PDF
+              <Printer size={14} /> {t("receipt.imprimerPdf")}
             </button>
           </div>
 
-          <p style={{ textAlign: "center", fontSize: 10.5, color: "#A6A29D", margin: "12px 0 0" }}>Propulsé par SmartBiz</p>
+          <p style={{ textAlign: "center", fontSize: 10.5, color: "#A6A29D", margin: "12px 0 0" }}>{t("common.poweredBy")}</p>
         </div>
       </div>
 
@@ -145,52 +149,52 @@ export default function Receipt({ commande, business, onClose }) {
               ) : (
                 <div className="sb-receipt-print-logo-fallback">{(businessName || "SB").slice(0, 2).toUpperCase()}</div>
               )}
-              <span className="sb-receipt-print-brand-name">{businessName || "Ma boutique"}</span>
+              <span className="sb-receipt-print-brand-name">{businessName || t("common.defaultBusinessName")}</span>
             </div>
             <div className="sb-receipt-print-title">
-              <h1>Confirmation de commande</h1>
-              <p>N° {commande.numero}</p>
+              <h1>{t("receipt.confirmationTitle")}</h1>
+              <p>{t("receipt.numeroCommande")} {commande.numero}</p>
               <p>{dateStr}</p>
             </div>
           </div>
 
           <div className="sb-receipt-print-info">
             <div className="sb-receipt-print-info-block">
-              <h3>Cliente</h3>
+              <h3>{t("receipt.printClient")}</h3>
               <div>
-                <span>Nom</span>
+                <span>{t("receipt.printNom")}</span>
                 <strong>{client?.nom ?? "—"}</strong>
               </div>
               <div>
-                <span>Téléphone</span>
+                <span>{t("receipt.printTelephone")}</span>
                 <strong>{client?.telephone ?? "—"}</strong>
               </div>
               <div>
-                <span>Adresse</span>
+                <span>{t("receipt.printAdresse")}</span>
                 <strong>{client?.adresse || "—"}</strong>
               </div>
               <div>
-                <span>E-mail</span>
+                <span>{t("receipt.printEmail")}</span>
                 <strong>{client?.email || "—"}</strong>
               </div>
             </div>
             <div className="sb-receipt-print-info-block">
-              <h3>Livraison &amp; paiement</h3>
+              <h3>{t("receipt.printLivraisonPaiement")}</h3>
               <div>
-                <span>Livraison</span>
+                <span>{t("receipt.printLivraison")}</span>
                 <strong>
-                  {commande.livraison_type === "livraison" ? commande.livraison_zone : "Récupération en boutique"}
+                  {commande.livraison_type === "livraison" ? commande.livraison_zone : t("receipt.recuperationBoutique")}
                 </strong>
               </div>
               {commande.livraison_frais > 0 && (
                 <div>
-                  <span>Frais de livraison</span>
+                  <span>{t("receipt.printFraisLivraison")}</span>
                   <strong>{fmt(commande.livraison_frais)}</strong>
                 </div>
               )}
               <div>
-                <span>Paiement</span>
-                <strong>{commande.paiement_mode === "mobile_money" ? commande.paiement_operateur : "À la livraison"}</strong>
+                <span>{t("receipt.printPaiement")}</span>
+                <strong>{commande.paiement_mode === "mobile_money" ? commande.paiement_operateur : t("receipt.paiementLivraison")}</strong>
               </div>
             </div>
           </div>
@@ -198,10 +202,10 @@ export default function Receipt({ commande, business, onClose }) {
           <table className="sb-receipt-print-table">
             <thead>
               <tr>
-                <th>Article</th>
-                <th style={{ textAlign: "right" }}>Prix unitaire</th>
-                <th style={{ textAlign: "center" }}>Quantité</th>
-                <th style={{ textAlign: "right" }}>Sous-total</th>
+                <th>{t("receipt.tableArticle")}</th>
+                <th style={{ textAlign: "right" }}>{t("receipt.tablePrixUnitaire")}</th>
+                <th style={{ textAlign: "center" }}>{t("receipt.tableQuantite")}</th>
+                <th style={{ textAlign: "right" }}>{t("receipt.tableSousTotal")}</th>
               </tr>
             </thead>
             <tbody>
@@ -218,26 +222,26 @@ export default function Receipt({ commande, business, onClose }) {
 
           <div className="sb-receipt-print-totals">
             <div>
-              <span>Total articles</span>
+              <span>{t("receipt.totalArticles")}</span>
               <strong>{fmt(commande.ca)}</strong>
             </div>
             {commande.livraison_frais > 0 && (
               <div>
-                <span>Frais de livraison</span>
+                <span>{t("receipt.printFraisLivraison")}</span>
                 <strong>{fmt(commande.livraison_frais)}</strong>
               </div>
             )}
             <div className="total">
-              <span>Total à payer</span>
+              <span>{t("receipt.totalAPayer")}</span>
               <strong>{fmt(totalGeneral)}</strong>
             </div>
           </div>
 
           <div className="sb-receipt-print-stamp">
-            <span>✓ CONFIRMÉE</span>
+            <span>{t("receipt.stampConfirmee")}</span>
           </div>
 
-          <div className="sb-receipt-print-footer">Propulsé par SmartBiz</div>
+          <div className="sb-receipt-print-footer">{t("common.poweredBy")}</div>
         </div>,
         document.body
       )}

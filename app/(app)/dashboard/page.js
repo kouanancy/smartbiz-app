@@ -14,15 +14,16 @@ import {
 } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt as fmtBase, monthLabel } from "@/lib/format";
+import { fmt as fmtBase, monthLabel, dateLocale } from "@/lib/format";
 import { THEMES } from "@/lib/constants";
+import { t as tBase } from "@/lib/i18n";
 
-function buildEvolution(commandes, mode) {
+function buildEvolution(commandes, mode, lang, t) {
   const now = new Date();
   if (mode === "mois") {
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const weeksCount = Math.ceil(daysInMonth / 7);
-    const buckets = Array.from({ length: weeksCount }, (_, i) => ({ label: `Sem ${i + 1}`, ca: 0 }));
+    const buckets = Array.from({ length: weeksCount }, (_, i) => ({ label: t("dashboard.semaine", { n: i + 1 }), ca: 0 }));
     commandes.forEach((c) => {
       const d = new Date(c.created_at);
       if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
@@ -37,7 +38,7 @@ function buildEvolution(commandes, mode) {
   for (let i = monthsBack - 1; i >= 0; i--) {
     const d = new Date(now);
     d.setMonth(d.getMonth() - i);
-    buckets.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: monthLabel(d), ca: 0 });
+    buckets.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: monthLabel(d, lang), ca: 0 });
   }
   commandes.forEach((c) => {
     const d = new Date(c.created_at);
@@ -51,6 +52,7 @@ function buildEvolution(commandes, mode) {
 export default function DashboardPage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
+  const t = (key, vars) => tBase(business?.langue, key, vars);
   const [commandes, setCommandes] = useState([]);
   const [articles, setArticles] = useState([]);
   const [nbClients, setNbClients] = useState(0);
@@ -99,31 +101,35 @@ export default function DashboardPage() {
   const rupturesTriees = [...stockFaible].sort((a, b) => a.stock - b.stock);
   const tickerItems = [...rupturesTriees, ...rupturesTriees];
 
-  const evolution = useMemo(() => buildEvolution(commandes, intervalMode), [commandes, intervalMode]);
+  const evolution = useMemo(
+    () => buildEvolution(commandes, intervalMode, business?.langue, t),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- t change de comportement en même temps que business?.langue
+    [commandes, intervalMode, business?.langue]
+  );
   const dernieresCommandes = commandes.slice(0, 5);
 
-  if (loading) return <p className="sb-sub">Chargement du tableau de bord…</p>;
+  if (loading) return <p className="sb-sub">{t("dashboard.loading")}</p>;
 
   return (
     <div>
-      <h1 className="sb-h1">Tableau de bord</h1>
-      <p className="sb-sub">Vue d&apos;ensemble de votre activité ce mois-ci</p>
+      <h1 className="sb-h1">{t("dashboard.title")}</h1>
+      <p className="sb-sub">{t("dashboard.subtitle")}</p>
 
       <div className="sb-grid-stats">
         <div className="sb-card">
-          <div className="sb-stat-label">Chiffre d&apos;affaires du mois</div>
+          <div className="sb-stat-label">{t("dashboard.ca")}</div>
           <div className="sb-stat-value" style={{ color: accent }}>
             {fmt(caDuMois)}
           </div>
         </div>
         <div className="sb-card">
-          <div className="sb-stat-label">Marge réelle du mois</div>
+          <div className="sb-stat-label">{t("dashboard.marge")}</div>
           <div className="sb-stat-value" style={{ color: "#0E8F6E" }}>
             {fmt(margeDuMois)}
           </div>
         </div>
         <div className="sb-card">
-          <div className="sb-stat-label">Nombre de clients</div>
+          <div className="sb-stat-label">{t("dashboard.clients")}</div>
           <div className="sb-stat-value" style={{ color: "#2E2C2B" }}>
             {nbClients}
           </div>
@@ -133,13 +139,13 @@ export default function DashboardPage() {
       <div className="sb-card" style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div className="sb-section-title" style={{ margin: 0 }}>
-            Évolution des ventes
+            {t("dashboard.evolution")}
           </div>
           <div className="sb-toggle-group">
             {[
-              { key: "mois", label: "Mois" },
-              { key: "trimestre", label: "Trimestre" },
-              { key: "semestre", label: "Semestre" },
+              { key: "mois", label: t("dashboard.mois") },
+              { key: "trimestre", label: t("dashboard.trimestre") },
+              { key: "semestre", label: t("dashboard.semestre") },
             ].map((opt) => (
               <button
                 key={opt.key}
@@ -164,18 +170,18 @@ export default function DashboardPage() {
 
       <div className="sb-dash-split">
         <div className="sb-card">
-          <div className="sb-section-title">Dernières commandes</div>
+          <div className="sb-section-title">{t("dashboard.dernieresCommandes")}</div>
           {dernieresCommandes.length === 0 ? (
-            <p style={{ fontSize: 13, color: "#6B6A63" }}>Aucune commande enregistrée pour le moment.</p>
+            <p style={{ fontSize: 13, color: "#6B6A63" }}>{t("dashboard.aucuneCommande")}</p>
           ) : (
             <div className="sb-table-scroll">
               <table className="sb-table">
                 <thead>
                   <tr>
-                    <th>N°</th>
-                    <th>Cliente</th>
-                    <th>Date</th>
-                    <th>CA</th>
+                    <th>{t("dashboard.colNumero")}</th>
+                    <th>{t("dashboard.colCliente")}</th>
+                    <th>{t("dashboard.colDate")}</th>
+                    <th>{t("dashboard.colCa")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -183,7 +189,7 @@ export default function DashboardPage() {
                     <tr key={c.id}>
                       <td className="sb-mono">{c.numero}</td>
                       <td>{c.clients?.nom ?? "—"}</td>
-                      <td style={{ color: "#6B6A63" }}>{new Date(c.created_at).toLocaleDateString("fr-FR")}</td>
+                      <td style={{ color: "#6B6A63" }}>{new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
                       <td className="sb-mono">{fmt(c.ca)}</td>
                     </tr>
                   ))}
@@ -192,16 +198,16 @@ export default function DashboardPage() {
             </div>
           )}
           <Link href="/commandes" className="sb-btn sb-btn-ghost" style={{ marginTop: 14 }}>
-            Voir toutes les commandes <ChevronRight size={14} />
+            {t("dashboard.voirCommandes")} <ChevronRight size={14} />
           </Link>
         </div>
 
         <div className="sb-card">
           <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <AlertTriangle size={16} color="#C9862B" /> Presque en rupture
+            <AlertTriangle size={16} color="#C9862B" /> {t("dashboard.presqueRupture")}
           </div>
           {rupturesTriees.length === 0 ? (
-            <p style={{ fontSize: 13, color: "#6B6A63" }}>Aucune alerte — tous les stocks sont suffisants.</p>
+            <p style={{ fontSize: 13, color: "#6B6A63" }}>{t("dashboard.aucuneAlerte")}</p>
           ) : (
             <div className="sb-ticker">
               <div
@@ -212,11 +218,9 @@ export default function DashboardPage() {
                   <div className="sb-ticker-item" key={i}>
                     <span>{a.nom}</span>
                     {a.stock === 0 ? (
-                      <span className="sb-badge sb-badge-coral">Rupture</span>
+                      <span className="sb-badge sb-badge-coral">{t("common.badgeRupture")}</span>
                     ) : (
-                      <span className="sb-badge sb-badge-amber">
-                        {a.stock} restant{a.stock > 1 ? "s" : ""}
-                      </span>
+                      <span className="sb-badge sb-badge-amber">{t("dashboard.restant", { n: a.stock })}</span>
                     )}
                   </div>
                 ))}
@@ -224,7 +228,7 @@ export default function DashboardPage() {
             </div>
           )}
           <Link href="/articles" className="sb-btn sb-btn-ghost" style={{ marginTop: 14 }}>
-            Voir le stock complet <ChevronRight size={14} />
+            {t("dashboard.voirStock")} <ChevronRight size={14} />
           </Link>
         </div>
       </div>

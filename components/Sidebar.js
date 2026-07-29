@@ -12,19 +12,21 @@ import {
   Palette,
   LogOut,
 } from "lucide-react";
+import { t as tBase } from "@/lib/i18n";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Tableau de bord" },
-  { href: "/nouvelle", icon: ShoppingCart, label: "Nouvelle commande" },
-  { href: "/commandes", icon: ClipboardList, label: "Commandes" },
-  { href: "/articles", icon: Package, label: "Stock / Articles" },
-  { href: "/clients", icon: Users, label: "Clients" },
-  { href: "/catalogue", icon: LayoutGrid, label: "Catalogue" },
-  { href: "/parametres", icon: Palette, label: "Paramètres" },
+  { href: "/dashboard", icon: LayoutDashboard, key: "dashboard" },
+  { href: "/nouvelle", icon: ShoppingCart, key: "nouvelle" },
+  { href: "/commandes", icon: ClipboardList, key: "commandes" },
+  { href: "/articles", icon: Package, key: "articles" },
+  { href: "/clients", icon: Users, key: "clients" },
+  { href: "/catalogue", icon: LayoutGrid, key: "catalogue" },
+  { href: "/parametres", icon: Palette, key: "parametres" },
 ];
 
 export default function Sidebar({ business, onSignOut }) {
   const pathname = usePathname();
+  const t = (key) => tBase(business?.langue, key);
   const businessName = business?.name;
   const logo = business?.logo_url;
 
@@ -33,8 +35,8 @@ export default function Sidebar({ business, onSignOut }) {
       <div className="sb-brand">
         {logo ? (
           <div className="sb-brand-logo">
-            <img src={logo} alt={businessName || "Logo"} />
-            <span>{businessName || "Ma boutique"}</span>
+            <img src={logo} alt={businessName || t("common.defaultBusinessName")} />
+            <span>{businessName || t("common.defaultBusinessName")}</span>
           </div>
         ) : businessName ? (
           <span>{businessName}</span>
@@ -50,16 +52,16 @@ export default function Sidebar({ business, onSignOut }) {
             key={item.href}
             href={item.href}
             icon={<item.icon size={16} />}
-            label={item.label}
+            label={t(`sidebar.nav.${item.key}`)}
             active={pathname === item.href}
           />
         ))}
         <button className="sb-nav-item" onClick={onSignOut} type="button">
           <LogOut size={16} />
-          Déconnexion
+          {t("sidebar.logout")}
         </button>
       </nav>
-      <div className="sb-sidebar-footer">Propulsé par SmartBiz</div>
+      <div className="sb-sidebar-footer">{t("common.poweredBy")}</div>
     </aside>
   );
 }

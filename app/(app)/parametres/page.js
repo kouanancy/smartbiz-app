@@ -6,11 +6,13 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase } from "@/lib/format";
 import { THEMES } from "@/lib/constants";
+import { t as tBase } from "@/lib/i18n";
 import ImageUploadField from "@/components/ImageUploadField";
 
 export default function ParametresPage() {
   const { business, setBusiness } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
+  const t = (key, vars) => tBase(business?.langue, key, vars);
   const [nameDraft, setNameDraft] = useState(business?.name || "");
   const [logoDraft, setLogoDraft] = useState(business?.logo_url || "");
   const [emailDraft, setEmailDraft] = useState(business?.notif_email || "");
@@ -46,8 +48,8 @@ export default function ParametresPage() {
   }
 
   async function enregistrerNom() {
-    const { error } = await updateBusiness({ name: nameDraft.trim() || "Ma boutique", logo_url: logoDraft.trim() || null });
-    setSavedMsg(error ? `Erreur : ${error.message}` : "✅ Informations de la boutique enregistrées");
+    const { error } = await updateBusiness({ name: nameDraft.trim() || t("common.defaultBusinessName"), logo_url: logoDraft.trim() || null });
+    setSavedMsg(error ? t("common.error", { message: error.message }) : t("parametres.savedMsg"));
   }
 
   async function enregistrerTheme(key) {
@@ -58,9 +60,13 @@ export default function ParametresPage() {
     await updateBusiness({ devise: d });
   }
 
+  async function enregistrerLangue(l) {
+    await updateBusiness({ langue: l });
+  }
+
   async function enregistrerNotifications() {
     const { error } = await updateBusiness({ notif_email: emailDraft.trim() || null });
-    setNotifMsg(error ? `Erreur : ${error.message}` : "✅ Préférences de notifications enregistrées");
+    setNotifMsg(error ? t("common.error", { message: error.message }) : t("parametres.notifSavedMsg"));
   }
 
   async function toggleConfirmationEmail(checked) {
@@ -77,7 +83,7 @@ export default function ParametresPage() {
     const zone = zoneForm.zone.trim();
     const frais = Number(zoneForm.frais);
     if (!zone || Number.isNaN(frais) || frais < 0) {
-      setZoneMsg("Renseigne un nom de zone et des frais valides.");
+      setZoneMsg(t("parametres.zoneMsgInvalid"));
       return;
     }
     const { data, error } = await supabase.from("zones_livraison").insert({ business_id: business.id, zone, frais }).select().single();
@@ -103,11 +109,11 @@ export default function ParametresPage() {
 
   return (
     <div>
-      <h1 className="sb-h1">Paramètres</h1>
-      <p className="sb-sub">Adapte SmartBiz à l&apos;image de ta boutique</p>
+      <h1 className="sb-h1">{t("parametres.title")}</h1>
+      <p className="sb-sub">{t("parametres.subtitle")}</p>
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
-        <div className="sb-section-title">Boutique</div>
+        <div className="sb-section-title">{t("parametres.boutiqueTitle")}</div>
         {savedMsg && (
           <div className="sb-badge sb-badge-emerald" style={{ marginBottom: 10, fontSize: 12.5, padding: "6px 10px" }}>
             {savedMsg}
@@ -116,7 +122,7 @@ export default function ParametresPage() {
         <div style={{ marginBottom: 14 }}>
           {business?.id ? (
             <ImageUploadField
-              label="Logo — facultatif"
+              label={t("parametres.logoLabel")}
               businessId={business.id}
               folder="logo"
               value={logoDraft}
@@ -133,10 +139,10 @@ export default function ParametresPage() {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
           <div className="sb-field" style={{ flex: 1 }}>
-            <label>Nom de la boutique</label>
+            <label>{t("parametres.nomLabel")}</label>
             <input
               className="sb-input"
-              placeholder="Ex. Chez Aïcha Beauté"
+              placeholder={t("parametres.nomPlaceholder")}
               value={nameDraft}
               onChange={(e) => {
                 setNameDraft(e.target.value);
@@ -145,22 +151,22 @@ export default function ParametresPage() {
             />
           </div>
           <button className="sb-btn sb-btn-primary" onClick={enregistrerNom}>
-            Enregistrer
+            {t("parametres.enregistrer")}
           </button>
         </div>
       </div>
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
-        <div className="sb-section-title">Thème de couleur</div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>Choisis la couleur d&apos;accent utilisée dans toute l&apos;application.</p>
+        <div className="sb-section-title">{t("parametres.themeTitle")}</div>
+        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("parametres.themeSub")}</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          {Object.entries(THEMES).map(([key, t]) => (
+          {Object.entries(THEMES).map(([key, theme]) => (
             <button
               key={key}
               onClick={() => enregistrerTheme(key)}
               className="sb-theme-swatch"
-              style={{ background: t.accent, borderColor: themeKey === key ? "#2E2C2B" : "transparent" }}
-              title={t.label}
+              style={{ background: theme.accent, borderColor: themeKey === key ? "#2E2C2B" : "transparent" }}
+              title={t(`common.themes.${key}`)}
               type="button"
             >
               {themeKey === key && <CheckCircle2 size={14} color="#fff" />}
@@ -170,11 +176,8 @@ export default function ParametresPage() {
       </div>
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
-        <div className="sb-section-title">Devise</div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>
-          S&apos;applique à tous les montants affichés dans l&apos;application (Dashboard, Articles, Commandes,
-          Catalogue, reçus...).
-        </p>
+        <div className="sb-section-title">{t("parametres.deviseTitle")}</div>
+        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("parametres.deviseSub")}</p>
         <div className="sb-toggle-group" style={{ display: "inline-flex" }}>
           {[
             { key: "FCFA", label: "FCFA" },
@@ -193,12 +196,29 @@ export default function ParametresPage() {
       </div>
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
-        <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Truck size={15} /> Zones de livraison
+        <div className="sb-section-title">{t("parametres.langueTitle")}</div>
+        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("parametres.langueSub")}</p>
+        <div className="sb-toggle-group" style={{ display: "inline-flex" }}>
+          {[
+            { key: "fr", label: t("parametres.langueFr") },
+            { key: "en", label: t("parametres.langueEn") },
+          ].map((opt) => (
+            <button
+              key={opt.key}
+              className={`sb-toggle-item${(business?.langue || "fr") === opt.key ? " active" : ""}`}
+              onClick={() => enregistrerLangue(opt.key)}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>
-          Configure les zones et frais de livraison proposés lors d&apos;une nouvelle commande.
-        </p>
+      </div>
+
+      <div className="sb-card" style={{ marginBottom: 16 }}>
+        <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Truck size={15} /> {t("parametres.zonesTitle")}
+        </div>
+        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("parametres.zonesSub")}</p>
         {zones.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
             {zones.map((z) => (
@@ -211,36 +231,34 @@ export default function ParametresPage() {
         )}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
           <div className="sb-field" style={{ flex: 2, minWidth: 140 }}>
-            <label>Zone</label>
+            <label>{t("parametres.zoneLabel")}</label>
             <input
               className="sb-input"
-              placeholder="Ex. Cocody"
+              placeholder={t("parametres.zonePlaceholder")}
               value={zoneForm.zone}
               onChange={(e) => setZoneForm({ ...zoneForm, zone: e.target.value })}
             />
           </div>
           <div className="sb-field" style={{ flex: 1, minWidth: 100 }}>
-            <label>Frais de livraison (FCFA)</label>
+            <label>{t("parametres.fraisLabel")}</label>
             <input
               className="sb-input"
-              placeholder="Ex. 1000"
+              placeholder={t("parametres.fraisPlaceholder")}
               type="number"
               value={zoneForm.frais}
               onChange={(e) => setZoneForm({ ...zoneForm, frais: e.target.value })}
             />
           </div>
           <button className="sb-btn sb-btn-primary" onClick={ajouterZone}>
-            <Plus size={14} /> Ajouter
+            <Plus size={14} /> {t("parametres.ajouter")}
           </button>
         </div>
         {zoneMsg && <p style={{ fontSize: 12, color: "#C24E37", margin: "8px 2px 0" }}>{zoneMsg}</p>}
       </div>
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
-        <div className="sb-section-title">Notifications</div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>
-          Entièrement facultatif — utile si tu as une adresse e-mail (ex. Gmail) et que tu veux un suivi à distance.
-        </p>
+        <div className="sb-section-title">{t("parametres.notificationsTitle")}</div>
+        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("parametres.notificationsSub")}</p>
 
         {notifMsg && (
           <div className="sb-badge sb-badge-emerald" style={{ marginBottom: 12, fontSize: 12.5, padding: "6px 10px" }}>
@@ -248,12 +266,12 @@ export default function ParametresPage() {
           </div>
         )}
 
-        <label style={{ fontSize: 12, color: "#6E6B68", display: "block", marginBottom: 6 }}>Adresse e-mail de réception</label>
+        <label style={{ fontSize: 12, color: "#6E6B68", display: "block", marginBottom: 6 }}>{t("parametres.emailLabel")}</label>
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
           <input
             className="sb-input"
             type="email"
-            placeholder="ex. maboutique@gmail.com"
+            placeholder={t("parametres.emailPlaceholder")}
             value={emailDraft}
             onChange={(e) => {
               setEmailDraft(e.target.value);
@@ -261,22 +279,22 @@ export default function ParametresPage() {
             }}
           />
           <button className="sb-btn sb-btn-primary" onClick={enregistrerNotifications}>
-            Enregistrer
+            {t("parametres.enregistrer")}
           </button>
         </div>
 
         <div style={{ opacity: business?.notif_email ? 1 : 0.45, pointerEvents: business?.notif_email ? "auto" : "none" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 12, cursor: "pointer" }}>
             <input type="checkbox" checked={confirmationEmail} onChange={(e) => toggleConfirmationEmail(e.target.checked)} />
-            Recevoir aussi les confirmations de commande par e-mail
+            {t("parametres.confirmationEmailLabel")}
           </label>
 
-          <label style={{ fontSize: 12, color: "#6E6B68", display: "block", marginBottom: 6 }}>Rapport de stock automatique (PDF par e-mail)</label>
+          <label style={{ fontSize: 12, color: "#6E6B68", display: "block", marginBottom: 6 }}>{t("parametres.rapportStockLabel")}</label>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
-              { key: "aucun", label: "Aucun" },
-              { key: "journalier", label: "Journalier" },
-              { key: "hebdomadaire", label: "Hebdomadaire" },
+              { key: "aucun", label: t("parametres.rapportAucun") },
+              { key: "journalier", label: t("parametres.rapportJournalier") },
+              { key: "hebdomadaire", label: t("parametres.rapportHebdo") },
             ].map((opt) => (
               <button
                 key={opt.key}
@@ -291,18 +309,17 @@ export default function ParametresPage() {
         </div>
 
         {!business?.notif_email && (
-          <p style={{ fontSize: 11, color: "#8A8682", margin: "12px 2px 0" }}>Renseigne d&apos;abord une adresse e-mail pour activer ces options.</p>
+          <p style={{ fontSize: 11, color: "#8A8682", margin: "12px 2px 0" }}>{t("parametres.emailRequiredNote")}</p>
         )}
       </div>
 
       <div className="sb-card">
-        <div className="sb-section-title">Abonnement</div>
+        <div className="sb-section-title">{t("parametres.abonnementTitle")}</div>
         <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 4px" }}>
-          Statut actuel : <strong>{business?.subscription_status}</strong>
+          {t("parametres.statutActuelLabel")}
+          <strong>{t(`common.subscriptionStatus.${business?.subscription_status}`)}</strong>
         </p>
-        <p style={{ fontSize: 11, color: "#8A8682", margin: 0 }}>
-          Le paiement en ligne (CinetPay) sera bientôt disponible ici pour gérer ton renouvellement.
-        </p>
+        <p style={{ fontSize: 11, color: "#8A8682", margin: 0 }}>{t("parametres.abonnementNote")}</p>
       </div>
     </div>
   );

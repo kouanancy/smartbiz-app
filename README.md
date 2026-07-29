@@ -32,9 +32,11 @@ Exécute aussi une fois, dans l'ordre, `supabase-clients-actif-migration.sql`
 clients — voir « Clients : suppression vs désactivation » plus bas),
 `supabase-commandes-statut-migration.sql` puis
 `supabase-commandes-livraison-migration.sql` (ajoutent et font évoluer
-`commandes.statut` — voir « Commandes : cycle de vie » plus bas), et enfin
+`commandes.statut` — voir « Commandes : cycle de vie » plus bas),
 `supabase-businesses-devise-migration.sql` (ajoute la colonne
-`businesses.devise` — voir « Devise » plus bas).
+`businesses.devise` — voir « Devise » plus bas), et enfin
+`supabase-businesses-langue-migration.sql` (ajoute la colonne
+`businesses.langue` — voir « Langue » plus bas).
 
 ## Variables d'environnement
 
@@ -179,6 +181,37 @@ succès) restent volontairement indépendantes du thème — elles portent un
 sens (danger/avertissement/succès) qui ne doit pas varier avec la couleur de
 marque choisie par le commerçant.
 
+## Langue
+
+`businesses.langue` (`'fr' | 'en'`, `'fr'` par défaut pour tout nouveau
+compte) contrôle la langue de **toute** l'interface d'administration
+(Dashboard, Nouvelle commande, Articles, Clients, Commandes, Catalogue,
+Paramètres) ainsi que des documents destinés aux clientes générés dans la
+langue du commerçant : le reçu de confirmation (aperçu, message WhatsApp,
+impression PDF) et le catalogue partageable (texte copié/WhatsApp, version
+imprimée). Choix modifiable dans Paramètres → Langue, sans rechargement.
+
+Les textes vivent dans un dictionnaire centralisé, `lib/i18n/` :
+`fr.js` et `en.js` exportent chacun un objet imbriqué par module
+(`dashboard`, `articles`, `commandes`...), et `index.js` expose
+`t(langue, "namespace.cle", variables)` — une entrée peut être une chaîne
+(avec interpolation `{{var}}`) ou une fonction (pour les pluriels et
+phrases dynamiques, ex. `t("dashboard.restant", { n: article.stock })`).
+Chaque page suit le même schéma que pour la devise : elle importe `t` sous
+le nom `tBase` et le ré-enveloppe localement —
+`const t = (key, vars) => tBase(business?.langue, key, vars);` — ce qui
+garde le mécanisme cohérent avec le shim `fmt` déjà en place.
+
+Les dates (`toLocaleDateString`) suivent aussi la langue choisie via
+`dateLocale(langue)` dans `lib/format.js` (`fr-FR` / `en-US`) ; le format
+des montants reste piloté par la devise, indépendamment de la langue.
+
+Ajouter une langue supplémentaire plus tard consiste à créer un nouveau
+fichier `lib/i18n/<code>.js` avec les mêmes clés, l'enregistrer dans
+`DICTS` (`lib/i18n/index.js`) et l'ajouter au sélecteur de Paramètres.
+Nécessite la migration `supabase-businesses-langue-migration.sql` (voir
+Démarrage).
+
 ## Structure
 
 ```
@@ -200,6 +233,7 @@ lib/
   supabaseClient.js        client Supabase (browser)
   AuthProvider.js          contexte auth + création automatique de la ligne business
   constants.js, format.js
+  i18n/                    dictionnaires fr.js / en.js + t() (voir « Langue » ci-dessus)
 ```
 
 ## Limitations connues / suite

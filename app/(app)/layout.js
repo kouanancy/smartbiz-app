@@ -4,12 +4,14 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthProvider";
 import { THEMES } from "@/lib/constants";
+import { t as tBase } from "@/lib/i18n";
 import Sidebar from "@/components/Sidebar";
 import PendingSubscription from "@/components/PendingSubscription";
 
 export default function AppLayout({ children }) {
   const { session, business, signOut } = useAuth();
   const router = useRouter();
+  const t = (key) => tBase(business?.langue, key);
 
   useEffect(() => {
     if (session === null) router.replace("/login");
@@ -35,19 +37,15 @@ export default function AppLayout({ children }) {
   }, [business?.theme_key]);
 
   if (session === undefined || session === null) {
-    return <div className="sb-loading-screen">Chargement…</div>;
+    return <div className="sb-loading-screen">{t("layout.loadingSession")}</div>;
   }
 
   if (business === undefined) {
-    return <div className="sb-loading-screen">Chargement de ta boutique…</div>;
+    return <div className="sb-loading-screen">{t("layout.loadingBusiness")}</div>;
   }
 
   if (business === null) {
-    return (
-      <div className="sb-loading-screen">
-        Impossible de charger ta boutique. Rafraîchis la page ou reconnecte-toi.
-      </div>
-    );
+    return <div className="sb-loading-screen">{t("layout.loadError")}</div>;
   }
 
   if (business.subscription_status !== "actif") {
