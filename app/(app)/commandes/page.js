@@ -1,12 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Ban, CheckCircle2, Pencil, Plus, Printer, Trash2, X } from "lucide-react";
+import { Ban, CheckCircle2, Pencil, Plus, Printer, TruckIcon, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt } from "@/lib/format";
-import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
+import { COMMANDE_STATUT_LABELS, OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
 import Receipt from "@/components/Receipt";
+
+const STATUT_BADGE_CLASS = {
+  en_attente: "sb-badge-amber",
+  livree: "sb-badge-emerald",
+  annulee: "sb-badge-coral",
+};
 
 export default function CommandesPage() {
   const { business } = useAuth();
@@ -16,11 +22,11 @@ export default function CommandesPage() {
   const [zones, setZones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [receipt, setReceipt] = useState(null);
+  const [filtreStatut, setFiltreStatut] = useState("toutes");
 
   const [editingId, setEditingId] = useState(null);
   const [editClientId, setEditClientId] = useState("");
   const [editLignes, setEditLignes] = useState([]);
-  const [editOriginalLignes, setEditOriginalLignes] = useState([]);
   const [editArticleSel, setEditArticleSel] = useState("");
   const [editQte, setEditQte] = useState(1);
   const [editTypeLivraison, setEditTypeLivraison] = useState("boutique");
@@ -60,6 +66,10 @@ export default function CommandesPage() {
     };
   }, [business?.id]);
 
+  const nbEnAttente = commandes.filter((c) => c.statut === "en_attente").length;
+  const commandesFiltrees =
+    filtreStatut === "toutes" ? commandes : commandes.filter((c) => c.statut === filtreStatut);
+
   function reprint(c) {
     setReceipt({
       numero: c.numero,
@@ -81,14 +91,47 @@ export default function CommandesPage() {
     });
   }
 
-  // ---------- Modification ----------
+  // ---------- Livraison (déclenche le déstockage définitif) ----------
+
+  async function marquerLivree(commande) {
+    const stockUpdates = [];
+    for (const l of commande.commande_lignes) {
+      const art = articles.find((a) => a.id === l.article_id);
+      const nouveauStock = (art?.stock || 0) - l.quantite;
+      if (nouveauStock < 0) {
+        window.alert(`Stock insuffisant pour livrer « ${l.articles?.nom ?? "cet article"} ».`);
+        return;
+      }
+      stockUpdates.push({ articleId: l.article_id, nouveauStock });
+    }
+
+    const { error: statutError } = await supabase.from("commandes").update({ statut: "livree" }).eq("id", commande.id);
+    if (statutError) {
+      window.alert(`Impossible de marquer cette commande comme livrée : ${statutError.message}`);
+      return;
+    }
+
+    await Promise.all(
+      stockUpdates.map(({ articleId, nouveauStock }) =>
+        supabase.from("articles").update({ stock: nouveauStock }).eq("id", articleId)
+      )
+    );
+
+    setArticles((prev) =>
+      prev.map((a) => {
+        const upd = stockUpdates.find((u) => u.articleId === a.id);
+        return upd ? { ...a, stock: upd.nouveauStock } : a;
+      })
+    );
+    setCommandes((prev) => prev.map((c) => (c.id === commande.id ? { ...c, statut: "livree" } : c)));
+  }
+
+  // ---------- Modification (uniquement tant qu'en attente : le stock n'a pas encore bougé) ----------
 
   function ouvrirEdition(commande) {
-    const snapshot = commande.commande_lignes.map((l) => ({ articleId: l.article_id, quantite: l.quantite }));
     setEditingId(commande.id);
     setEditClientId(commande.client_id);
-    setEditLignes(snapshot);
-    setEditOriginalLignes(snapshot);
+    setEditLignes(commande.commande_lignes.map((l) => ({ articleId: l.article_id, quantite: l.quantite })));
     setEditArticleSel("");
     setEditQte(1);
     setEditTypeLivraison(commande.livraison_type);
@@ -98,15 +141,14 @@ export default function CommandesPage() {
     setEditError("");
   }
 
-  // Quantité maximale sélectionnable pour un article dans le formulaire de
-  // modification : le stock actuel + ce que CETTE commande y avait déjà
-  // réservé à l'ouverture, moins ce qui est déjà mis dans le brouillon.
+  // Le stock n'étant déduit qu'à la livraison, modifier une commande encore
+  // en attente ne fait que limiter les quantités au stock réel disponible
+  // (moins ce qui est déjà dans le brouillon) — rien à réajuster ailleurs.
   function stockDispoEdition(articleId) {
     const art = articles.find((a) => a.id === articleId);
     if (!art) return 0;
-    const original = editOriginalLignes.find((l) => l.articleId === articleId)?.quantite || 0;
     const dejaDansForm = editLignes.filter((l) => l.articleId === articleId).reduce((s, l) => s + l.quantite, 0);
-    return art.stock + original - dejaDansForm;
+    return art.stock - dejaDansForm;
   }
 
   function addEditLigne() {
@@ -155,23 +197,6 @@ export default function CommandesPage() {
     const ca = fullLignes.reduce((s, l) => s + l.prix_vente * l.quantite, 0);
     const marge = fullLignes.reduce((s, l) => s + (l.prix_vente - l.prix_achat - l.frais_annexes) * l.quantite, 0);
 
-    // Delta de stock par article : positif = plus vendu (à déduire), négatif
-    // = moins vendu (à remettre en stock). Calculé et validé avant toute
-    // écriture pour ne jamais enregistrer un stock négatif.
-    const oldMap = new Map(editOriginalLignes.map((l) => [l.articleId, l.quantite]));
-    const newMap = new Map(editLignes.map((l) => [l.articleId, l.quantite]));
-    const stockUpdates = [];
-    for (const articleId of new Set([...oldMap.keys(), ...newMap.keys()])) {
-      const delta = (newMap.get(articleId) || 0) - (oldMap.get(articleId) || 0);
-      if (delta === 0) continue;
-      const art = articles.find((a) => a.id === articleId);
-      stockUpdates.push({ articleId, nouveauStock: (art?.stock || 0) - delta });
-    }
-    if (stockUpdates.some((u) => u.nouveauStock < 0)) {
-      setEditError("Stock insuffisant pour enregistrer ces quantités.");
-      return;
-    }
-
     setEditError("");
     setEditSaving(true);
     try {
@@ -205,18 +230,6 @@ export default function CommandesPage() {
       );
       if (insertError) throw insertError;
 
-      await Promise.all(
-        stockUpdates.map(({ articleId, nouveauStock }) =>
-          supabase.from("articles").update({ stock: nouveauStock }).eq("id", articleId)
-        )
-      );
-
-      setArticles((prev) =>
-        prev.map((a) => {
-          const upd = stockUpdates.find((u) => u.articleId === a.id);
-          return upd ? { ...a, stock: upd.nouveauStock } : a;
-        })
-      );
       setCommandes((prev) =>
         prev.map((c) =>
           c.id === editingId
@@ -251,34 +264,17 @@ export default function CommandesPage() {
     }
   }
 
-  // ---------- Annulation ----------
+  // ---------- Annulation (uniquement tant qu'en attente — aucun stock à restituer) ----------
 
   async function annulerCommande(commande) {
-    const confirmed = window.confirm("Es-tu sûr(e) de vouloir annuler cette commande ? Le stock sera restitué.");
+    const confirmed = window.confirm("Es-tu sûr(e) de vouloir annuler cette commande ?");
     if (!confirmed) return;
 
-    const { error: statutError } = await supabase.from("commandes").update({ statut: "annulee" }).eq("id", commande.id);
-    if (statutError) {
-      window.alert(`Impossible d'annuler cette commande : ${statutError.message}`);
+    const { error } = await supabase.from("commandes").update({ statut: "annulee" }).eq("id", commande.id);
+    if (error) {
+      window.alert(`Impossible d'annuler cette commande : ${error.message}`);
       return;
     }
-
-    const stockUpdates = commande.commande_lignes.map((l) => {
-      const art = articles.find((a) => a.id === l.article_id);
-      return { articleId: l.article_id, nouveauStock: (art?.stock || 0) + l.quantite };
-    });
-    await Promise.all(
-      stockUpdates.map(({ articleId, nouveauStock }) =>
-        supabase.from("articles").update({ stock: nouveauStock }).eq("id", articleId)
-      )
-    );
-
-    setArticles((prev) =>
-      prev.map((a) => {
-        const upd = stockUpdates.find((u) => u.articleId === a.id);
-        return upd ? { ...a, stock: upd.nouveauStock } : a;
-      })
-    );
     setCommandes((prev) => prev.map((c) => (c.id === commande.id ? { ...c, statut: "annulee" } : c)));
   }
 
@@ -286,8 +282,31 @@ export default function CommandesPage() {
 
   return (
     <div>
-      <h1 className="sb-h1">Commandes</h1>
-      <p className="sb-sub">Historique complet — {commandes.length} commande(s)</p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <h1 className="sb-h1">Commandes</h1>
+          <p className="sb-sub">Historique complet — {commandes.length} commande(s)</p>
+        </div>
+        <span className="sb-badge sb-badge-amber" style={{ fontSize: 12.5, padding: "6px 10px" }}>
+          {nbEnAttente} commande{nbEnAttente > 1 ? "s" : ""} en attente de livraison
+        </span>
+      </div>
+
+      <div className="sb-toggle-group" style={{ margin: "14px 0", flexWrap: "wrap", display: "inline-flex" }}>
+        {[
+          { key: "toutes", label: "Toutes" },
+          { key: "en_attente", label: "En attente de livraison" },
+          { key: "livree", label: "Livrées" },
+        ].map((opt) => (
+          <button
+            key={opt.key}
+            className={`sb-toggle-item${filtreStatut === opt.key ? " active" : ""}`}
+            onClick={() => setFiltreStatut(opt.key)}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
 
       <div className="sb-card">
         <div className="sb-table-scroll">
@@ -305,10 +324,10 @@ export default function CommandesPage() {
               </tr>
             </thead>
             <tbody>
-              {commandes.map((c) => {
-                const annulee = c.statut === "annulee";
+              {commandesFiltrees.map((c) => {
+                const enAttente = c.statut === "en_attente";
                 return (
-                  <tr key={c.id} style={annulee ? { opacity: 0.55 } : undefined}>
+                  <tr key={c.id} style={c.statut === "annulee" ? { opacity: 0.55 } : undefined}>
                     <td className="sb-mono">{c.numero}</td>
                     <td>{new Date(c.created_at).toLocaleDateString("fr-FR")}</td>
                     <td>{c.clients?.nom ?? "—"}</td>
@@ -318,19 +337,24 @@ export default function CommandesPage() {
                     <td className="sb-mono">{fmt(c.ca)}</td>
                     <td className="sb-mono" style={{ color: "#0E8F6E" }}>{fmt(c.marge)}</td>
                     <td>
-                      {annulee ? (
-                        <span className="sb-badge sb-badge-coral">Annulée</span>
-                      ) : (
-                        <span className="sb-badge sb-badge-emerald">Confirmée</span>
-                      )}
+                      <span className={`sb-badge ${STATUT_BADGE_CLASS[c.statut] || "sb-badge-amber"}`}>
+                        {COMMANDE_STATUT_LABELS[c.statut] || c.statut}
+                      </span>
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => reprint(c)}>
                           <Printer size={12} />
                         </button>
-                        {!annulee && (
+                        {enAttente && (
                           <>
+                            <button
+                              className="sb-btn sb-btn-emerald"
+                              style={{ padding: "4px 8px" }}
+                              onClick={() => marquerLivree(c)}
+                            >
+                              <TruckIcon size={12} /> Livré
+                            </button>
                             <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirEdition(c)}>
                               <Pencil size={12} /> Modifier
                             </button>

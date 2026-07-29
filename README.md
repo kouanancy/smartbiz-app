@@ -27,12 +27,12 @@ Avant de pouvoir uploader des photos d'articles, exécute une fois
 le bucket `article-photos` et ses règles d'accès) — voir la section
 « Photos d'articles » plus bas.
 
-Exécute aussi une fois `supabase-clients-actif-migration.sql` (ajoute la
-colonne `clients.actif`, nécessaire à la désactivation de clients — voir
-« Clients : suppression vs désactivation » plus bas) et
-`supabase-commandes-statut-migration.sql` (ajoute `commandes.statut`,
-nécessaire à l'annulation de commandes — voir « Commandes : modification et
-annulation » plus bas).
+Exécute aussi une fois, dans l'ordre, `supabase-clients-actif-migration.sql`
+(ajoute la colonne `clients.actif`, nécessaire à la désactivation de
+clients — voir « Clients : suppression vs désactivation » plus bas),
+`supabase-commandes-statut-migration.sql` puis
+`supabase-commandes-livraison-migration.sql` (ajoutent et font évoluer
+`commandes.statut` — voir « Commandes : cycle de vie » plus bas).
 
 ## Variables d'environnement
 
@@ -92,20 +92,52 @@ script.
 - Nécessite la migration `supabase-clients-actif-migration.sql` (voir
   Démarrage).
 
-## Commandes : modification et annulation
+## Commandes : cycle de vie (en attente / livrée / annulée)
 
-- **Modifier** (client, articles/quantités, livraison, paiement) recalcule
-  automatiquement le CA et la marge de la commande à partir des prix actuels
-  des articles, et réajuste le stock au prorata de l'écart entre l'ancienne
-  et la nouvelle quantité de chaque article (ex. 2 → 3 unités déduit 1 de
-  plus ; 3 → 1 en remet 2). Impossible sur une commande déjà annulée.
-- **Annuler** (au lieu d'une suppression définitive) demande confirmation,
-  remet tout le stock vendu par la commande, puis passe son statut à
-  `annulee`. Elle reste visible dans l'historique avec un badge « Annulée »,
-  mais son CA/sa marge sont exclus des totaux et du graphique du Dashboard.
-  Une commande annulée ne peut plus être ni modifiée ni annulée à nouveau.
-- Nécessite la migration `supabase-commandes-statut-migration.sql` (voir
-  Démarrage).
+`commandes.statut` a trois valeurs possibles : `en_attente` (défaut à la
+création) → `livree` ou `annulee`.
+
+- **À la création**, quel que soit le mode boutique/livraison choisi, la
+  commande démarre `en_attente` et **le stock n'est pas encore déduit**. Le
+  volet « Livraison » du formulaire (boutique/livraison, zone, frais) reste
+  purement indicatif du mode choisi par la cliente — indépendant de ce
+  statut de suivi.
+- **« Livré »** (uniquement sur une commande en attente) déclenche le
+  déstockage définitif — un article insuffisant en stock réel bloque
+  l'action avec un message clair — et passe le statut à `livree`. Le CA et
+  la marge de la commande (déjà calculés à la création à partir des prix du
+  moment) n'apparaissent dans les totaux et le graphique du Dashboard qu'à
+  partir de ce moment (filtre `statut = 'livree'`).
+- **« Modifier »** (client, articles/quantités, livraison, paiement) n'est
+  possible que sur une commande en attente ; comme le stock n'a pas encore
+  bougé, l'édition ne touche à aucun stock — seules les quantités saisies
+  sont plafonnées par le stock réel disponible. Le CA/la marge sont
+  recalculés à l'enregistrement à partir des prix actuels des articles.
+- **« Annuler »** (au lieu d'une suppression définitive) n'est possible que
+  sur une commande en attente — aucune restitution de stock n'est
+  nécessaire puisqu'il n'a jamais été déduit — et demande confirmation
+  (« Es-tu sûr(e) de vouloir annuler cette commande ? »). Une commande
+  livrée ou déjà annulée ne peut plus être ni modifiée ni annulée.
+- La page Commandes affiche un indicateur du nombre de commandes en attente
+  de livraison et un filtre Toutes / En attente de livraison / Livrées.
+- Nécessite les migrations `supabase-commandes-statut-migration.sql` puis
+  `supabase-commandes-livraison-migration.sql` (voir Démarrage) — la
+  seconde bascule aussi les commandes déjà existantes vers `livree`
+  (leur stock avait déjà été déduit sous l'ancien modèle).
+
+## Stock théorique
+
+Le stock affiché sur la page Articles (`articles.stock`) est le stock réel.
+À côté, la colonne **Stock théorique** = stock réel − somme des quantités de
+cet article dans les commandes encore `en_attente`. Un article dont le stock
+théorique tombe à 0 (ou moins, si plusieurs commandes en attente dépassent
+ensemble le stock réel) affiche un badge « Totalement commandé ».
+
+Dans **Nouvelle commande**, sélectionner un article dont le stock théorique
+est ≤ 0 affiche un avertissement à cet endroit précis (« Cet article est
+déjà totalement commandé... ») — l'article reste sélectionnable tant que le
+stock réel le permet, l'avertissement sert seulement à prévenir un
+sur-engagement avant de valider.
 
 ## Structure
 
@@ -148,9 +180,15 @@ lib/
   supprime pas l'ancien fichier du bucket — nettoyage à prévoir plus tard
   si le volume de fichiers orphelins devient significatif.
 - **Numérotation des commandes** (`next_numero`) et mise à jour du stock
-  (création, modification, annulation) ne sont pas transactionnelles
-  (plusieurs appels Supabase séquentiels) — rare collision possible en cas
-  d'usage concurrent intense. À terme, une fonction RPC Postgres
-  (transaction unique) sécuriserait ce flux.
+  (au passage « Livré ») ne sont pas transactionnelles (plusieurs appels
+  Supabase séquentiels) — rare collision possible en cas d'usage concurrent
+  intense. À terme, une fonction RPC Postgres (transaction unique)
+  sécuriserait ce flux.
+- **Stock théorique sur-engagé** : rien n'empêche plusieurs commandes en
+  attente de couvrir ensemble plus que le stock réel d'un article (chacune
+  est seulement plafonnée par le stock réel au moment de sa propre
+  création) — c'est justement ce que la colonne « Stock théorique » et son
+  badge « Totalement commandé » signalent, à charge pour le commerçant
+  d'arbitrer laquelle honorer en premier au moment de livrer.
 - **Paiement CinetPay** et **notifications e-mail (Resend)** ne sont pas
   encore branchés, conformément à `smartbiz-backend-roadmap.md`.
