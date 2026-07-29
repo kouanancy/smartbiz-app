@@ -239,8 +239,24 @@ export default function NouvelleCommandePage() {
         paiement_mode: modePaiement,
         paiement_operateur: modePaiement === "mobile_money" ? operateur : null,
       });
-      setLignes([]);
+      // Formulaire entièrement remis à son état initial pour la prochaine
+      // saisie — la commande qui vient d'être enregistrée reste consultable
+      // via le reçu qui s'ouvre juste après.
+      setMode("existant");
+      setClientId("");
+      setNouveauNom("");
+      setNouveauAdresse("");
+      setNouveauEmail("");
+      setNouveauTel("");
+      setErreurTel(false);
       setClientMsg("");
+      setLignes([]);
+      setArticleSel("");
+      setQte(1);
+      setTypeLivraison("boutique");
+      setZoneLivraison(zones[0]?.zone ?? "");
+      setModePaiement("livraison");
+      setOperateur(OPERATEURS_MOBILE_MONEY[0]);
     } catch (err) {
       setSaveError(err.message || "Une erreur est survenue lors de l'enregistrement.");
     } finally {
