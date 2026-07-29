@@ -121,7 +121,7 @@ export default function CataloguePage() {
           {business?.logo_url ? (
             <img src={business.logo_url} alt={business?.name || "Logo"} />
           ) : (
-            <div className="sb-catalogue-banner-logo-fallback" style={{ color: accent }}>
+            <div className="sb-catalogue-banner-logo-fallback">
               {(business?.name || "SB").slice(0, 2).toUpperCase()}
             </div>
           )}
