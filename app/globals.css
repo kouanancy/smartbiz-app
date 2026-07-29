@@ -611,53 +611,70 @@ a {
   font-size: 17px;
 }
 
-.sb-catalogue-header {
+.sb-catalogue-banner {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  background: #f8f7f5;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  margin-bottom: 16px;
+  gap: 18px;
+  padding: 26px 28px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+  border-radius: 16px;
+  margin-bottom: 22px;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
-.sb-catalogue-header img {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  object-fit: cover;
-}
-.sb-catalogue-logo-fallback {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+.sb-catalogue-banner-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+.sb-catalogue-banner-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.sb-catalogue-banner-logo-fallback {
   font-family: "Space Grotesk", sans-serif;
   font-weight: 700;
-  font-size: 13px;
-  flex-shrink: 0;
+  font-size: 26px;
+}
+.sb-catalogue-banner-name {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 1.2;
+  color: #fff;
+}
+.sb-catalogue-banner-tagline {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.82);
+  margin-top: 4px;
 }
 .sb-catalogue-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 18px;
 }
 .sb-catalogue-card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 .sb-catalogue-thumb {
   width: 100%;
-  aspect-ratio: 1.4;
-  border-radius: 8px;
+  aspect-ratio: 1;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -669,20 +686,14 @@ a {
 }
 .sb-catalogue-thumb-img {
   width: 100%;
-  aspect-ratio: 1.4;
-  border-radius: 8px;
+  aspect-ratio: 1;
+  border-radius: 9px;
   overflow: hidden;
 }
 .sb-catalogue-thumb-img img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-.sb-catalogue-cat {
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #8a8682;
 }
 .sb-catalogue-nom {
   font-size: 13px;
@@ -691,9 +702,15 @@ a {
 }
 .sb-catalogue-prix {
   font-family: "IBM Plex Mono", monospace;
-  font-weight: 600;
-  font-size: 13.5px;
+  font-weight: 700;
+  font-size: 14px;
   color: var(--accent-deep);
+}
+@media (hover: hover) {
+  .sb-catalogue-card:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+  }
 }
 
 .sb-thumb-upload {
@@ -730,11 +747,12 @@ a {
   }
   .sb-catalogue-grid {
     grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
+    gap: 16px;
   }
   .sb-catalogue-card {
     break-inside: avoid;
     box-shadow: none;
+    transform: none;
   }
 }
 
