@@ -29,13 +29,14 @@ export default function ArticlesPage() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(emptyForm);
   const [editError, setEditError] = useState("");
+  const [enAttenteParArticle, setEnAttenteParArticle] = useState({});
 
   useEffect(() => {
     if (!business?.id) return;
     let active = true;
     async function load() {
       setLoading(true);
-      const [articlesRes, categoriesRes, reapprosRes] = await Promise.all([
+      const [articlesRes, categoriesRes, reapprosRes, enAttenteRes] = await Promise.all([
         supabase.from("articles").select("*").eq("business_id", business.id).order("nom"),
         supabase.from("categories").select("*").eq("business_id", business.id).order("nom"),
         supabase
@@ -44,11 +45,21 @@ export default function ArticlesPage() {
           .eq("business_id", business.id)
           .order("created_at", { ascending: false })
           .limit(10),
+        supabase
+          .from("commande_lignes")
+          .select("article_id, quantite, commandes!inner(business_id, statut)")
+          .eq("commandes.business_id", business.id)
+          .eq("commandes.statut", "en_attente"),
       ]);
       if (!active) return;
       setArticles(articlesRes.data || []);
       setCategories(categoriesRes.data || []);
       setReappros(reapprosRes.data || []);
+      const parArticle = {};
+      (enAttenteRes.data || []).forEach((l) => {
+        parArticle[l.article_id] = (parArticle[l.article_id] || 0) + l.quantite;
+      });
+      setEnAttenteParArticle(parArticle);
       setLoading(false);
     }
     load();
@@ -58,6 +69,7 @@ export default function ArticlesPage() {
   }, [business?.id]);
 
   const categorieName = (id) => categories.find((c) => c.id === id)?.nom ?? SANS_CATEGORIE;
+  const stockTheorique = (article) => article.stock - (enAttenteParArticle[article.id] || 0);
 
   function ouvrirReappro(article) {
     setReapproId(article.id);
@@ -378,6 +390,7 @@ export default function ArticlesPage() {
                 <th>Vente</th>
                 <th>Marge réelle</th>
                 <th>Stock</th>
+                <th>Stock théorique</th>
                 <th></th>
                 <th></th>
               </tr>
@@ -385,6 +398,7 @@ export default function ArticlesPage() {
             <tbody>
               {articlesFiltres.map((a) => {
                 const margeReelle = a.prix_vente - a.prix_achat - (a.frais_annexes || 0);
+                const theorique = stockTheorique(a);
                 return (
                   <tr key={a.id}>
                     <td>
@@ -403,6 +417,12 @@ export default function ArticlesPage() {
                       {fmt(margeReelle)}
                     </td>
                     <td className="sb-mono">{a.stock}</td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span className="sb-mono">{theorique}</span>
+                        {theorique <= 0 && <span className="sb-badge sb-badge-coral">Totalement commandé</span>}
+                      </div>
+                    </td>
                     <td>
                       {a.stock === 0 ? (
                         <span className="sb-badge sb-badge-coral">Rupture</span>

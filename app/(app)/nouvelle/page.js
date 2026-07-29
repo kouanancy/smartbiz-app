@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt } from "@/lib/format";
@@ -14,6 +14,7 @@ export default function NouvelleCommandePage() {
   const [clients, setClients] = useState([]);
   const [articles, setArticles] = useState([]);
   const [zones, setZones] = useState([]);
+  const [enAttenteParArticle, setEnAttenteParArticle] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -43,16 +44,26 @@ export default function NouvelleCommandePage() {
     let active = true;
     async function load() {
       setLoading(true);
-      const [clientsRes, articlesRes, zonesRes] = await Promise.all([
+      const [clientsRes, articlesRes, zonesRes, enAttenteRes] = await Promise.all([
         supabase.from("clients").select("*").eq("business_id", business.id).eq("actif", true).order("nom"),
         supabase.from("articles").select("*").eq("business_id", business.id).order("nom"),
         supabase.from("zones_livraison").select("*").eq("business_id", business.id).order("zone"),
+        supabase
+          .from("commande_lignes")
+          .select("article_id, quantite, commandes!inner(business_id, statut)")
+          .eq("commandes.business_id", business.id)
+          .eq("commandes.statut", "en_attente"),
       ]);
       if (!active) return;
       setClients(clientsRes.data || []);
       setArticles(articlesRes.data || []);
       setZones(zonesRes.data || []);
       setZoneLivraison(zonesRes.data?.[0]?.zone ?? "");
+      const parArticle = {};
+      (enAttenteRes.data || []).forEach((l) => {
+        parArticle[l.article_id] = (parArticle[l.article_id] || 0) + l.quantite;
+      });
+      setEnAttenteParArticle(parArticle);
       setLoading(false);
     }
     load();
@@ -69,6 +80,15 @@ export default function NouvelleCommandePage() {
     const art = articles.find((a) => a.id === id);
     const deja = lignes.filter((l) => l.articleId === id).reduce((s, l) => s + l.quantite, 0);
     return art ? art.stock - deja : 0;
+  };
+
+  // Stock réel moins ce que les commandes déjà en attente de livraison
+  // couvrent sur cet article — purement informatif, ne bloque pas la
+  // sélection (seul le stock réel, via stockDispo, la limite).
+  const stockTheorique = (id) => {
+    const art = articles.find((a) => a.id === id);
+    if (!art) return 0;
+    return art.stock - (enAttenteParArticle[id] || 0);
   };
 
   function addLigne() {
@@ -187,12 +207,9 @@ export default function NouvelleCommandePage() {
       );
       if (lignesError) throw lignesError;
 
-      await Promise.all(
-        fullLignes.map((l) => {
-          const art = articles.find((a) => a.id === l.articleId);
-          return supabase.from("articles").update({ stock: art.stock - l.quantite }).eq("id", l.articleId);
-        })
-      );
+      // Le stock n'est plus déduit ici : la commande démarre "en attente de
+      // livraison" (statut par défaut en base) et ne touche au stock qu'au
+      // moment où elle est marquée "Livrée" depuis la page Commandes.
 
       const { data: updatedBusiness } = await supabase
         .from("businesses")
@@ -202,12 +219,13 @@ export default function NouvelleCommandePage() {
         .single();
       if (updatedBusiness) setBusiness(updatedBusiness);
 
-      setArticles((prev) =>
-        prev.map((a) => {
-          const l = fullLignes.find((x) => x.articleId === a.id);
-          return l ? { ...a, stock: a.stock - l.quantite } : a;
-        })
-      );
+      setEnAttenteParArticle((prev) => {
+        const next = { ...prev };
+        fullLignes.forEach((l) => {
+          next[l.articleId] = (next[l.articleId] || 0) + l.quantite;
+        });
+        return next;
+      });
 
       setReceipt({
         numero,
@@ -425,6 +443,17 @@ export default function NouvelleCommandePage() {
                     {fmt(articleSelectionne.prix_vente - articleSelectionne.prix_achat - (articleSelectionne.frais_annexes || 0))}
                   </strong>
                 </div>
+              </div>
+            )}
+
+            {articleSelectionne && stockTheorique(articleSelectionne.id) <= 0 && (
+              <div
+                className="sb-badge sb-badge-amber"
+                style={{ marginTop: 10, fontSize: 12, padding: "8px 12px", display: "flex", alignItems: "center", gap: 6 }}
+              >
+                <AlertTriangle size={13} />
+                Cet article est déjà totalement commandé — les commandes en attente de livraison couvrent tout le stock
+                restant.
               </div>
             )}
 
