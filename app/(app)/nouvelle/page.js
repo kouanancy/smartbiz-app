@@ -7,11 +7,13 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase } from "@/lib/format";
 import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
+import { t as tBase } from "@/lib/i18n";
 import Receipt from "@/components/Receipt";
 
 export default function NouvelleCommandePage() {
   const { business, setBusiness } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
+  const t = (key, vars) => tBase(business?.langue, key, vars);
   const [clients, setClients] = useState([]);
   const [articles, setArticles] = useState([]);
   const [zones, setZones] = useState([]);
@@ -128,7 +130,7 @@ export default function NouvelleCommandePage() {
     const normTel = nouveauTel.replace(/\D/g, "");
     const doublon = clients.find((c) => c.telephone?.replace(/\D/g, "") === normTel);
     if (doublon) {
-      setClientMsg(`Erreur : ${doublon.nom || "une autre cliente"} utilise déjà ce numéro de téléphone.`);
+      setClientMsg(t("nouvelle.duplicatePhone", { nom: doublon.nom || t("nouvelle.autreCliente") }));
       return;
     }
     const { data, error } = await supabase
@@ -143,13 +145,13 @@ export default function NouvelleCommandePage() {
       .select()
       .single();
     if (error) {
-      setClientMsg(`Erreur : ${error.message}`);
+      setClientMsg(t("common.error", { message: error.message }));
       return;
     }
     setClients((prev) => [...prev, data].sort((a, b) => a.nom.localeCompare(b.nom)));
     setClientId(data.id);
     setMode("existant");
-    setClientMsg(`✅ ${data.nom || "Cliente"} enregistrée avec succès`);
+    setClientMsg(t("nouvelle.clienteSavedSuccess", { nom: data.nom || t("nouvelle.defaultClienteNom") }));
     setNouveauNom("");
     setNouveauAdresse("");
     setNouveauEmail("");
@@ -259,30 +261,30 @@ export default function NouvelleCommandePage() {
       setModePaiement("livraison");
       setOperateur(OPERATEURS_MOBILE_MONEY[0]);
     } catch (err) {
-      setSaveError(err.message || "Une erreur est survenue lors de l'enregistrement.");
+      setSaveError(err.message || t("nouvelle.genericSaveError"));
     } finally {
       setSaving(false);
     }
   }
 
-  if (loading) return <p className="sb-sub">Chargement…</p>;
+  if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <h1 className="sb-h1">Nouvelle commande</h1>
-          <p className="sb-sub">Cliente → articles → livraison → paiement → confirmation</p>
+          <h1 className="sb-h1">{t("nouvelle.title")}</h1>
+          <p className="sb-sub">{t("nouvelle.subtitle")}</p>
         </div>
         <div className="sb-badge sb-badge-emerald" style={{ fontSize: 12.5, padding: "6px 10px" }}>
-          N° {numeroPrevu}
+          {t("nouvelle.numeroPrefix", { numero: numeroPrevu })}
         </div>
       </div>
 
       {saveError && <div className="sb-auth-error">{saveError}</div>}
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
-        <div className="sb-section-title">1. Cliente</div>
+        <div className="sb-section-title">{t("nouvelle.step1")}</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <button
             className={`sb-btn ${mode === "existant" ? "sb-btn-primary" : "sb-btn-ghost"}`}
@@ -291,7 +293,7 @@ export default function NouvelleCommandePage() {
               setClientMsg("");
             }}
           >
-            Cliente existante
+            {t("nouvelle.clienteExistante")}
           </button>
           <button
             className={`sb-btn ${mode === "nouveau" ? "sb-btn-primary" : "sb-btn-ghost"}`}
@@ -300,7 +302,7 @@ export default function NouvelleCommandePage() {
               setClientMsg("");
             }}
           >
-            Nouvelle cliente
+            {t("nouvelle.nouvelleCliente")}
           </button>
         </div>
 
@@ -312,13 +314,13 @@ export default function NouvelleCommandePage() {
 
         {mode === "existant" ? (
           clients.length === 0 ? (
-            <p style={{ fontSize: 13, color: "#6B6A63" }}>Aucune cliente enregistrée — crée-en une nouvelle.</p>
+            <p style={{ fontSize: 13, color: "#6B6A63" }}>{t("nouvelle.aucuneCliente")}</p>
           ) : (
             <>
               <div className="sb-field">
-                <label>Cliente</label>
+                <label>{t("nouvelle.clienteLabel")}</label>
                 <select className="sb-input" value={clientId} onChange={(e) => setClientId(e.target.value)}>
-                  <option value="">Sélectionner une cliente</option>
+                  <option value="">{t("nouvelle.selectCliente")}</option>
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nom} — {c.telephone}
@@ -329,15 +331,15 @@ export default function NouvelleCommandePage() {
               {clientSelectionne && (
                 <div className="sb-client-fiche">
                   <div>
-                    <span>Téléphone</span>
+                    <span>{t("nouvelle.telephoneFiche")}</span>
                     <strong>{clientSelectionne.telephone}</strong>
                   </div>
                   <div>
-                    <span>Adresse</span>
+                    <span>{t("nouvelle.adresseFiche")}</span>
                     <strong>{clientSelectionne.adresse || "—"}</strong>
                   </div>
                   <div>
-                    <span>E-mail</span>
+                    <span>{t("nouvelle.emailFiche")}</span>
                     <strong>{clientSelectionne.email || "—"}</strong>
                   </div>
                 </div>
@@ -347,38 +349,38 @@ export default function NouvelleCommandePage() {
         ) : (
           <div className="sb-form-grid">
             <div className="sb-field" style={{ gridColumn: "1 / 3" }}>
-              <label>Nom et prénoms</label>
+              <label>{t("nouvelle.nomLabel")}</label>
               <input
                 className="sb-input"
-                placeholder="Ex. Aïcha Koné"
+                placeholder={t("nouvelle.nomPlaceholder")}
                 value={nouveauNom}
                 onChange={(e) => setNouveauNom(e.target.value)}
               />
             </div>
             <div className="sb-field" style={{ gridColumn: "1 / 3" }}>
-              <label>Adresse</label>
+              <label>{t("nouvelle.adresseLabel")}</label>
               <input
                 className="sb-input"
-                placeholder="Ex. Cocody, Abidjan"
+                placeholder={t("nouvelle.adressePlaceholder")}
                 value={nouveauAdresse}
                 onChange={(e) => setNouveauAdresse(e.target.value)}
               />
             </div>
             <div className="sb-field">
-              <label>E-mail (facultatif)</label>
+              <label>{t("nouvelle.emailLabel")}</label>
               <input
                 className="sb-input"
-                placeholder="ex. cliente@example.com"
+                placeholder={t("nouvelle.emailPlaceholder")}
                 type="email"
                 value={nouveauEmail}
                 onChange={(e) => setNouveauEmail(e.target.value)}
               />
             </div>
             <div className="sb-field">
-              <label>Téléphone</label>
+              <label>{t("nouvelle.telephoneLabel")}</label>
               <input
                 className="sb-input"
-                placeholder="Ex. 07 01 22 33 44"
+                placeholder={t("nouvelle.telephonePlaceholder")}
                 value={nouveauTel}
                 onChange={(e) => {
                   setNouveauTel(e.target.value);
@@ -387,7 +389,7 @@ export default function NouvelleCommandePage() {
                 style={erreurTel ? { borderColor: "#C24E37" } : undefined}
               />
               <p style={{ fontSize: 11, color: erreurTel ? "#C24E37" : "#6E6B68", margin: "5px 2px 0" }}>
-                {erreurTel ? "Le numéro de téléphone est obligatoire." : "Obligatoire — de préférence un numéro WhatsApp."}
+                {erreurTel ? t("nouvelle.telephoneRequiredError") : t("nouvelle.telephoneHint")}
               </p>
             </div>
             <button
@@ -395,34 +397,34 @@ export default function NouvelleCommandePage() {
               style={{ gridColumn: "1 / 3", justifyContent: "center" }}
               onClick={enregistrerClient}
             >
-              <CheckCircle2 size={14} /> Enregistrer la cliente
+              <CheckCircle2 size={14} /> {t("nouvelle.saveCliente")}
             </button>
           </div>
         )}
       </div>
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
-        <div className="sb-section-title">2. Articles</div>
+        <div className="sb-section-title">{t("nouvelle.step2")}</div>
         {articles.length === 0 ? (
           <p style={{ fontSize: 13, color: "#6B6A63" }}>
-            Aucun article en stock — ajoutes-en depuis la page <Link href="/articles">Stock / Articles</Link>.
+            {t("nouvelle.aucunArticlePrefix")} <Link href="/articles">{t("sidebar.nav.articles")}</Link>.
           </p>
         ) : (
           <>
             <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
               <div className="sb-field" style={{ flex: 2, minWidth: 160 }}>
-                <label>Article</label>
+                <label>{t("nouvelle.articleLabel")}</label>
                 <select className="sb-input" value={articleSel} onChange={(e) => setArticleSel(e.target.value)}>
-                  <option value="">Sélectionner un article</option>
+                  <option value="">{t("nouvelle.selectArticle")}</option>
                   {articles.map((a) => (
                     <option key={a.id} value={a.id} disabled={a.stock === 0}>
-                      {a.nom} — {fmt(a.prix_vente)} ({a.stock} en stock)
+                      {a.nom} — {fmt(a.prix_vente)} {t("nouvelle.stockSuffix", { n: a.stock })}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="sb-field" style={{ flex: 0.5, minWidth: 70 }}>
-                <label>Quantité</label>
+                <label>{t("nouvelle.quantiteLabel")}</label>
                 <input
                   className="sb-input"
                   type="number"
@@ -433,22 +435,22 @@ export default function NouvelleCommandePage() {
                 />
               </div>
               <button className="sb-btn sb-btn-primary" onClick={addLigne} disabled={!articleSel || stockDispo(articleSel) < 1}>
-                <Plus size={14} /> Ajouter
+                <Plus size={14} /> {t("nouvelle.ajouter")}
               </button>
             </div>
 
             {articleSelectionne && (
               <div className="sb-preview-prix">
                 <div>
-                  <span>Prix de vente</span>
+                  <span>{t("nouvelle.prixVente")}</span>
                   <strong>{fmt(articleSelectionne.prix_vente)}</strong>
                 </div>
                 <div>
-                  <span>Prix d&apos;achat</span>
+                  <span>{t("nouvelle.prixAchat")}</span>
                   <strong>{fmt(articleSelectionne.prix_achat)}</strong>
                 </div>
                 <div>
-                  <span>Marge réelle / unité</span>
+                  <span>{t("nouvelle.margeUnitaire")}</span>
                   <strong
                     style={{
                       color:
@@ -469,24 +471,23 @@ export default function NouvelleCommandePage() {
                 style={{ marginTop: 10, fontSize: 12, padding: "8px 12px", display: "flex", alignItems: "center", gap: 6 }}
               >
                 <AlertTriangle size={13} />
-                Cet article est déjà totalement commandé — les commandes en attente de livraison couvrent tout le stock
-                restant.
+                {t("nouvelle.dejaCommandeWarning")}
               </div>
             )}
 
             {lignes.length === 0 ? (
-              <p style={{ fontSize: 13, color: "#6B6A63", marginTop: 12 }}>Aucun article ajouté pour l&apos;instant.</p>
+              <p style={{ fontSize: 13, color: "#6B6A63", marginTop: 12 }}>{t("nouvelle.aucunArticleAjoute")}</p>
             ) : (
               <div className="sb-table-scroll" style={{ marginTop: 14 }}>
                 <table className="sb-table">
                   <thead>
                     <tr>
-                      <th>Article</th>
-                      <th>Prix vente</th>
-                      <th>Prix achat</th>
-                      <th>Marge</th>
-                      <th>Qté</th>
-                      <th>Sous-total</th>
+                      <th>{t("nouvelle.colArticle")}</th>
+                      <th>{t("nouvelle.colPrixVente")}</th>
+                      <th>{t("nouvelle.colPrixAchat")}</th>
+                      <th>{t("nouvelle.colMarge")}</th>
+                      <th>{t("nouvelle.colQte")}</th>
+                      <th>{t("nouvelle.colSousTotal")}</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -521,25 +522,25 @@ export default function NouvelleCommandePage() {
       </div>
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
-        <div className="sb-section-title">3. Livraison</div>
+        <div className="sb-section-title">{t("nouvelle.step3")}</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <button
             className={`sb-btn ${typeLivraison === "boutique" ? "sb-btn-primary" : "sb-btn-ghost"}`}
             onClick={() => setTypeLivraison("boutique")}
           >
-            Récupération en boutique
+            {t("nouvelle.recuperationBoutique")}
           </button>
           <button
             className={`sb-btn ${typeLivraison === "livraison" ? "sb-btn-primary" : "sb-btn-ghost"}`}
             onClick={() => setTypeLivraison("livraison")}
             disabled={zones.length === 0}
           >
-            Livraison
+            {t("nouvelle.livraison")}
           </button>
         </div>
         {typeLivraison === "livraison" ? (
           <div className="sb-field">
-            <label>Zone de livraison</label>
+            <label>{t("nouvelle.zoneLivraisonLabel")}</label>
             <select className="sb-input" value={zoneLivraison} onChange={(e) => setZoneLivraison(e.target.value)}>
               {zones.map((z) => (
                 <option key={z.id} value={z.zone}>
@@ -550,32 +551,32 @@ export default function NouvelleCommandePage() {
           </div>
         ) : zones.length === 0 ? (
           <p style={{ fontSize: 12.5, color: "#6E6B68", margin: 0 }}>
-            Aucune zone de livraison configurée — ajoute-en depuis <Link href="/parametres">Paramètres</Link>.
+            {t("nouvelle.aucuneZonePrefix")} <Link href="/parametres">{t("sidebar.nav.parametres")}</Link>.
           </p>
         ) : (
-          <p style={{ fontSize: 12.5, color: "#6E6B68", margin: 0 }}>Aucun frais de livraison — la cliente récupère sa commande en boutique.</p>
+          <p style={{ fontSize: 12.5, color: "#6E6B68", margin: 0 }}>{t("nouvelle.aucunFraisLivraison")}</p>
         )}
       </div>
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
-        <div className="sb-section-title">4. Paiement</div>
+        <div className="sb-section-title">{t("nouvelle.step4")}</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <button
             className={`sb-btn ${modePaiement === "livraison" ? "sb-btn-primary" : "sb-btn-ghost"}`}
             onClick={() => setModePaiement("livraison")}
           >
-            Paiement à la livraison
+            {t("nouvelle.paiementLivraison")}
           </button>
           <button
             className={`sb-btn ${modePaiement === "mobile_money" ? "sb-btn-primary" : "sb-btn-ghost"}`}
             onClick={() => setModePaiement("mobile_money")}
           >
-            Mobile Money
+            {t("nouvelle.mobileMoney")}
           </button>
         </div>
         {modePaiement === "mobile_money" && (
           <div className="sb-field">
-            <label>Opérateur</label>
+            <label>{t("nouvelle.operateurLabel")}</label>
             <select className="sb-input" value={operateur} onChange={(e) => setOperateur(e.target.value)}>
               {OPERATEURS_MOBILE_MONEY.map((op) => (
                 <option key={op} value={op}>
@@ -588,27 +589,27 @@ export default function NouvelleCommandePage() {
       </div>
 
       <div className="sb-card">
-        <div className="sb-section-title">Résumé</div>
+        <div className="sb-section-title">{t("nouvelle.resume")}</div>
         <div className="sb-resume-commande">
           <div>
-            <span>Total articles</span>
+            <span>{t("nouvelle.totalArticles")}</span>
             <strong>{fmt(totalCa)}</strong>
           </div>
           <div>
-            <span>Frais de livraison</span>
+            <span>{t("nouvelle.fraisLivraison")}</span>
             <strong>{fmt(fraisLivraison)}</strong>
           </div>
           <div className="sb-resume-total">
-            <span>Total à payer</span>
+            <span>{t("nouvelle.totalAPayer")}</span>
             <strong>{fmt(totalAvecLivraison)}</strong>
           </div>
           <div>
-            <span>Marge réelle estimée</span>
+            <span>{t("nouvelle.margeEstimee")}</span>
             <strong style={{ color: totalMargeReelle >= 0 ? "#0E8F6E" : "#C24E37" }}>{fmt(totalMargeReelle)}</strong>
           </div>
         </div>
         <button className="sb-btn sb-btn-emerald" style={{ width: "100%", justifyContent: "center", marginTop: 14 }} disabled={!peutValider} onClick={valider}>
-          <CheckCircle2 size={15} /> {saving ? "Enregistrement…" : "Enregistrer & confirmer"}
+          <CheckCircle2 size={15} /> {saving ? t("nouvelle.enregistrement") : t("nouvelle.enregistrerConfirmer")}
         </button>
       </div>
 

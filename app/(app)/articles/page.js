@@ -4,15 +4,19 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt as fmtBase } from "@/lib/format";
-import { SANS_CATEGORIE } from "@/lib/constants";
+import { fmt as fmtBase, dateLocale } from "@/lib/format";
+import { t as tBase } from "@/lib/i18n";
 import ImageUploadField from "@/components/ImageUploadField";
 
 const emptyForm = { nom: "", categorie_id: "", prix_achat: "", frais_annexes: "", prix_vente: "", stock: "", seuil: "3", image_url: "" };
 
+const FILTRE_TOUTES = "toutes";
+const FILTRE_SANS_CATEGORIE = "sans-categorie";
+
 export default function ArticlesPage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
+  const t = (key, vars) => tBase(business?.langue, key, vars);
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [reappros, setReappros] = useState([]);
@@ -23,7 +27,7 @@ export default function ArticlesPage() {
   const [showCatManager, setShowCatManager] = useState(false);
   const [newCat, setNewCat] = useState("");
   const [catMsg, setCatMsg] = useState("");
-  const [filtreCategorie, setFiltreCategorie] = useState("Toutes");
+  const [filtreCategorie, setFiltreCategorie] = useState(FILTRE_TOUTES);
   const [recherche, setRecherche] = useState("");
   const [reapproId, setReapproId] = useState(null);
   const [reapproForm, setReapproForm] = useState({ quantite: "", prix_achat: "", frais_annexes: "" });
@@ -69,7 +73,7 @@ export default function ArticlesPage() {
     };
   }, [business?.id]);
 
-  const categorieName = (id) => categories.find((c) => c.id === id)?.nom ?? SANS_CATEGORIE;
+  const categorieName = (id) => categories.find((c) => c.id === id)?.nom ?? t("common.sansCategorie");
   const stockTheorique = (article) => article.stock - (enAttenteParArticle[article.id] || 0);
 
   function ouvrirReappro(article) {
@@ -127,7 +131,7 @@ export default function ArticlesPage() {
   async function validerEdition(e) {
     e.preventDefault();
     if (!editForm.nom.trim() || !editForm.prix_vente) {
-      setEditError("Le nom et le prix de vente sont obligatoires.");
+      setEditError(t("articles.nomRequiredError"));
       return;
     }
     const { data, error } = await supabase
@@ -155,16 +159,14 @@ export default function ArticlesPage() {
   }
 
   async function supprimerArticle(article) {
-    const confirmed = window.confirm(`Supprimer définitivement « ${article.nom} » ? Cette action est irréversible.`);
+    const confirmed = window.confirm(t("articles.confirmDelete", { nom: article.nom }));
     if (!confirmed) return;
     const { error } = await supabase.from("articles").delete().eq("id", article.id);
     if (error) {
       if (error.code === "23503") {
-        window.alert(
-          `« ${article.nom} » est lié à des commandes déjà enregistrées et ne peut pas être supprimé. Tu peux le laisser à 0 en stock à la place.`
-        );
+        window.alert(t("articles.deleteLinkedError", { nom: article.nom }));
       } else {
-        window.alert(`Impossible de supprimer cet article : ${error.message}`);
+        window.alert(t("articles.deleteGenericError", { message: error.message }));
       }
       return;
     }
@@ -198,12 +200,12 @@ export default function ArticlesPage() {
   async function addCategory() {
     const nom = newCat.trim();
     if (!nom) return;
-    if (nom.toLowerCase() === SANS_CATEGORIE.toLowerCase()) {
-      setCatMsg(`« ${SANS_CATEGORIE} » est un libellé réservé aux articles sans catégorie — choisis un autre nom.`);
+    if (nom.toLowerCase() === t("common.sansCategorie").toLowerCase()) {
+      setCatMsg(t("articles.catReservedMsg", { nom: t("common.sansCategorie") }));
       return;
     }
     if (categories.some((c) => c.nom.toLowerCase() === nom.toLowerCase())) {
-      setCatMsg("Cette catégorie existe déjà.");
+      setCatMsg(t("articles.catExistsMsg"));
       return;
     }
     const { data, error } = await supabase.from("categories").insert({ business_id: business.id, nom }).select().single();
@@ -219,7 +221,7 @@ export default function ArticlesPage() {
   async function removeCategory(cat) {
     const utilisee = articles.some((a) => a.categorie_id === cat.id);
     if (utilisee) {
-      setCatMsg(`« ${cat.nom} » est utilisée par au moins un article — impossible à supprimer.`);
+      setCatMsg(t("articles.catUsedMsg", { nom: cat.nom }));
       return;
     }
     const { error } = await supabase.from("categories").delete().eq("id", cat.id);
@@ -229,41 +231,47 @@ export default function ArticlesPage() {
     }
     setCategories((prev) => prev.filter((c) => c.id !== cat.id));
     setCatMsg("");
-    if (filtreCategorie === cat.nom) setFiltreCategorie("Toutes");
+    if (filtreCategorie === cat.id) setFiltreCategorie(FILTRE_TOUTES);
   }
 
   const rechercheNormalisee = recherche.trim().toLowerCase();
   const articlesFiltres = articles.filter((a) => {
-    const matchCategorie = filtreCategorie === "Toutes" || categorieName(a.categorie_id) === filtreCategorie;
+    const matchCategorie =
+      filtreCategorie === FILTRE_TOUTES ||
+      (filtreCategorie === FILTRE_SANS_CATEGORIE ? !a.categorie_id : a.categorie_id === filtreCategorie);
     const matchRecherche = !rechercheNormalisee || a.nom.toLowerCase().includes(rechercheNormalisee);
     return matchCategorie && matchRecherche;
   });
 
-  if (loading) return <p className="sb-sub">Chargement…</p>;
+  const filtresCategorie = [
+    { key: FILTRE_TOUTES, label: t("common.toutes") },
+    { key: FILTRE_SANS_CATEGORIE, label: t("common.sansCategorie") },
+    ...categories.map((c) => ({ key: c.id, label: c.nom })),
+  ];
+
+  if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <h1 className="sb-h1">Stock / Articles</h1>
-          <p className="sb-sub">{articles.length} article(s) référencé(s)</p>
+          <h1 className="sb-h1">{t("articles.title")}</h1>
+          <p className="sb-sub">{t("articles.subtitleCount", { n: articles.length })}</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="sb-btn sb-btn-ghost" onClick={() => setShowCatManager((s) => !s)}>
-            Catégories
+            {t("articles.categoriesBtn")}
           </button>
           <button className="sb-btn sb-btn-primary" onClick={() => setShowForm((s) => !s)}>
-            <Plus size={14} /> Nouvel article
+            <Plus size={14} /> {t("articles.newArticle")}
           </button>
         </div>
       </div>
 
       {showCatManager && (
         <div className="sb-card" style={{ marginBottom: 16 }}>
-          <div className="sb-section-title">Catégories du commerce</div>
-          <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>
-            Configure ici les catégories propres à ton activité (ex. Extensions capillaires, Accessoires...).
-          </p>
+          <div className="sb-section-title">{t("articles.catManagerTitle")}</div>
+          <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("articles.catManagerSub")}</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
             {categories.map((c) => (
               <span key={c.id} className="sb-badge sb-badge-emerald" style={{ padding: "5px 10px", fontSize: 12 }}>
@@ -274,11 +282,16 @@ export default function ArticlesPage() {
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
             <div className="sb-field" style={{ flex: 1 }}>
-              <label>Nouvelle catégorie</label>
-              <input className="sb-input" placeholder="Ex. Accessoires" value={newCat} onChange={(e) => setNewCat(e.target.value)} />
+              <label>{t("articles.newCategoryLabel")}</label>
+              <input
+                className="sb-input"
+                placeholder={t("articles.newCategoryPlaceholder")}
+                value={newCat}
+                onChange={(e) => setNewCat(e.target.value)}
+              />
             </div>
             <button className="sb-btn sb-btn-primary" onClick={addCategory}>
-              <Plus size={14} /> Ajouter
+              <Plus size={14} /> {t("articles.addBtn")}
             </button>
           </div>
           {catMsg && <p style={{ fontSize: 12, color: "#C24E37", margin: "8px 2px 0" }}>{catMsg}</p>}
@@ -288,18 +301,18 @@ export default function ArticlesPage() {
       {showForm && (
         <form onSubmit={submit} className="sb-card sb-form-grid" style={{ marginBottom: 18 }}>
           <div className="sb-field" style={{ gridColumn: "1 / 3" }}>
-            <label>Nom de l&apos;article</label>
+            <label>{t("articles.nomLabel")}</label>
             <input
               className="sb-input"
-              placeholder="Ex. Perruque Lace Front 20 pouces"
+              placeholder={t("articles.nomPlaceholder")}
               value={form.nom}
               onChange={(e) => setForm({ ...form, nom: e.target.value })}
             />
           </div>
           <div className="sb-field">
-            <label>Catégorie</label>
+            <label>{t("articles.categorieLabel")}</label>
             <select className="sb-input" value={form.categorie_id} onChange={(e) => setForm({ ...form, categorie_id: e.target.value })}>
-              <option value="">{SANS_CATEGORIE}</option>
+              <option value="">{t("common.sansCategorie")}</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nom}
@@ -308,53 +321,65 @@ export default function ArticlesPage() {
             </select>
           </div>
           <div className="sb-field">
-            <label>Stock initial</label>
-            <input className="sb-input" placeholder="Ex. 10" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
-          </div>
-          <div className="sb-field">
-            <label>Prix d&apos;achat (FCFA)</label>
+            <label>{t("articles.stockInitialLabel")}</label>
             <input
               className="sb-input"
-              placeholder="Ex. 8000"
+              placeholder={t("articles.stockInitialPlaceholder")}
+              type="number"
+              value={form.stock}
+              onChange={(e) => setForm({ ...form, stock: e.target.value })}
+            />
+          </div>
+          <div className="sb-field">
+            <label>{t("articles.prixAchatLabel")}</label>
+            <input
+              className="sb-input"
+              placeholder={t("articles.prixAchatPlaceholder")}
               type="number"
               value={form.prix_achat}
               onChange={(e) => setForm({ ...form, prix_achat: e.target.value })}
             />
           </div>
           <div className="sb-field">
-            <label>Frais annexes / unité (FCFA) — facultatif</label>
+            <label>{t("articles.fraisAnnexesLabel")}</label>
             <input
               className="sb-input"
-              placeholder="Ex. 1000"
+              placeholder={t("articles.fraisAnnexesPlaceholder")}
               type="number"
               value={form.frais_annexes}
               onChange={(e) => setForm({ ...form, frais_annexes: e.target.value })}
             />
           </div>
           <div className="sb-field">
-            <label>Prix de vente (FCFA)</label>
+            <label>{t("articles.prixVenteLabel")}</label>
             <input
               className="sb-input"
-              placeholder="Ex. 15000"
+              placeholder={t("articles.prixVentePlaceholder")}
               type="number"
               value={form.prix_vente}
               onChange={(e) => setForm({ ...form, prix_vente: e.target.value })}
             />
           </div>
           <div className="sb-field">
-            <label>Seuil d&apos;alerte</label>
-            <input className="sb-input" placeholder="Ex. 3" type="number" value={form.seuil} onChange={(e) => setForm({ ...form, seuil: e.target.value })} />
+            <label>{t("articles.seuilLabel")}</label>
+            <input
+              className="sb-input"
+              placeholder={t("articles.seuilPlaceholder")}
+              type="number"
+              value={form.seuil}
+              onChange={(e) => setForm({ ...form, seuil: e.target.value })}
+            />
           </div>
           <div style={{ gridColumn: "1 / 3" }}>
             <ImageUploadField
-              label="Photo du produit"
+              label={t("articles.photoLabel")}
               businessId={business.id}
               value={form.image_url}
               onChange={(url) => setForm((f) => ({ ...f, image_url: url }))}
             />
           </div>
           <button className="sb-btn sb-btn-emerald" type="submit" style={{ gridColumn: "1 / 3", justifyContent: "center" }}>
-            Ajouter l&apos;article
+            {t("articles.addSubmit")}
           </button>
         </form>
       )}
@@ -364,16 +389,20 @@ export default function ArticlesPage() {
         <input
           className="sb-input"
           style={{ paddingLeft: 30 }}
-          placeholder="Rechercher un article"
+          placeholder={t("articles.searchPlaceholder")}
           value={recherche}
           onChange={(e) => setRecherche(e.target.value)}
         />
       </div>
 
       <div className="sb-toggle-group" style={{ marginBottom: 14, flexWrap: "wrap", display: "inline-flex" }}>
-        {["Toutes", SANS_CATEGORIE, ...categories.map((c) => c.nom)].map((c) => (
-          <button key={c} className={`sb-toggle-item${filtreCategorie === c ? " active" : ""}`} onClick={() => setFiltreCategorie(c)}>
-            {c}
+        {filtresCategorie.map((opt) => (
+          <button
+            key={opt.key}
+            className={`sb-toggle-item${filtreCategorie === opt.key ? " active" : ""}`}
+            onClick={() => setFiltreCategorie(opt.key)}
+          >
+            {opt.label}
           </button>
         ))}
       </div>
@@ -384,14 +413,14 @@ export default function ArticlesPage() {
             <thead>
               <tr>
                 <th></th>
-                <th>Article</th>
-                <th>Catégorie</th>
-                <th>Achat</th>
-                <th>Frais annexes</th>
-                <th>Vente</th>
-                <th>Marge réelle</th>
-                <th>Stock</th>
-                <th>Stock théorique</th>
+                <th>{t("articles.colArticle")}</th>
+                <th>{t("articles.colCategorie")}</th>
+                <th>{t("articles.colAchat")}</th>
+                <th>{t("articles.colFraisAnnexes")}</th>
+                <th>{t("articles.colVente")}</th>
+                <th>{t("articles.colMargeReelle")}</th>
+                <th>{t("articles.colStock")}</th>
+                <th>{t("articles.colStockTheorique")}</th>
                 <th></th>
                 <th></th>
               </tr>
@@ -421,32 +450,32 @@ export default function ArticlesPage() {
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <span className="sb-mono">{theorique}</span>
-                        {theorique <= 0 && <span className="sb-badge sb-badge-coral">Totalement commandé</span>}
+                        {theorique <= 0 && <span className="sb-badge sb-badge-coral">{t("common.badgeTotalementCommande")}</span>}
                       </div>
                     </td>
                     <td>
                       {a.stock === 0 ? (
-                        <span className="sb-badge sb-badge-coral">Rupture</span>
+                        <span className="sb-badge sb-badge-coral">{t("common.badgeRupture")}</span>
                       ) : a.stock <= a.seuil ? (
-                        <span className="sb-badge sb-badge-amber">Faible</span>
+                        <span className="sb-badge sb-badge-amber">{t("common.badgeFaible")}</span>
                       ) : (
-                        <span className="sb-badge sb-badge-emerald">OK</span>
+                        <span className="sb-badge sb-badge-emerald">{t("common.badgeOk")}</span>
                       )}
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirReappro(a)}>
-                          <RefreshCw size={12} /> Réappro.
+                          <RefreshCw size={12} /> {t("articles.reappro")}
                         </button>
                         <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirEdition(a)}>
-                          <Pencil size={12} /> Modifier
+                          <Pencil size={12} /> {t("articles.modifier")}
                         </button>
                         <button
                           className="sb-btn sb-btn-ghost"
                           style={{ padding: "4px 8px", color: "#C24E37" }}
                           onClick={() => supprimerArticle(a)}
                         >
-                          <Trash2 size={12} /> Supprimer
+                          <Trash2 size={12} /> {t("articles.supprimer")}
                         </button>
                       </div>
                     </td>
@@ -459,19 +488,17 @@ export default function ArticlesPage() {
       </div>
 
       <div className="sb-card">
-        <div className="sb-section-title">Marge réelle sur le stock actuel</div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>
-          Prend en compte les frais annexes (transport, importation...) pour estimer la marge réellement disponible sur les articles en stock.
-        </p>
+        <div className="sb-section-title">{t("articles.margeReelleTitle")}</div>
+        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("articles.margeReelleSub")}</p>
         <div className="sb-table-scroll">
           <table className="sb-table">
             <thead>
               <tr>
-                <th>Article</th>
-                <th>Coût réel / unité</th>
-                <th>Marge réelle / unité</th>
-                <th>Stock</th>
-                <th>Marge réelle totale</th>
+                <th>{t("articles.colArticle")}</th>
+                <th>{t("articles.colCoutReel")}</th>
+                <th>{t("articles.colMargeUnitaire")}</th>
+                <th>{t("articles.colStock")}</th>
+                <th>{t("articles.colMargeTotale")}</th>
               </tr>
             </thead>
             <tbody>
@@ -496,7 +523,7 @@ export default function ArticlesPage() {
             </tbody>
             <tfoot>
               <tr>
-                <td style={{ fontWeight: 600, borderTop: "1px solid var(--line)" }}>Total</td>
+                <td style={{ fontWeight: 600, borderTop: "1px solid var(--line)" }}>{t("articles.total")}</td>
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
@@ -512,23 +539,23 @@ export default function ArticlesPage() {
       {reappros.length > 0 && (
         <div className="sb-card" style={{ marginTop: 20 }}>
           <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <RefreshCw size={15} color="var(--accent-deep)" /> Historique des réapprovisionnements
+            <RefreshCw size={15} color="var(--accent-deep)" /> {t("articles.historiqueReappro")}
           </div>
           <div className="sb-table-scroll">
             <table className="sb-table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Article</th>
-                  <th>Quantité ajoutée</th>
-                  <th>Prix d&apos;achat</th>
-                  <th>Frais annexes</th>
+                  <th>{t("dashboard.colDate")}</th>
+                  <th>{t("articles.colArticle")}</th>
+                  <th>{t("articles.colQuantiteAjoutee")}</th>
+                  <th>{t("articles.colPrixAchat")}</th>
+                  <th>{t("articles.colFraisAnnexes")}</th>
                 </tr>
               </thead>
               <tbody>
                 {reappros.map((r) => (
                   <tr key={r.id}>
-                    <td>{new Date(r.created_at).toLocaleDateString("fr-FR")}</td>
+                    <td>{new Date(r.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
                     <td>{r.articles?.nom ?? "—"}</td>
                     <td className="sb-mono">+{r.quantite}</td>
                     <td className="sb-mono">{fmt(r.prix_achat)}</td>
@@ -549,7 +576,7 @@ export default function ArticlesPage() {
               <div className="sb-card" style={{ width: 340, background: "#fff" }} onClick={(e) => e.stopPropagation()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                   <div className="sb-section-title" style={{ margin: 0 }}>
-                    Réapprovisionner
+                    {t("articles.reapproModalTitle")}
                   </div>
                   <button onClick={() => setReapproId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
                     <X size={16} />
@@ -559,10 +586,10 @@ export default function ArticlesPage() {
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <div className="sb-field">
-                    <label>Quantité ajoutée</label>
+                    <label>{t("articles.quantiteAjouteeLabel")}</label>
                     <input
                       className="sb-input"
-                      placeholder="Ex. 10"
+                      placeholder={t("articles.quantitePlaceholder")}
                       type="number"
                       min={1}
                       value={reapproForm.quantite}
@@ -570,30 +597,28 @@ export default function ArticlesPage() {
                     />
                   </div>
                   <div className="sb-field">
-                    <label>Nouveau prix d&apos;achat (FCFA)</label>
+                    <label>{t("articles.nouveauPrixAchatLabel")}</label>
                     <input
                       className="sb-input"
-                      placeholder="Ex. 8000"
+                      placeholder={t("articles.prixAchatPlaceholder")}
                       type="number"
                       value={reapproForm.prix_achat}
                       onChange={(e) => setReapproForm({ ...reapproForm, prix_achat: e.target.value })}
                     />
                   </div>
                   <div className="sb-field">
-                    <label>Frais annexes / unité (FCFA) — facultatif</label>
+                    <label>{t("articles.fraisAnnexesLabel")}</label>
                     <input
                       className="sb-input"
-                      placeholder="Ex. 1000"
+                      placeholder={t("articles.fraisAnnexesPlaceholder")}
                       type="number"
                       value={reapproForm.frais_annexes}
                       onChange={(e) => setReapproForm({ ...reapproForm, frais_annexes: e.target.value })}
                     />
                   </div>
-                  <p style={{ fontSize: 11, color: "#6E6B68", margin: 0 }}>
-                    Le stock, le prix d&apos;achat et les frais annexes de l&apos;article seront mis à jour avec ces valeurs.
-                  </p>
+                  <p style={{ fontSize: 11, color: "#6E6B68", margin: 0 }}>{t("articles.reapproNote")}</p>
                   <button className="sb-btn sb-btn-emerald" style={{ justifyContent: "center" }} onClick={validerReappro} disabled={!reapproForm.quantite}>
-                    <CheckCircle2 size={14} /> Confirmer le réapprovisionnement
+                    <CheckCircle2 size={14} /> {t("articles.confirmerReappro")}
                   </button>
                 </div>
               </div>
@@ -614,7 +639,7 @@ export default function ArticlesPage() {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                   <div className="sb-section-title" style={{ margin: 0 }}>
-                    Modifier l&apos;article
+                    {t("articles.editModalTitle")}
                   </div>
                   <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
                     <X size={16} />
@@ -623,18 +648,18 @@ export default function ArticlesPage() {
 
                 <form onSubmit={validerEdition} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
                   <div className="sb-field">
-                    <label>Nom de l&apos;article</label>
+                    <label>{t("articles.nomLabel")}</label>
                     <input
                       className="sb-input"
-                      placeholder="Ex. Perruque Lace Front 20 pouces"
+                      placeholder={t("articles.nomPlaceholder")}
                       value={editForm.nom}
                       onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
                     />
                   </div>
                   <div className="sb-field">
-                    <label>Catégorie</label>
+                    <label>{t("articles.categorieLabel")}</label>
                     <select className="sb-input" value={editForm.categorie_id} onChange={(e) => setEditForm({ ...editForm, categorie_id: e.target.value })}>
-                      <option value="">{SANS_CATEGORIE}</option>
+                      <option value="">{t("common.sansCategorie")}</option>
                       {categories.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.nom}
@@ -644,40 +669,40 @@ export default function ArticlesPage() {
                   </div>
                   <div className="sb-form-grid">
                     <div className="sb-field">
-                      <label>Prix d&apos;achat (FCFA)</label>
+                      <label>{t("articles.prixAchatLabel")}</label>
                       <input
                         className="sb-input"
-                        placeholder="Ex. 8000"
+                        placeholder={t("articles.prixAchatPlaceholder")}
                         type="number"
                         value={editForm.prix_achat}
                         onChange={(e) => setEditForm({ ...editForm, prix_achat: e.target.value })}
                       />
                     </div>
                     <div className="sb-field">
-                      <label>Frais annexes / unité (FCFA)</label>
+                      <label>{t("articles.fraisAnnexesLabel")}</label>
                       <input
                         className="sb-input"
-                        placeholder="Ex. 1000"
+                        placeholder={t("articles.fraisAnnexesPlaceholder")}
                         type="number"
                         value={editForm.frais_annexes}
                         onChange={(e) => setEditForm({ ...editForm, frais_annexes: e.target.value })}
                       />
                     </div>
                     <div className="sb-field">
-                      <label>Prix de vente (FCFA)</label>
+                      <label>{t("articles.prixVenteLabel")}</label>
                       <input
                         className="sb-input"
-                        placeholder="Ex. 15000"
+                        placeholder={t("articles.prixVentePlaceholder")}
                         type="number"
                         value={editForm.prix_vente}
                         onChange={(e) => setEditForm({ ...editForm, prix_vente: e.target.value })}
                       />
                     </div>
                     <div className="sb-field">
-                      <label>Seuil d&apos;alerte</label>
+                      <label>{t("articles.seuilLabel")}</label>
                       <input
                         className="sb-input"
-                        placeholder="Ex. 3"
+                        placeholder={t("articles.seuilPlaceholder")}
                         type="number"
                         value={editForm.seuil}
                         onChange={(e) => setEditForm({ ...editForm, seuil: e.target.value })}
@@ -685,30 +710,26 @@ export default function ArticlesPage() {
                     </div>
                   </div>
                   <div className="sb-field">
-                    <label>Stock actuel</label>
+                    <label>{t("articles.stockActuelLabel")}</label>
                     <input
                       className="sb-input"
-                      placeholder="Ex. 12"
+                      placeholder={t("articles.stockActuelPlaceholder")}
                       type="number"
                       min={0}
                       value={editForm.stock}
                       onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
                     />
-                    <p style={{ fontSize: 11, color: "#6E6B68", margin: 0 }}>
-                      Corrige ici directement la quantité en stock (ex. erreur d&apos;inventaire). Pour un
-                      réapprovisionnement lié à un achat, utilise plutôt le bouton « Réappro. » — il garde un
-                      historique du prix d&apos;achat.
-                    </p>
+                    <p style={{ fontSize: 11, color: "#6E6B68", margin: 0 }}>{t("articles.stockActuelNote")}</p>
                   </div>
                   <ImageUploadField
-                    label="Photo du produit"
+                    label={t("articles.photoLabel")}
                     businessId={business.id}
                     value={editForm.image_url}
                     onChange={(url) => setEditForm((f) => ({ ...f, image_url: url }))}
                   />
                   {editError && <p style={{ fontSize: 12, color: "#C24E37", margin: 0 }}>{editError}</p>}
                   <button className="sb-btn sb-btn-emerald" type="submit" style={{ justifyContent: "center" }}>
-                    <CheckCircle2 size={14} /> Enregistrer les modifications
+                    <CheckCircle2 size={14} /> {t("articles.saveEdits")}
                   </button>
                 </form>
               </div>

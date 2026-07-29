@@ -5,15 +5,20 @@ import { Copy, Printer, Share2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase } from "@/lib/format";
-import { THEMES, SANS_CATEGORIE } from "@/lib/constants";
+import { THEMES } from "@/lib/constants";
+import { t as tBase } from "@/lib/i18n";
+
+const FILTRE_TOUTES = "toutes";
+const FILTRE_SANS_CATEGORIE = "sans-categorie";
 
 export default function CataloguePage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
+  const t = (key, vars) => tBase(business?.langue, key, vars);
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filtreCategorie, setFiltreCategorie] = useState("Toutes");
+  const [filtreCategorie, setFiltreCategorie] = useState(FILTRE_TOUTES);
   const [copyMsg, setCopyMsg] = useState("");
 
   const accent = THEMES[business?.theme_key || "orange"].accent;
@@ -40,22 +45,30 @@ export default function CataloguePage() {
 
   const disponibles = articles.filter((a) => a.stock > 0);
   const filtres =
-    filtreCategorie === "Toutes"
+    filtreCategorie === FILTRE_TOUTES
       ? disponibles
-      : disponibles.filter((a) => (a.categories?.nom ?? SANS_CATEGORIE) === filtreCategorie);
+      : disponibles.filter((a) =>
+          filtreCategorie === FILTRE_SANS_CATEGORIE ? !a.categorie_id : a.categorie_id === filtreCategorie
+        );
+
+  const filtresCategorie = [
+    { key: FILTRE_TOUTES, label: t("common.toutes") },
+    { key: FILTRE_SANS_CATEGORIE, label: t("common.sansCategorie") },
+    ...categories.map((c) => ({ key: c.id, label: c.nom })),
+  ];
 
   function buildTexte() {
-    const titre = `🛍️ Catalogue — ${business?.name || "SmartBiz"}`;
+    const titre = t("catalogue.shareTitle", { name: business?.name || "SmartBiz" });
     const lignes = filtres.map((a) => `• ${a.nom} — ${fmt(a.prix_vente)}`).join("\n");
-    return `${titre}\n\n${lignes}\n\nCommande par WhatsApp !`;
+    return `${titre}\n\n${lignes}\n\n${t("catalogue.shareFooter")}`;
   }
 
   async function copierTexte() {
     try {
       await navigator.clipboard.writeText(buildTexte());
-      setCopyMsg("✅ Texte copié — colle-le dans ta bio ou légende Instagram");
+      setCopyMsg(t("catalogue.copySuccess"));
     } catch {
-      setCopyMsg("Impossible de copier automatiquement, sélectionne le texte manuellement.");
+      setCopyMsg(t("catalogue.copyFail"));
     }
   }
 
@@ -63,24 +76,24 @@ export default function CataloguePage() {
     window.open(`https://wa.me/?text=${encodeURIComponent(buildTexte())}`, "_blank");
   }
 
-  if (loading) return <p className="sb-sub">Chargement…</p>;
+  if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
         <div>
-          <h1 className="sb-h1">Catalogue</h1>
-          <p className="sb-sub">{disponibles.length} article(s) disponible(s) à partager</p>
+          <h1 className="sb-h1">{t("catalogue.title")}</h1>
+          <p className="sb-sub">{t("catalogue.subtitleCount", { n: disponibles.length })}</p>
         </div>
         <div className="sb-no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="sb-btn sb-btn-ghost" onClick={copierTexte}>
-            <Copy size={13} /> Copier le texte
+            <Copy size={13} /> {t("catalogue.copierTexte")}
           </button>
           <button className="sb-btn" style={{ background: "#25D366", color: "#fff" }} onClick={partagerWhatsApp}>
-            <Share2 size={13} /> Partager
+            <Share2 size={13} /> {t("catalogue.partager")}
           </button>
           <button className="sb-btn sb-btn-primary" onClick={() => window.print()}>
-            <Printer size={13} /> Imprimer / PDF
+            <Printer size={13} /> {t("catalogue.imprimerPdf")}
           </button>
         </div>
       </div>
@@ -92,9 +105,13 @@ export default function CataloguePage() {
       )}
 
       <div className="sb-toggle-group sb-no-print" style={{ margin: "14px 0", flexWrap: "wrap", display: "inline-flex" }}>
-        {["Toutes", SANS_CATEGORIE, ...categories.map((c) => c.nom)].map((c) => (
-          <button key={c} className={`sb-toggle-item${filtreCategorie === c ? " active" : ""}`} onClick={() => setFiltreCategorie(c)}>
-            {c}
+        {filtresCategorie.map((opt) => (
+          <button
+            key={opt.key}
+            className={`sb-toggle-item${filtreCategorie === opt.key ? " active" : ""}`}
+            onClick={() => setFiltreCategorie(opt.key)}
+          >
+            {opt.label}
           </button>
         ))}
       </div>
@@ -109,14 +126,14 @@ export default function CataloguePage() {
         )}
         <div>
           <div className="sb-display" style={{ fontWeight: 700, fontSize: 16 }}>
-            {business?.name || "Ma boutique"}
+            {business?.name || t("common.defaultBusinessName")}
           </div>
-          <div style={{ fontSize: 11.5, color: "#8A8682" }}>Catalogue des produits disponibles</div>
+          <div style={{ fontSize: 11.5, color: "#8A8682" }}>{t("catalogue.headerSub")}</div>
         </div>
       </div>
 
       {filtres.length === 0 ? (
-        <p style={{ fontSize: 13, color: "#6B6A63", marginTop: 16 }}>Aucun article disponible dans cette catégorie pour le moment.</p>
+        <p style={{ fontSize: 13, color: "#6B6A63", marginTop: 16 }}>{t("catalogue.aucunArticle")}</p>
       ) : (
         <div className="sb-catalogue-grid">
           {filtres.map((a) => (
@@ -130,7 +147,7 @@ export default function CataloguePage() {
                   {a.nom.slice(0, 1).toUpperCase()}
                 </div>
               )}
-              <div className="sb-catalogue-cat">{a.categories?.nom ?? SANS_CATEGORIE}</div>
+              <div className="sb-catalogue-cat">{a.categories?.nom ?? t("common.sansCategorie")}</div>
               <div className="sb-catalogue-nom">{a.nom}</div>
               <div className="sb-catalogue-prix">{fmt(a.prix_vente)}</div>
             </div>
@@ -139,7 +156,7 @@ export default function CataloguePage() {
       )}
 
       <p className="sb-no-print" style={{ fontSize: 11, color: "#8A8682", marginTop: 16 }}>
-        Instagram ne permet pas d&apos;envoi automatique depuis le navigateur — utilise « Copier le texte » puis colle-le dans ta bio, ta story ou ta légende de publication.
+        {t("catalogue.instagramNote")}
       </p>
     </div>
   );

@@ -5,12 +5,14 @@ import { CheckCircle2, Pencil, Plus, RotateCcw, Search, Trash2, UserX, X } from 
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase } from "@/lib/format";
+import { t as tBase } from "@/lib/i18n";
 
 const normalizeTel = (tel) => (tel || "").replace(/\D/g, "");
 
 export default function ClientsPage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
+  const t = (key, vars) => tBase(business?.langue, key, vars);
   const [clients, setClients] = useState([]);
   const [commandes, setCommandes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +75,7 @@ export default function ClientsPage() {
     setErreurTel(false);
     const doublon = trouverDoublonTelephone(form.telephone, null);
     if (doublon) {
-      setMsg(`Erreur : ${doublon.nom || "un autre client"} utilise déjà ce numéro de téléphone.`);
+      setMsg(t("clients.duplicatePhone", { nom: doublon.nom || t("clients.autreClient") }));
       return;
     }
     const { data, error } = await supabase
@@ -88,11 +90,11 @@ export default function ClientsPage() {
       .select()
       .single();
     if (error) {
-      setMsg(`Erreur : ${error.message}`);
+      setMsg(t("common.error", { message: error.message }));
       return;
     }
     setClients((prev) => [...prev, data].sort((a, b) => a.nom.localeCompare(b.nom)));
-    setMsg(`✅ ${data.nom || "Client"} enregistré(e) avec succès`);
+    setMsg(t("clients.savedSuccess", { nom: data.nom || t("clients.defaultNom") }));
     setForm({ nom: "", adresse: "", email: "", telephone: "" });
     setShowForm(false);
   }
@@ -122,7 +124,7 @@ export default function ClientsPage() {
     if (telephoneChange) {
       const doublon = trouverDoublonTelephone(editForm.telephone, editingId);
       if (doublon) {
-        setEditError(`${doublon.nom || "Un autre client"} utilise déjà ce numéro de téléphone.`);
+        setEditError(t("clients.duplicatePhoneNoPrefix", { nom: doublon.nom || t("clients.autreClientCap") }));
         return;
       }
     }
@@ -149,7 +151,7 @@ export default function ClientsPage() {
   async function desactiverClient(client) {
     const { data, error } = await supabase.from("clients").update({ actif: false }).eq("id", client.id).select().single();
     if (error) {
-      window.alert(`Impossible de désactiver ce client : ${error.message}`);
+      window.alert(t("clients.desactiverError", { message: error.message }));
       return;
     }
     setClients((prev) => prev.map((c) => (c.id === client.id ? data : c)));
@@ -158,37 +160,35 @@ export default function ClientsPage() {
   async function reactiverClient(client) {
     const { data, error } = await supabase.from("clients").update({ actif: true }).eq("id", client.id).select().single();
     if (error) {
-      window.alert(`Impossible de réactiver ce client : ${error.message}`);
+      window.alert(t("clients.reactiverError", { message: error.message }));
       return;
     }
     setClients((prev) => prev.map((c) => (c.id === client.id ? data : c)));
   }
 
   async function supprimerClient(client) {
-    const confirmed = window.confirm(`Supprimer définitivement « ${client.nom} » ? Cette action est irréversible.`);
+    const confirmed = window.confirm(t("clients.confirmDelete", { nom: client.nom }));
     if (!confirmed) return;
     const { error } = await supabase.from("clients").delete().eq("id", client.id);
     if (error) {
       if (error.code === "23503") {
-        window.alert(
-          `« ${client.nom} » a déjà des commandes enregistrées et ne peut pas être supprimé — utilise plutôt « Désactiver ».`
-        );
+        window.alert(t("clients.deleteLinkedError", { nom: client.nom }));
       } else {
-        window.alert(`Impossible de supprimer ce client : ${error.message}`);
+        window.alert(t("clients.deleteGenericError", { message: error.message }));
       }
       return;
     }
     setClients((prev) => prev.filter((c) => c.id !== client.id));
   }
 
-  if (loading) return <p className="sb-sub">Chargement…</p>;
+  if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <h1 className="sb-h1">Clients</h1>
-          <p className="sb-sub">{clients.length} client(s) enregistré(s)</p>
+          <h1 className="sb-h1">{t("clients.title")}</h1>
+          <p className="sb-sub">{t("clients.subtitleCount", { n: clients.length })}</p>
         </div>
         <button
           className="sb-btn sb-btn-primary"
@@ -197,7 +197,7 @@ export default function ClientsPage() {
             setMsg("");
           }}
         >
-          <Plus size={14} /> Nouveau client
+          <Plus size={14} /> {t("clients.newClient")}
         </button>
       </div>
 
@@ -210,38 +210,38 @@ export default function ClientsPage() {
       {showForm && (
         <form onSubmit={submit} className="sb-card sb-form-grid" style={{ marginBottom: 18 }}>
           <div className="sb-field" style={{ gridColumn: "1 / 3" }}>
-            <label>Nom et prénoms</label>
+            <label>{t("clients.nomLabel")}</label>
             <input
               className="sb-input"
-              placeholder="Ex. Aïcha Koné"
+              placeholder={t("clients.nomPlaceholder")}
               value={form.nom}
               onChange={(e) => setForm({ ...form, nom: e.target.value })}
             />
           </div>
           <div className="sb-field" style={{ gridColumn: "1 / 3" }}>
-            <label>Adresse</label>
+            <label>{t("clients.adresseLabel")}</label>
             <input
               className="sb-input"
-              placeholder="Ex. Cocody, Abidjan"
+              placeholder={t("clients.adressePlaceholder")}
               value={form.adresse}
               onChange={(e) => setForm({ ...form, adresse: e.target.value })}
             />
           </div>
           <div className="sb-field">
-            <label>E-mail (facultatif)</label>
+            <label>{t("clients.emailLabel")}</label>
             <input
               className="sb-input"
-              placeholder="ex. cliente@example.com"
+              placeholder={t("clients.emailPlaceholder")}
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </div>
           <div className="sb-field">
-            <label>Téléphone</label>
+            <label>{t("clients.telephoneLabel")}</label>
             <input
               className="sb-input"
-              placeholder="Ex. 07 01 22 33 44"
+              placeholder={t("clients.telephonePlaceholder")}
               value={form.telephone}
               onChange={(e) => {
                 setForm({ ...form, telephone: e.target.value });
@@ -250,11 +250,11 @@ export default function ClientsPage() {
               style={erreurTel ? { borderColor: "#C24E37" } : undefined}
             />
             <p style={{ fontSize: 11, color: erreurTel ? "#C24E37" : "#6E6B68", margin: "5px 2px 0" }}>
-              {erreurTel ? "Le numéro de téléphone est obligatoire." : "Obligatoire — de préférence un numéro WhatsApp."}
+              {erreurTel ? t("clients.telephoneRequiredError") : t("clients.telephoneHint")}
             </p>
           </div>
           <button className="sb-btn sb-btn-emerald" type="submit" style={{ gridColumn: "1 / 3", justifyContent: "center" }}>
-            <CheckCircle2 size={14} /> Enregistrer le client
+            <CheckCircle2 size={14} /> {t("clients.saveClient")}
           </button>
         </form>
       )}
@@ -262,11 +262,17 @@ export default function ClientsPage() {
       <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 14 }}>
         <div style={{ position: "relative", maxWidth: 280, flex: 1, minWidth: 220 }}>
           <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "#6B6A63" }} />
-          <input className="sb-input" style={{ paddingLeft: 30 }} placeholder="Rechercher un client" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input
+            className="sb-input"
+            style={{ paddingLeft: 30 }}
+            placeholder={t("clients.searchPlaceholder")}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
         </div>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#6E6B68", cursor: "pointer" }}>
           <input type="checkbox" checked={showDesactives} onChange={(e) => setShowDesactives(e.target.checked)} />
-          Afficher aussi les clients désactivés
+          {t("clients.showDisabled")}
         </label>
       </div>
 
@@ -275,13 +281,13 @@ export default function ClientsPage() {
           <table className="sb-table">
             <thead>
               <tr>
-                <th>Nom</th>
-                <th>Téléphone</th>
-                <th>Adresse</th>
-                <th>E-mail</th>
-                <th>Commandes</th>
-                <th>Total achats</th>
-                <th>Statut</th>
+                <th>{t("clients.colNom")}</th>
+                <th>{t("clients.colTelephone")}</th>
+                <th>{t("clients.colAdresse")}</th>
+                <th>{t("clients.colEmail")}</th>
+                <th>{t("clients.colCommandes")}</th>
+                <th>{t("clients.colTotalAchats")}</th>
+                <th>{t("clients.colStatut")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -299,19 +305,19 @@ export default function ClientsPage() {
                     <td className="sb-mono">{fmt(s.total)}</td>
                     <td>
                       {desactive ? (
-                        <span className="sb-badge sb-badge-amber">Désactivé</span>
+                        <span className="sb-badge sb-badge-amber">{t("common.badgeDesactive")}</span>
                       ) : (
-                        <span className="sb-badge sb-badge-emerald">Actif</span>
+                        <span className="sb-badge sb-badge-emerald">{t("common.badgeActif")}</span>
                       )}
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirEdition(c)}>
-                          <Pencil size={12} /> Modifier
+                          <Pencil size={12} /> {t("clients.modifier")}
                         </button>
                         {desactive ? (
                           <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => reactiverClient(c)}>
-                            <RotateCcw size={12} /> Réactiver
+                            <RotateCcw size={12} /> {t("clients.reactiver")}
                           </button>
                         ) : s.count === 0 ? (
                           <button
@@ -319,11 +325,11 @@ export default function ClientsPage() {
                             style={{ padding: "4px 8px", color: "#C24E37" }}
                             onClick={() => supprimerClient(c)}
                           >
-                            <Trash2 size={12} /> Supprimer
+                            <Trash2 size={12} /> {t("clients.supprimer")}
                           </button>
                         ) : (
                           <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => desactiverClient(c)}>
-                            <UserX size={12} /> Désactiver
+                            <UserX size={12} /> {t("clients.desactiver")}
                           </button>
                         )}
                       </div>
@@ -341,7 +347,7 @@ export default function ClientsPage() {
           <div className="sb-card" style={{ width: 380, background: "#fff" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
               <div className="sb-section-title" style={{ margin: 0 }}>
-                Modifier le client
+                {t("clients.editModalTitle")}
               </div>
               <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
                 <X size={16} />
@@ -350,38 +356,38 @@ export default function ClientsPage() {
 
             <form onSubmit={validerEdition} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
               <div className="sb-field">
-                <label>Nom et prénoms</label>
+                <label>{t("clients.nomLabel")}</label>
                 <input
                   className="sb-input"
-                  placeholder="Ex. Aïcha Koné"
+                  placeholder={t("clients.nomPlaceholder")}
                   value={editForm.nom}
                   onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
                 />
               </div>
               <div className="sb-field">
-                <label>Adresse</label>
+                <label>{t("clients.adresseLabel")}</label>
                 <input
                   className="sb-input"
-                  placeholder="Ex. Cocody, Abidjan"
+                  placeholder={t("clients.adressePlaceholder")}
                   value={editForm.adresse}
                   onChange={(e) => setEditForm({ ...editForm, adresse: e.target.value })}
                 />
               </div>
               <div className="sb-field">
-                <label>E-mail (facultatif)</label>
+                <label>{t("clients.emailLabel")}</label>
                 <input
                   className="sb-input"
-                  placeholder="ex. cliente@example.com"
+                  placeholder={t("clients.emailPlaceholder")}
                   type="email"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                 />
               </div>
               <div className="sb-field">
-                <label>Téléphone</label>
+                <label>{t("clients.telephoneLabel")}</label>
                 <input
                   className="sb-input"
-                  placeholder="Ex. 07 01 22 33 44"
+                  placeholder={t("clients.telephonePlaceholder")}
                   value={editForm.telephone}
                   onChange={(e) => {
                     setEditForm({ ...editForm, telephone: e.target.value });
@@ -390,12 +396,12 @@ export default function ClientsPage() {
                   style={editErreurTel ? { borderColor: "#C24E37" } : undefined}
                 />
                 <p style={{ fontSize: 11, color: editErreurTel ? "#C24E37" : "#6E6B68", margin: "5px 2px 0" }}>
-                  {editErreurTel ? "Le numéro de téléphone est obligatoire." : "Obligatoire — de préférence un numéro WhatsApp."}
+                  {editErreurTel ? t("clients.telephoneRequiredError") : t("clients.telephoneHint")}
                 </p>
               </div>
               {editError && <p style={{ fontSize: 12, color: "#C24E37", margin: 0 }}>{editError}</p>}
               <button className="sb-btn sb-btn-emerald" type="submit" style={{ justifyContent: "center" }}>
-                <CheckCircle2 size={14} /> Enregistrer les modifications
+                <CheckCircle2 size={14} /> {t("clients.saveEdits")}
               </button>
             </form>
           </div>

@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { Ban, CheckCircle2, Pencil, Plus, Printer, TruckIcon, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt as fmtBase } from "@/lib/format";
-import { COMMANDE_STATUT_LABELS, OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
+import { fmt as fmtBase, dateLocale } from "@/lib/format";
+import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
+import { t as tBase } from "@/lib/i18n";
 import Receipt from "@/components/Receipt";
 
 const STATUT_BADGE_CLASS = {
@@ -17,6 +18,7 @@ const STATUT_BADGE_CLASS = {
 export default function CommandesPage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
+  const t = (key, vars) => tBase(business?.langue, key, vars);
   const [commandes, setCommandes] = useState([]);
   const [clients, setClients] = useState([]);
   const [articles, setArticles] = useState([]);
@@ -100,7 +102,7 @@ export default function CommandesPage() {
       const art = articles.find((a) => a.id === l.article_id);
       const nouveauStock = (art?.stock || 0) - l.quantite;
       if (nouveauStock < 0) {
-        window.alert(`Stock insuffisant pour livrer « ${l.articles?.nom ?? "cet article"} ».`);
+        window.alert(t("commandes.stockInsuffisant", { nom: l.articles?.nom ?? t("commandes.stockInsuffisantDefaultNom") }));
         return;
       }
       stockUpdates.push({ articleId: l.article_id, nouveauStock });
@@ -108,7 +110,7 @@ export default function CommandesPage() {
 
     const { error: statutError } = await supabase.from("commandes").update({ statut: "livree" }).eq("id", commande.id);
     if (statutError) {
-      window.alert(`Impossible de marquer cette commande comme livrée : ${statutError.message}`);
+      window.alert(t("commandes.livrerError", { message: statutError.message }));
       return;
     }
 
@@ -180,7 +182,7 @@ export default function CommandesPage() {
 
   async function validerEdition() {
     if (editLignes.length === 0 || !editClientId) {
-      setEditError("Sélectionne une cliente et au moins un article.");
+      setEditError(t("commandes.editRequireClientArticle"));
       return;
     }
 
@@ -259,7 +261,7 @@ export default function CommandesPage() {
       );
       setEditingId(null);
     } catch (err) {
-      setEditError(err.message || "Une erreur est survenue lors de la modification.");
+      setEditError(err.message || t("commandes.editGenericError"));
     } finally {
       setEditSaving(false);
     }
@@ -268,37 +270,39 @@ export default function CommandesPage() {
   // ---------- Annulation (uniquement tant qu'en attente — aucun stock à restituer) ----------
 
   async function annulerCommande(commande) {
-    const confirmed = window.confirm("Es-tu sûr(e) de vouloir annuler cette commande ?");
+    const confirmed = window.confirm(t("commandes.confirmAnnuler"));
     if (!confirmed) return;
 
     const { error } = await supabase.from("commandes").update({ statut: "annulee" }).eq("id", commande.id);
     if (error) {
-      window.alert(`Impossible d'annuler cette commande : ${error.message}`);
+      window.alert(t("commandes.annulerError", { message: error.message }));
       return;
     }
     setCommandes((prev) => prev.map((c) => (c.id === commande.id ? { ...c, statut: "annulee" } : c)));
   }
 
-  if (loading) return <p className="sb-sub">Chargement…</p>;
+  if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
+
+  const filtresStatut = [
+    { key: "toutes", label: t("common.toutes") },
+    { key: "en_attente", label: t("common.commandeStatut.en_attente") },
+    { key: "livree", label: t("commandes.filterLivrees") },
+  ];
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
         <div>
-          <h1 className="sb-h1">Commandes</h1>
-          <p className="sb-sub">Historique complet — {commandes.length} commande(s)</p>
+          <h1 className="sb-h1">{t("commandes.title")}</h1>
+          <p className="sb-sub">{t("commandes.subtitle", { n: commandes.length })}</p>
         </div>
         <span className="sb-badge sb-badge-amber" style={{ fontSize: 12.5, padding: "6px 10px" }}>
-          {nbEnAttente} commande{nbEnAttente > 1 ? "s" : ""} en attente de livraison
+          {t("commandes.nbEnAttente", { n: nbEnAttente })}
         </span>
       </div>
 
       <div className="sb-toggle-group" style={{ margin: "14px 0", flexWrap: "wrap", display: "inline-flex" }}>
-        {[
-          { key: "toutes", label: "Toutes" },
-          { key: "en_attente", label: "En attente de livraison" },
-          { key: "livree", label: "Livrées" },
-        ].map((opt) => (
+        {filtresStatut.map((opt) => (
           <button
             key={opt.key}
             className={`sb-toggle-item${filtreStatut === opt.key ? " active" : ""}`}
@@ -314,13 +318,13 @@ export default function CommandesPage() {
           <table className="sb-table">
             <thead>
               <tr>
-                <th>N°</th>
-                <th>Date</th>
-                <th>Cliente</th>
-                <th>Articles</th>
-                <th>CA</th>
-                <th>Marge réelle</th>
-                <th>Statut</th>
+                <th>{t("dashboard.colNumero")}</th>
+                <th>{t("dashboard.colDate")}</th>
+                <th>{t("commandes.colCliente")}</th>
+                <th>{t("commandes.colArticles")}</th>
+                <th>{t("commandes.colCa")}</th>
+                <th>{t("commandes.colMargeReelle")}</th>
+                <th>{t("commandes.colStatut")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -330,7 +334,7 @@ export default function CommandesPage() {
                 return (
                   <tr key={c.id} style={c.statut === "annulee" ? { opacity: 0.55 } : undefined}>
                     <td className="sb-mono">{c.numero}</td>
-                    <td>{new Date(c.created_at).toLocaleDateString("fr-FR")}</td>
+                    <td>{new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
                     <td>{c.clients?.nom ?? "—"}</td>
                     <td style={{ color: "#6B6A63", fontSize: 12.5 }}>
                       {c.commande_lignes.map((l) => `${l.articles?.nom ?? "—"} ×${l.quantite}`).join(", ")}
@@ -339,7 +343,7 @@ export default function CommandesPage() {
                     <td className="sb-mono" style={{ color: "#0E8F6E" }}>{fmt(c.marge)}</td>
                     <td>
                       <span className={`sb-badge ${STATUT_BADGE_CLASS[c.statut] || "sb-badge-amber"}`}>
-                        {COMMANDE_STATUT_LABELS[c.statut] || c.statut}
+                        {t(`common.commandeStatut.${c.statut}`) || c.statut}
                       </span>
                     </td>
                     <td>
@@ -354,17 +358,17 @@ export default function CommandesPage() {
                               style={{ padding: "4px 8px" }}
                               onClick={() => marquerLivree(c)}
                             >
-                              <TruckIcon size={12} /> Livré
+                              <TruckIcon size={12} /> {t("commandes.livre")}
                             </button>
                             <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirEdition(c)}>
-                              <Pencil size={12} /> Modifier
+                              <Pencil size={12} /> {t("commandes.modifier")}
                             </button>
                             <button
                               className="sb-btn sb-btn-ghost"
                               style={{ padding: "4px 8px", color: "#C24E37" }}
                               onClick={() => annulerCommande(c)}
                             >
-                              <Ban size={12} /> Annuler
+                              <Ban size={12} /> {t("commandes.annuler")}
                             </button>
                           </>
                         )}
@@ -389,7 +393,7 @@ export default function CommandesPage() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
               <div className="sb-section-title" style={{ margin: 0 }}>
-                Modifier la commande {commandes.find((c) => c.id === editingId)?.numero}
+                {t("commandes.editModalTitle", { numero: commandes.find((c) => c.id === editingId)?.numero })}
               </div>
               <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
                 <X size={16} />
@@ -397,7 +401,7 @@ export default function CommandesPage() {
             </div>
 
             <div className="sb-field" style={{ marginBottom: 16 }}>
-              <label>Cliente</label>
+              <label>{t("commandes.clienteLabel")}</label>
               <select className="sb-input" value={editClientId} onChange={(e) => setEditClientId(e.target.value)}>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -408,22 +412,22 @@ export default function CommandesPage() {
             </div>
 
             <div className="sb-section-title" style={{ fontSize: 13 }}>
-              Articles
+              {t("commandes.articlesTitle")}
             </div>
             <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
               <div className="sb-field" style={{ flex: 2, minWidth: 160 }}>
-                <label>Article</label>
+                <label>{t("commandes.articleLabel")}</label>
                 <select className="sb-input" value={editArticleSel} onChange={(e) => setEditArticleSel(e.target.value)}>
-                  <option value="">Sélectionner un article</option>
+                  <option value="">{t("commandes.selectArticle")}</option>
                   {articles.map((a) => (
                     <option key={a.id} value={a.id} disabled={stockDispoEdition(a.id) < 1}>
-                      {a.nom} — {fmt(a.prix_vente)} ({stockDispoEdition(a.id)} dispo)
+                      {a.nom} — {fmt(a.prix_vente)} {t("commandes.dispoSuffix", { n: stockDispoEdition(a.id) })}
                     </option>
                   ))}
                 </select>
               </div>
               <div className="sb-field" style={{ flex: 0.5, minWidth: 70 }}>
-                <label>Quantité</label>
+                <label>{t("commandes.quantiteLabel")}</label>
                 <input
                   className="sb-input"
                   type="number"
@@ -438,20 +442,20 @@ export default function CommandesPage() {
                 onClick={addEditLigne}
                 disabled={!editArticleSel || stockDispoEdition(editArticleSel) < 1}
               >
-                <Plus size={14} /> Ajouter
+                <Plus size={14} /> {t("commandes.ajouter")}
               </button>
             </div>
 
             {editLignes.length === 0 ? (
-              <p style={{ fontSize: 13, color: "#6B6A63", marginBottom: 16 }}>Aucun article dans cette commande.</p>
+              <p style={{ fontSize: 13, color: "#6B6A63", marginBottom: 16 }}>{t("commandes.aucunArticle")}</p>
             ) : (
               <div className="sb-table-scroll" style={{ marginBottom: 16 }}>
                 <table className="sb-table">
                   <thead>
                     <tr>
-                      <th>Article</th>
-                      <th>Qté</th>
-                      <th>Sous-total</th>
+                      <th>{t("commandes.articleLabel")}</th>
+                      <th>{t("commandes.colQte")}</th>
+                      <th>{t("commandes.colSousTotal")}</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -477,26 +481,26 @@ export default function CommandesPage() {
             )}
 
             <div className="sb-section-title" style={{ fontSize: 13 }}>
-              Livraison
+              {t("commandes.livraisonTitle")}
             </div>
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <button
                 className={`sb-btn ${editTypeLivraison === "boutique" ? "sb-btn-primary" : "sb-btn-ghost"}`}
                 onClick={() => setEditTypeLivraison("boutique")}
               >
-                Récupération en boutique
+                {t("commandes.recuperationBoutique")}
               </button>
               <button
                 className={`sb-btn ${editTypeLivraison === "livraison" ? "sb-btn-primary" : "sb-btn-ghost"}`}
                 onClick={() => setEditTypeLivraison("livraison")}
                 disabled={zones.length === 0}
               >
-                Livraison
+                {t("commandes.livraison")}
               </button>
             </div>
             {editTypeLivraison === "livraison" && (
               <div className="sb-field" style={{ marginBottom: 16 }}>
-                <label>Zone de livraison</label>
+                <label>{t("commandes.zoneLivraisonLabel")}</label>
                 <select className="sb-input" value={editZoneLivraison} onChange={(e) => setEditZoneLivraison(e.target.value)}>
                   {zones.map((z) => (
                     <option key={z.id} value={z.zone}>
@@ -508,25 +512,25 @@ export default function CommandesPage() {
             )}
 
             <div className="sb-section-title" style={{ fontSize: 13 }}>
-              Paiement
+              {t("commandes.paiementTitle")}
             </div>
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <button
                 className={`sb-btn ${editModePaiement === "livraison" ? "sb-btn-primary" : "sb-btn-ghost"}`}
                 onClick={() => setEditModePaiement("livraison")}
               >
-                Paiement à la livraison
+                {t("commandes.paiementLivraison")}
               </button>
               <button
                 className={`sb-btn ${editModePaiement === "mobile_money" ? "sb-btn-primary" : "sb-btn-ghost"}`}
                 onClick={() => setEditModePaiement("mobile_money")}
               >
-                Mobile Money
+                {t("commandes.mobileMoney")}
               </button>
             </div>
             {editModePaiement === "mobile_money" && (
               <div className="sb-field" style={{ marginBottom: 16 }}>
-                <label>Opérateur</label>
+                <label>{t("commandes.operateurLabel")}</label>
                 <select className="sb-input" value={editOperateur} onChange={(e) => setEditOperateur(e.target.value)}>
                   {OPERATEURS_MOBILE_MONEY.map((op) => (
                     <option key={op} value={op}>
@@ -539,19 +543,19 @@ export default function CommandesPage() {
 
             <div className="sb-resume-commande" style={{ marginBottom: 16 }}>
               <div>
-                <span>Total articles</span>
+                <span>{t("commandes.totalArticles")}</span>
                 <strong>{fmt(editTotalCa)}</strong>
               </div>
               <div>
-                <span>Frais de livraison</span>
+                <span>{t("commandes.fraisLivraison")}</span>
                 <strong>{fmt(editFraisLivraison)}</strong>
               </div>
               <div className="sb-resume-total">
-                <span>Total à payer</span>
+                <span>{t("commandes.totalAPayer")}</span>
                 <strong>{fmt(editTotalAvecLivraison)}</strong>
               </div>
               <div>
-                <span>Marge réelle estimée</span>
+                <span>{t("commandes.margeEstimee")}</span>
                 <strong style={{ color: editTotalMarge >= 0 ? "#0E8F6E" : "#C24E37" }}>{fmt(editTotalMarge)}</strong>
               </div>
             </div>
@@ -564,7 +568,7 @@ export default function CommandesPage() {
               onClick={validerEdition}
               disabled={editSaving || editLignes.length === 0 || !editClientId}
             >
-              <CheckCircle2 size={14} /> {editSaving ? "Enregistrement…" : "Enregistrer les modifications"}
+              <CheckCircle2 size={14} /> {editSaving ? t("commandes.saving") : t("commandes.saveEdits")}
             </button>
           </div>
         </div>
