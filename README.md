@@ -29,7 +29,10 @@ le bucket `article-photos` et ses règles d'accès) — voir la section
 
 Exécute aussi une fois `supabase-clients-actif-migration.sql` (ajoute la
 colonne `clients.actif`, nécessaire à la désactivation de clients — voir
-« Clients : suppression vs désactivation » plus bas).
+« Clients : suppression vs désactivation » plus bas) et
+`supabase-commandes-statut-migration.sql` (ajoute `commandes.statut`,
+nécessaire à l'annulation de commandes — voir « Commandes : modification et
+annulation » plus bas).
 
 ## Variables d'environnement
 
@@ -89,6 +92,21 @@ script.
 - Nécessite la migration `supabase-clients-actif-migration.sql` (voir
   Démarrage).
 
+## Commandes : modification et annulation
+
+- **Modifier** (client, articles/quantités, livraison, paiement) recalcule
+  automatiquement le CA et la marge de la commande à partir des prix actuels
+  des articles, et réajuste le stock au prorata de l'écart entre l'ancienne
+  et la nouvelle quantité de chaque article (ex. 2 → 3 unités déduit 1 de
+  plus ; 3 → 1 en remet 2). Impossible sur une commande déjà annulée.
+- **Annuler** (au lieu d'une suppression définitive) demande confirmation,
+  remet tout le stock vendu par la commande, puis passe son statut à
+  `annulee`. Elle reste visible dans l'historique avec un badge « Annulée »,
+  mais son CA/sa marge sont exclus des totaux et du graphique du Dashboard.
+  Une commande annulée ne peut plus être ni modifiée ni annulée à nouveau.
+- Nécessite la migration `supabase-commandes-statut-migration.sql` (voir
+  Démarrage).
+
 ## Structure
 
 ```
@@ -129,9 +147,10 @@ lib/
 - Remplacer une photo (ou repasser sur « Sans catégorie » côté image) ne
   supprime pas l'ancien fichier du bucket — nettoyage à prévoir plus tard
   si le volume de fichiers orphelins devient significatif.
-- **Numérotation des commandes** (`next_numero`) et mise à jour du stock ne
-  sont pas transactionnelles (plusieurs appels Supabase séquentiels) — rare
-  collision possible en cas d'usage concurrent intense. À terme, une fonction
-  RPC Postgres (transaction unique) sécuriserait ce flux.
+- **Numérotation des commandes** (`next_numero`) et mise à jour du stock
+  (création, modification, annulation) ne sont pas transactionnelles
+  (plusieurs appels Supabase séquentiels) — rare collision possible en cas
+  d'usage concurrent intense. À terme, une fonction RPC Postgres
+  (transaction unique) sécuriserait ce flux.
 - **Paiement CinetPay** et **notifications e-mail (Resend)** ne sont pas
   encore branchés, conformément à `smartbiz-backend-roadmap.md`.

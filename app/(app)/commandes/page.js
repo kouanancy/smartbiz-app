@@ -1,32 +1,57 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Printer } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Ban, CheckCircle2, Pencil, Plus, Printer, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt } from "@/lib/format";
+import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
 import Receipt from "@/components/Receipt";
 
 export default function CommandesPage() {
   const { business } = useAuth();
   const [commandes, setCommandes] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [articles, setArticles] = useState([]);
+  const [zones, setZones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [receipt, setReceipt] = useState(null);
+
+  const [editingId, setEditingId] = useState(null);
+  const [editClientId, setEditClientId] = useState("");
+  const [editLignes, setEditLignes] = useState([]);
+  const [editOriginalLignes, setEditOriginalLignes] = useState([]);
+  const [editArticleSel, setEditArticleSel] = useState("");
+  const [editQte, setEditQte] = useState(1);
+  const [editTypeLivraison, setEditTypeLivraison] = useState("boutique");
+  const [editZoneLivraison, setEditZoneLivraison] = useState("");
+  const [editModePaiement, setEditModePaiement] = useState("livraison");
+  const [editOperateur, setEditOperateur] = useState(OPERATEURS_MOBILE_MONEY[0]);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
 
   useEffect(() => {
     if (!business?.id) return;
     let active = true;
     async function load() {
       setLoading(true);
-      const { data } = await supabase
-        .from("commandes")
-        .select(
-          "*, clients(nom, telephone, adresse, email), commande_lignes(quantite, prix_vente, prix_achat, frais_annexes, articles(nom))"
-        )
-        .eq("business_id", business.id)
-        .order("created_at", { ascending: false });
+      const [commandesRes, clientsRes, articlesRes, zonesRes] = await Promise.all([
+        supabase
+          .from("commandes")
+          .select(
+            "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, articles(nom))"
+          )
+          .eq("business_id", business.id)
+          .order("created_at", { ascending: false }),
+        supabase.from("clients").select("*").eq("business_id", business.id).order("nom"),
+        supabase.from("articles").select("*").eq("business_id", business.id).order("nom"),
+        supabase.from("zones_livraison").select("*").eq("business_id", business.id).order("zone"),
+      ]);
       if (!active) return;
-      setCommandes(data || []);
+      setCommandes(commandesRes.data || []);
+      setClients(clientsRes.data || []);
+      setArticles(articlesRes.data || []);
+      setZones(zonesRes.data || []);
       setLoading(false);
     }
     load();
@@ -56,6 +81,207 @@ export default function CommandesPage() {
     });
   }
 
+  // ---------- Modification ----------
+
+  function ouvrirEdition(commande) {
+    const snapshot = commande.commande_lignes.map((l) => ({ articleId: l.article_id, quantite: l.quantite }));
+    setEditingId(commande.id);
+    setEditClientId(commande.client_id);
+    setEditLignes(snapshot);
+    setEditOriginalLignes(snapshot);
+    setEditArticleSel("");
+    setEditQte(1);
+    setEditTypeLivraison(commande.livraison_type);
+    setEditZoneLivraison(commande.livraison_zone || zones[0]?.zone || "");
+    setEditModePaiement(commande.paiement_mode);
+    setEditOperateur(commande.paiement_operateur || OPERATEURS_MOBILE_MONEY[0]);
+    setEditError("");
+  }
+
+  // Quantité maximale sélectionnable pour un article dans le formulaire de
+  // modification : le stock actuel + ce que CETTE commande y avait déjà
+  // réservé à l'ouverture, moins ce qui est déjà mis dans le brouillon.
+  function stockDispoEdition(articleId) {
+    const art = articles.find((a) => a.id === articleId);
+    if (!art) return 0;
+    const original = editOriginalLignes.find((l) => l.articleId === articleId)?.quantite || 0;
+    const dejaDansForm = editLignes.filter((l) => l.articleId === articleId).reduce((s, l) => s + l.quantite, 0);
+    return art.stock + original - dejaDansForm;
+  }
+
+  function addEditLigne() {
+    if (!editArticleSel || editQte < 1 || editQte > stockDispoEdition(editArticleSel)) return;
+    setEditLignes((prev) => {
+      const existe = prev.find((l) => l.articleId === editArticleSel);
+      if (existe) return prev.map((l) => (l.articleId === editArticleSel ? { ...l, quantite: l.quantite + editQte } : l));
+      return [...prev, { articleId: editArticleSel, quantite: editQte }];
+    });
+    setEditQte(1);
+  }
+
+  function removeEditLigne(articleId) {
+    setEditLignes((prev) => prev.filter((l) => l.articleId !== articleId));
+  }
+
+  const editFraisLivraison =
+    editTypeLivraison === "livraison" ? zones.find((z) => z.zone === editZoneLivraison)?.frais || 0 : 0;
+  const editTotalCa = editLignes.reduce((s, l) => {
+    const art = articles.find((a) => a.id === l.articleId);
+    return s + (art ? art.prix_vente * l.quantite : 0);
+  }, 0);
+  const editTotalMarge = editLignes.reduce((s, l) => {
+    const art = articles.find((a) => a.id === l.articleId);
+    return s + (art ? (art.prix_vente - art.prix_achat - (art.frais_annexes || 0)) * l.quantite : 0);
+  }, 0);
+  const editTotalAvecLivraison = editTotalCa + editFraisLivraison;
+
+  async function validerEdition() {
+    if (editLignes.length === 0 || !editClientId) {
+      setEditError("Sélectionne une cliente et au moins un article.");
+      return;
+    }
+
+    const fullLignes = editLignes.map((l) => {
+      const art = articles.find((a) => a.id === l.articleId);
+      return {
+        articleId: l.articleId,
+        nom: art.nom,
+        quantite: l.quantite,
+        prix_vente: art.prix_vente,
+        prix_achat: art.prix_achat,
+        frais_annexes: art.frais_annexes || 0,
+      };
+    });
+    const ca = fullLignes.reduce((s, l) => s + l.prix_vente * l.quantite, 0);
+    const marge = fullLignes.reduce((s, l) => s + (l.prix_vente - l.prix_achat - l.frais_annexes) * l.quantite, 0);
+
+    // Delta de stock par article : positif = plus vendu (à déduire), négatif
+    // = moins vendu (à remettre en stock). Calculé et validé avant toute
+    // écriture pour ne jamais enregistrer un stock négatif.
+    const oldMap = new Map(editOriginalLignes.map((l) => [l.articleId, l.quantite]));
+    const newMap = new Map(editLignes.map((l) => [l.articleId, l.quantite]));
+    const stockUpdates = [];
+    for (const articleId of new Set([...oldMap.keys(), ...newMap.keys()])) {
+      const delta = (newMap.get(articleId) || 0) - (oldMap.get(articleId) || 0);
+      if (delta === 0) continue;
+      const art = articles.find((a) => a.id === articleId);
+      stockUpdates.push({ articleId, nouveauStock: (art?.stock || 0) - delta });
+    }
+    if (stockUpdates.some((u) => u.nouveauStock < 0)) {
+      setEditError("Stock insuffisant pour enregistrer ces quantités.");
+      return;
+    }
+
+    setEditError("");
+    setEditSaving(true);
+    try {
+      const { error: commandeError } = await supabase
+        .from("commandes")
+        .update({
+          client_id: editClientId,
+          ca,
+          marge,
+          livraison_type: editTypeLivraison,
+          livraison_zone: editTypeLivraison === "livraison" ? editZoneLivraison : null,
+          livraison_frais: editFraisLivraison,
+          paiement_mode: editModePaiement,
+          paiement_operateur: editModePaiement === "mobile_money" ? editOperateur : null,
+        })
+        .eq("id", editingId);
+      if (commandeError) throw commandeError;
+
+      const { error: deleteError } = await supabase.from("commande_lignes").delete().eq("commande_id", editingId);
+      if (deleteError) throw deleteError;
+
+      const { error: insertError } = await supabase.from("commande_lignes").insert(
+        fullLignes.map((l) => ({
+          commande_id: editingId,
+          article_id: l.articleId,
+          quantite: l.quantite,
+          prix_vente: l.prix_vente,
+          prix_achat: l.prix_achat,
+          frais_annexes: l.frais_annexes,
+        }))
+      );
+      if (insertError) throw insertError;
+
+      await Promise.all(
+        stockUpdates.map(({ articleId, nouveauStock }) =>
+          supabase.from("articles").update({ stock: nouveauStock }).eq("id", articleId)
+        )
+      );
+
+      setArticles((prev) =>
+        prev.map((a) => {
+          const upd = stockUpdates.find((u) => u.articleId === a.id);
+          return upd ? { ...a, stock: upd.nouveauStock } : a;
+        })
+      );
+      setCommandes((prev) =>
+        prev.map((c) =>
+          c.id === editingId
+            ? {
+                ...c,
+                client_id: editClientId,
+                clients: clients.find((cl) => cl.id === editClientId) || c.clients,
+                ca,
+                marge,
+                livraison_type: editTypeLivraison,
+                livraison_zone: editTypeLivraison === "livraison" ? editZoneLivraison : null,
+                livraison_frais: editFraisLivraison,
+                paiement_mode: editModePaiement,
+                paiement_operateur: editModePaiement === "mobile_money" ? editOperateur : null,
+                commande_lignes: fullLignes.map((l) => ({
+                  article_id: l.articleId,
+                  quantite: l.quantite,
+                  prix_vente: l.prix_vente,
+                  prix_achat: l.prix_achat,
+                  frais_annexes: l.frais_annexes,
+                  articles: { nom: l.nom },
+                })),
+              }
+            : c
+        )
+      );
+      setEditingId(null);
+    } catch (err) {
+      setEditError(err.message || "Une erreur est survenue lors de la modification.");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  // ---------- Annulation ----------
+
+  async function annulerCommande(commande) {
+    const confirmed = window.confirm("Es-tu sûr(e) de vouloir annuler cette commande ? Le stock sera restitué.");
+    if (!confirmed) return;
+
+    const { error: statutError } = await supabase.from("commandes").update({ statut: "annulee" }).eq("id", commande.id);
+    if (statutError) {
+      window.alert(`Impossible d'annuler cette commande : ${statutError.message}`);
+      return;
+    }
+
+    const stockUpdates = commande.commande_lignes.map((l) => {
+      const art = articles.find((a) => a.id === l.article_id);
+      return { articleId: l.article_id, nouveauStock: (art?.stock || 0) + l.quantite };
+    });
+    await Promise.all(
+      stockUpdates.map(({ articleId, nouveauStock }) =>
+        supabase.from("articles").update({ stock: nouveauStock }).eq("id", articleId)
+      )
+    );
+
+    setArticles((prev) =>
+      prev.map((a) => {
+        const upd = stockUpdates.find((u) => u.articleId === a.id);
+        return upd ? { ...a, stock: upd.nouveauStock } : a;
+      })
+    );
+    setCommandes((prev) => prev.map((c) => (c.id === commande.id ? { ...c, statut: "annulee" } : c)));
+  }
+
   if (loading) return <p className="sb-sub">Chargement…</p>;
 
   return (
@@ -74,33 +300,250 @@ export default function CommandesPage() {
                 <th>Articles</th>
                 <th>CA</th>
                 <th>Marge réelle</th>
+                <th>Statut</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {commandes.map((c) => (
-                <tr key={c.id}>
-                  <td className="sb-mono">{c.numero}</td>
-                  <td>{new Date(c.created_at).toLocaleDateString("fr-FR")}</td>
-                  <td>{c.clients?.nom ?? "—"}</td>
-                  <td style={{ color: "#6B6A63", fontSize: 12.5 }}>
-                    {c.commande_lignes.map((l) => `${l.articles?.nom ?? "—"} ×${l.quantite}`).join(", ")}
-                  </td>
-                  <td className="sb-mono">{fmt(c.ca)}</td>
-                  <td className="sb-mono" style={{ color: "#0E8F6E" }}>{fmt(c.marge)}</td>
-                  <td>
-                    <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => reprint(c)}>
-                      <Printer size={12} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {commandes.map((c) => {
+                const annulee = c.statut === "annulee";
+                return (
+                  <tr key={c.id} style={annulee ? { opacity: 0.55 } : undefined}>
+                    <td className="sb-mono">{c.numero}</td>
+                    <td>{new Date(c.created_at).toLocaleDateString("fr-FR")}</td>
+                    <td>{c.clients?.nom ?? "—"}</td>
+                    <td style={{ color: "#6B6A63", fontSize: 12.5 }}>
+                      {c.commande_lignes.map((l) => `${l.articles?.nom ?? "—"} ×${l.quantite}`).join(", ")}
+                    </td>
+                    <td className="sb-mono">{fmt(c.ca)}</td>
+                    <td className="sb-mono" style={{ color: "#0E8F6E" }}>{fmt(c.marge)}</td>
+                    <td>
+                      {annulee ? (
+                        <span className="sb-badge sb-badge-coral">Annulée</span>
+                      ) : (
+                        <span className="sb-badge sb-badge-emerald">Confirmée</span>
+                      )}
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => reprint(c)}>
+                          <Printer size={12} />
+                        </button>
+                        {!annulee && (
+                          <>
+                            <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirEdition(c)}>
+                              <Pencil size={12} /> Modifier
+                            </button>
+                            <button
+                              className="sb-btn sb-btn-ghost"
+                              style={{ padding: "4px 8px", color: "#C24E37" }}
+                              onClick={() => annulerCommande(c)}
+                            >
+                              <Ban size={12} /> Annuler
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
       {receipt && <Receipt commande={receipt} business={business} onClose={() => setReceipt(null)} />}
+
+      {editingId && (
+        <div className="sb-modal-overlay" onClick={() => setEditingId(null)}>
+          <div
+            className="sb-card"
+            style={{ width: 520, maxWidth: "95vw", maxHeight: "88vh", overflowY: "auto", background: "#fff" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div className="sb-section-title" style={{ margin: 0 }}>
+                Modifier la commande {commandes.find((c) => c.id === editingId)?.numero}
+              </div>
+              <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="sb-field" style={{ marginBottom: 16 }}>
+              <label>Cliente</label>
+              <select className="sb-input" value={editClientId} onChange={(e) => setEditClientId(e.target.value)}>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nom} — {c.telephone}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="sb-section-title" style={{ fontSize: 13 }}>
+              Articles
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div className="sb-field" style={{ flex: 2, minWidth: 160 }}>
+                <label>Article</label>
+                <select className="sb-input" value={editArticleSel} onChange={(e) => setEditArticleSel(e.target.value)}>
+                  <option value="">Sélectionner un article</option>
+                  {articles.map((a) => (
+                    <option key={a.id} value={a.id} disabled={stockDispoEdition(a.id) < 1}>
+                      {a.nom} — {fmt(a.prix_vente)} ({stockDispoEdition(a.id)} dispo)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="sb-field" style={{ flex: 0.5, minWidth: 70 }}>
+                <label>Quantité</label>
+                <input
+                  className="sb-input"
+                  type="number"
+                  min={1}
+                  max={editArticleSel ? stockDispoEdition(editArticleSel) : undefined}
+                  value={editQte}
+                  onChange={(e) => setEditQte(Number(e.target.value))}
+                />
+              </div>
+              <button
+                className="sb-btn sb-btn-primary"
+                onClick={addEditLigne}
+                disabled={!editArticleSel || stockDispoEdition(editArticleSel) < 1}
+              >
+                <Plus size={14} /> Ajouter
+              </button>
+            </div>
+
+            {editLignes.length === 0 ? (
+              <p style={{ fontSize: 13, color: "#6B6A63", marginBottom: 16 }}>Aucun article dans cette commande.</p>
+            ) : (
+              <div className="sb-table-scroll" style={{ marginBottom: 16 }}>
+                <table className="sb-table">
+                  <thead>
+                    <tr>
+                      <th>Article</th>
+                      <th>Qté</th>
+                      <th>Sous-total</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {editLignes.map((l) => {
+                      const art = articles.find((a) => a.id === l.articleId);
+                      return (
+                        <tr key={l.articleId}>
+                          <td>{art?.nom ?? "—"}</td>
+                          <td className="sb-mono">{l.quantite}</td>
+                          <td className="sb-mono">{fmt((art?.prix_vente || 0) * l.quantite)}</td>
+                          <td>
+                            <button className="sb-btn sb-btn-ghost" style={{ padding: "3px 6px" }} onClick={() => removeEditLigne(l.articleId)}>
+                              <Trash2 size={12} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="sb-section-title" style={{ fontSize: 13 }}>
+              Livraison
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <button
+                className={`sb-btn ${editTypeLivraison === "boutique" ? "sb-btn-primary" : "sb-btn-ghost"}`}
+                onClick={() => setEditTypeLivraison("boutique")}
+              >
+                Récupération en boutique
+              </button>
+              <button
+                className={`sb-btn ${editTypeLivraison === "livraison" ? "sb-btn-primary" : "sb-btn-ghost"}`}
+                onClick={() => setEditTypeLivraison("livraison")}
+                disabled={zones.length === 0}
+              >
+                Livraison
+              </button>
+            </div>
+            {editTypeLivraison === "livraison" && (
+              <div className="sb-field" style={{ marginBottom: 16 }}>
+                <label>Zone de livraison</label>
+                <select className="sb-input" value={editZoneLivraison} onChange={(e) => setEditZoneLivraison(e.target.value)}>
+                  {zones.map((z) => (
+                    <option key={z.id} value={z.zone}>
+                      {z.zone} — {fmt(z.frais)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="sb-section-title" style={{ fontSize: 13 }}>
+              Paiement
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <button
+                className={`sb-btn ${editModePaiement === "livraison" ? "sb-btn-primary" : "sb-btn-ghost"}`}
+                onClick={() => setEditModePaiement("livraison")}
+              >
+                Paiement à la livraison
+              </button>
+              <button
+                className={`sb-btn ${editModePaiement === "mobile_money" ? "sb-btn-primary" : "sb-btn-ghost"}`}
+                onClick={() => setEditModePaiement("mobile_money")}
+              >
+                Mobile Money
+              </button>
+            </div>
+            {editModePaiement === "mobile_money" && (
+              <div className="sb-field" style={{ marginBottom: 16 }}>
+                <label>Opérateur</label>
+                <select className="sb-input" value={editOperateur} onChange={(e) => setEditOperateur(e.target.value)}>
+                  {OPERATEURS_MOBILE_MONEY.map((op) => (
+                    <option key={op} value={op}>
+                      {op}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="sb-resume-commande" style={{ marginBottom: 16 }}>
+              <div>
+                <span>Total articles</span>
+                <strong>{fmt(editTotalCa)}</strong>
+              </div>
+              <div>
+                <span>Frais de livraison</span>
+                <strong>{fmt(editFraisLivraison)}</strong>
+              </div>
+              <div className="sb-resume-total">
+                <span>Total à payer</span>
+                <strong>{fmt(editTotalAvecLivraison)}</strong>
+              </div>
+              <div>
+                <span>Marge réelle estimée</span>
+                <strong style={{ color: editTotalMarge >= 0 ? "#0E8F6E" : "#C24E37" }}>{fmt(editTotalMarge)}</strong>
+              </div>
+            </div>
+
+            {editError && <p style={{ fontSize: 12, color: "#C24E37", margin: "0 0 12px" }}>{editError}</p>}
+
+            <button
+              className="sb-btn sb-btn-emerald"
+              style={{ width: "100%", justifyContent: "center" }}
+              onClick={validerEdition}
+              disabled={editSaving || editLignes.length === 0 || !editClientId}
+            >
+              <CheckCircle2 size={14} /> {editSaving ? "Enregistrement…" : "Enregistrer les modifications"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
