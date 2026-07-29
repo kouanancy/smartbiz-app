@@ -738,6 +738,178 @@ a {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Reçu de commande — mise en page dédiée à l'impression / PDF (A4)  */
+/*  Rendue via un portail dans <body> (voir components/Receipt.js),   */
+/*  donc invisible à l'écran et indépendante de la page qui l'ouvre.  */
+/* ------------------------------------------------------------------ */
+
+.sb-receipt-print {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
+  /* Quand un reçu est ouvert, on n'imprime que lui — pas la page derrière. */
+  body:has(.sb-receipt-print) .sb-root {
+    display: none !important;
+  }
+  .sb-receipt-print {
+    display: block;
+    width: 100%;
+    font-family: "Inter", sans-serif;
+    color: #2e2c2b;
+  }
+  .sb-receipt-print-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    border-bottom: 2px solid #2e2c2b;
+    padding-bottom: 18px;
+    margin-bottom: 28px;
+  }
+  .sb-receipt-print-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .sb-receipt-print-brand img {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    object-fit: cover;
+  }
+  .sb-receipt-print-logo-fallback {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    background: #e07a29;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+  }
+  .sb-receipt-print-brand-name {
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 700;
+    font-size: 24px;
+  }
+  .sb-receipt-print-title {
+    text-align: right;
+  }
+  .sb-receipt-print-title h1 {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    margin: 0 0 6px;
+  }
+  .sb-receipt-print-title p {
+    font-size: 12.5px;
+    color: #6e6b68;
+    margin: 2px 0 0;
+  }
+  .sb-receipt-print-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 32px;
+  }
+  .sb-receipt-print-info-block h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #8a8682;
+    margin: 0 0 10px;
+  }
+  .sb-receipt-print-info-block div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+    padding: 6px 0;
+    border-bottom: 1px dashed #e4e2d8;
+  }
+  .sb-receipt-print-info-block span {
+    color: #6e6b68;
+  }
+  .sb-receipt-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 24px;
+  }
+  .sb-receipt-print-table th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6e6b68;
+    padding: 10px 8px;
+    border-bottom: 2px solid #2e2c2b;
+  }
+  .sb-receipt-print-table td {
+    padding: 14px 8px;
+    font-size: 13.5px;
+    border-bottom: 1px solid #e4e2d8;
+  }
+  .sb-receipt-print-totals {
+    margin-left: auto;
+    width: 300px;
+    margin-bottom: 36px;
+  }
+  .sb-receipt-print-totals div {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13.5px;
+    padding: 7px 0;
+    color: #6e6b68;
+  }
+  .sb-receipt-print-totals div strong {
+    color: #2e2c2b;
+  }
+  .sb-receipt-print-totals .total {
+    border-top: 2px solid #2e2c2b;
+    padding-top: 12px;
+    margin-top: 6px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #2e2c2b;
+  }
+  .sb-receipt-print-totals .total strong {
+    font-size: 19px;
+  }
+  .sb-receipt-print-stamp {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 40px;
+  }
+  .sb-receipt-print-stamp span {
+    display: inline-block;
+    transform: rotate(-6deg);
+    border: 3px solid #c7601a;
+    color: #c7601a;
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    padding: 10px 28px;
+    border-radius: 10px;
+    letter-spacing: 0.06em;
+  }
+  .sb-receipt-print-footer {
+    text-align: center;
+    font-size: 11px;
+    color: #a6a29d;
+    border-top: 1px solid #e4e2d8;
+    padding-top: 18px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Écrans hors application (auth, chargement, abonnement en attente) */
 /* ------------------------------------------------------------------ */
 

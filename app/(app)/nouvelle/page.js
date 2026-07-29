@@ -52,8 +52,6 @@ export default function NouvelleCommandePage() {
       setClients(clientsRes.data || []);
       setArticles(articlesRes.data || []);
       setZones(zonesRes.data || []);
-      setClientId(clientsRes.data?.[0]?.id ?? "");
-      setArticleSel(articlesRes.data?.[0]?.id ?? "");
       setZoneLivraison(zonesRes.data?.[0]?.zone ?? "");
       setLoading(false);
     }
@@ -285,6 +283,7 @@ export default function NouvelleCommandePage() {
               <div className="sb-field">
                 <label>Cliente</label>
                 <select className="sb-input" value={clientId} onChange={(e) => setClientId(e.target.value)}>
+                  <option value="">Sélectionner une cliente</option>
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nom} — {c.telephone}
@@ -379,6 +378,7 @@ export default function NouvelleCommandePage() {
               <div className="sb-field" style={{ flex: 2, minWidth: 160 }}>
                 <label>Article</label>
                 <select className="sb-input" value={articleSel} onChange={(e) => setArticleSel(e.target.value)}>
+                  <option value="">Sélectionner un article</option>
                   {articles.map((a) => (
                     <option key={a.id} value={a.id} disabled={a.stock === 0}>
                       {a.nom} — {fmt(a.prix_vente)} ({a.stock} en stock)
@@ -392,12 +392,12 @@ export default function NouvelleCommandePage() {
                   className="sb-input"
                   type="number"
                   min={1}
-                  max={stockDispo(articleSel)}
+                  max={articleSel ? stockDispo(articleSel) : undefined}
                   value={qte}
                   onChange={(e) => setQte(Number(e.target.value))}
                 />
               </div>
-              <button className="sb-btn sb-btn-primary" onClick={addLigne} disabled={stockDispo(articleSel) < 1}>
+              <button className="sb-btn sb-btn-primary" onClick={addLigne} disabled={!articleSel || stockDispo(articleSel) < 1}>
                 <Plus size={14} /> Ajouter
               </button>
             </div>
