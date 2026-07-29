@@ -69,6 +69,7 @@ export default function DashboardPage() {
           .from("commandes")
           .select("id, numero, created_at, ca, marge, clients(nom)")
           .eq("business_id", business.id)
+          .neq("statut", "annulee")
           .order("created_at", { ascending: false }),
         supabase.from("articles").select("*").eq("business_id", business.id),
         supabase.from("clients").select("id", { count: "exact", head: true }).eq("business_id", business.id),
