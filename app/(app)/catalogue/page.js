@@ -116,19 +116,19 @@ export default function CataloguePage() {
         ))}
       </div>
 
-      <div className="sb-catalogue-header">
-        {business?.logo_url ? (
-          <img src={business.logo_url} alt={business?.name || "Logo"} />
-        ) : (
-          <div className="sb-catalogue-logo-fallback" style={{ background: accent }}>
-            {(business?.name || "SB").slice(0, 2).toUpperCase()}
-          </div>
-        )}
+      <div className="sb-catalogue-banner">
+        <div className="sb-catalogue-banner-logo">
+          {business?.logo_url ? (
+            <img src={business.logo_url} alt={business?.name || "Logo"} />
+          ) : (
+            <div className="sb-catalogue-banner-logo-fallback" style={{ color: accent }}>
+              {(business?.name || "SB").slice(0, 2).toUpperCase()}
+            </div>
+          )}
+        </div>
         <div>
-          <div className="sb-display" style={{ fontWeight: 700, fontSize: 16 }}>
-            {business?.name || t("common.defaultBusinessName")}
-          </div>
-          <div style={{ fontSize: 11.5, color: "#8A8682" }}>{t("catalogue.headerSub")}</div>
+          <div className="sb-catalogue-banner-name">{business?.name || t("common.defaultBusinessName")}</div>
+          <div className="sb-catalogue-banner-tagline">{t("catalogue.headerSub")}</div>
         </div>
       </div>
 
@@ -147,7 +147,6 @@ export default function CataloguePage() {
                   {a.nom.slice(0, 1).toUpperCase()}
                 </div>
               )}
-              <div className="sb-catalogue-cat">{a.categories?.nom ?? t("common.sansCategorie")}</div>
               <div className="sb-catalogue-nom">{a.nom}</div>
               <div className="sb-catalogue-prix">{fmt(a.prix_vente)}</div>
             </div>
