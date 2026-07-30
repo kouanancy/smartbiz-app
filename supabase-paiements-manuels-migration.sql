@@ -19,10 +19,15 @@ alter table paiements_abonnement
 -- passer un paiement à 'reussi' ou 'echoue'.
 drop policy if exists "Accès limité à sa boutique" on paiements_abonnement;
 
+-- drop policy if exists avant chaque create policy : rend le script rejouable
+-- sans erreur, y compris après une exécution partielle (interrompue à mi-
+-- chemin) ou une ré-exécution volontaire.
+drop policy if exists "Un commerçant consulte ses paiements" on paiements_abonnement;
 create policy "Un commerçant consulte ses paiements"
   on paiements_abonnement for select
   using (business_id in (select id from businesses where owner_id = auth.uid()));
 
+drop policy if exists "Un commerçant soumet un justificatif" on paiements_abonnement;
 create policy "Un commerçant soumet un justificatif"
   on paiements_abonnement for insert
   with check (
@@ -30,6 +35,7 @@ create policy "Un commerçant soumet un justificatif"
     and statut = 'en_attente'
   );
 
+drop policy if exists "Les admins gèrent tous les paiements d'abonnement" on paiements_abonnement;
 create policy "Les admins gèrent tous les paiements d'abonnement"
   on paiements_abonnement for all
   using (is_admin_user());
@@ -53,10 +59,12 @@ alter table parametres_globaux enable row level security;
 -- Le QR/numéro/prix n'ont rien de confidentiel : lisibles par tout
 -- utilisateur connecté (nécessaire pour l'écran de paiement de chaque
 -- commerçant), modifiables uniquement par un administrateur.
+drop policy if exists "Lecture des paramètres globaux par tout compte connecté" on parametres_globaux;
 create policy "Lecture des paramètres globaux par tout compte connecté"
   on parametres_globaux for select
   using (auth.uid() is not null);
 
+drop policy if exists "Les admins modifient les paramètres globaux" on parametres_globaux;
 create policy "Les admins modifient les paramètres globaux"
   on parametres_globaux for update
   using (is_admin_user());
