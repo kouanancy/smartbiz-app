@@ -20,6 +20,7 @@ alter table parametres_globaux add column if not exists icon_apple_180_url text;
 -- Rien de confidentiel dans cette table (QR/numéro/prix déjà publics,
 -- logo/icônes le sont tout autant) : on passe la lecture en public.
 drop policy if exists "Lecture des paramètres globaux par tout compte connecté" on parametres_globaux;
+drop policy if exists "Lecture publique des paramètres globaux" on parametres_globaux;
 create policy "Lecture publique des paramètres globaux"
   on parametres_globaux for select
   using (true);
