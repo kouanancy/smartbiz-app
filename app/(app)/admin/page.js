@@ -190,8 +190,13 @@ export default function AdminPage() {
               <tbody>
                 {businesses.map((b) => {
                   const paiement = paiementEnAttentePour(b.id);
+                  // La date d'expiration ne concerne jamais l'admin connecté
+                  // lui-même (accès permanent, quel que soit son abonnement) :
+                  // elle ne doit apparaître que pour les autres commerçants
+                  // listés, jamais comme information personnelle le concernant.
+                  const estMoi = b.owner_id === business.owner_id;
                   return (
-                    <tr key={b.id} style={expireBientot(b) ? { background: "#FBF1E6" } : undefined}>
+                    <tr key={b.id} style={expireBientot(b) && !estMoi ? { background: "#FBF1E6" } : undefined}>
                       <td>{b.name || t("common.defaultBusinessName")}</td>
                       <td style={{ color: "#6B6A63" }}>{b.email || "—"}</td>
                       <td>
@@ -200,14 +205,18 @@ export default function AdminPage() {
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span>
-                            {b.subscription_expires_at
-                              ? new Date(b.subscription_expires_at).toLocaleDateString(dateLocale(business?.langue))
-                              : t("admin.aucuneExpiration")}
-                          </span>
-                          {expireBientot(b) && <span className="sb-badge sb-badge-amber">{t("admin.badgeExpireBientot")}</span>}
-                        </div>
+                        {estMoi ? (
+                          <span style={{ color: "#A6A29D" }}>{t("admin.aucuneExpiration")}</span>
+                        ) : (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span>
+                              {b.subscription_expires_at
+                                ? new Date(b.subscription_expires_at).toLocaleDateString(dateLocale(business?.langue))
+                                : t("admin.aucuneExpiration")}
+                            </span>
+                            {expireBientot(b) && <span className="sb-badge sb-badge-amber">{t("admin.badgeExpireBientot")}</span>}
+                          </div>
+                        )}
                       </td>
                       <td>
                         {paiement ? (
