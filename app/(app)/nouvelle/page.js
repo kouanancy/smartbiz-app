@@ -14,6 +14,7 @@ export default function NouvelleCommandePage() {
   const { business, setBusiness } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
+  const uniteLabel = (u) => t(`common.unites.${u || "unite"}`);
   const [clients, setClients] = useState([]);
   const [articles, setArticles] = useState([]);
   const [zones, setZones] = useState([]);
@@ -167,6 +168,7 @@ export default function NouvelleCommandePage() {
         return {
           articleId: l.articleId,
           nom: art.nom,
+          unite: art.unite,
           quantite: l.quantite,
           prix_vente: art.prix_vente,
           prix_achat: art.prix_achat,
@@ -418,7 +420,7 @@ export default function NouvelleCommandePage() {
                   <option value="">{t("nouvelle.selectArticle")}</option>
                   {articles.map((a) => (
                     <option key={a.id} value={a.id} disabled={a.stock === 0}>
-                      {a.nom} — {fmt(a.prix_vente)} {t("nouvelle.stockSuffix", { n: a.stock })}
+                      {a.nom} — {fmt(a.prix_vente)} {t("nouvelle.stockSuffix", { n: a.stock, unite: uniteLabel(a.unite) })}
                     </option>
                   ))}
                 </select>
@@ -503,7 +505,9 @@ export default function NouvelleCommandePage() {
                           <td className="sb-mono" style={{ color: margeUnitaire >= 0 ? "#0E8F6E" : "#C24E37" }}>
                             {fmt(margeUnitaire)}
                           </td>
-                          <td className="sb-mono">{l.quantite}</td>
+                          <td className="sb-mono">
+                            {l.quantite} {uniteLabel(art.unite)}
+                          </td>
                           <td className="sb-mono">{fmt(art.prix_vente * l.quantite)}</td>
                           <td>
                             <button className="sb-btn sb-btn-ghost" style={{ padding: "3px 6px" }} onClick={() => removeLigne(l.articleId)}>

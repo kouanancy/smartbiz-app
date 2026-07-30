@@ -19,6 +19,7 @@ export default function CommandesPage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
+  const uniteLabel = (u) => t(`common.unites.${u || "unite"}`);
   const [commandes, setCommandes] = useState([]);
   const [clients, setClients] = useState([]);
   const [articles, setArticles] = useState([]);
@@ -48,7 +49,7 @@ export default function CommandesPage() {
         supabase
           .from("commandes")
           .select(
-            "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, articles(nom))"
+            "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, articles(nom, unite))"
           )
           .eq("business_id", business.id)
           .order("created_at", { ascending: false }),
@@ -80,6 +81,7 @@ export default function CommandesPage() {
       client: c.clients,
       lignes: c.commande_lignes.map((l) => ({
         nom: l.articles?.nom ?? "—",
+        unite: l.articles?.unite,
         quantite: l.quantite,
         prix_vente: l.prix_vente,
         prix_achat: l.prix_achat,
@@ -191,6 +193,7 @@ export default function CommandesPage() {
       return {
         articleId: l.articleId,
         nom: art.nom,
+        unite: art.unite,
         quantite: l.quantite,
         prix_vente: art.prix_vente,
         prix_achat: art.prix_achat,
@@ -253,7 +256,7 @@ export default function CommandesPage() {
                   prix_vente: l.prix_vente,
                   prix_achat: l.prix_achat,
                   frais_annexes: l.frais_annexes,
-                  articles: { nom: l.nom },
+                  articles: { nom: l.nom, unite: l.unite },
                 })),
               }
             : c
@@ -337,7 +340,9 @@ export default function CommandesPage() {
                     <td>{new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
                     <td>{c.clients?.nom ?? "—"}</td>
                     <td style={{ color: "#6B6A63", fontSize: 12.5 }}>
-                      {c.commande_lignes.map((l) => `${l.articles?.nom ?? "—"} ×${l.quantite}`).join(", ")}
+                      {c.commande_lignes
+                        .map((l) => `${l.articles?.nom ?? "—"} ×${l.quantite} ${uniteLabel(l.articles?.unite)}`)
+                        .join(", ")}
                     </td>
                     <td className="sb-mono">{fmt(c.ca)}</td>
                     <td className="sb-mono" style={{ color: "#0E8F6E" }}>{fmt(c.marge)}</td>
@@ -421,7 +426,8 @@ export default function CommandesPage() {
                   <option value="">{t("commandes.selectArticle")}</option>
                   {articles.map((a) => (
                     <option key={a.id} value={a.id} disabled={stockDispoEdition(a.id) < 1}>
-                      {a.nom} — {fmt(a.prix_vente)} {t("commandes.dispoSuffix", { n: stockDispoEdition(a.id) })}
+                      {a.nom} — {fmt(a.prix_vente)}{" "}
+                      {t("commandes.dispoSuffix", { n: stockDispoEdition(a.id), unite: uniteLabel(a.unite) })}
                     </option>
                   ))}
                 </select>
@@ -465,7 +471,9 @@ export default function CommandesPage() {
                       return (
                         <tr key={l.articleId}>
                           <td>{art?.nom ?? "—"}</td>
-                          <td className="sb-mono">{l.quantite}</td>
+                          <td className="sb-mono">
+                            {l.quantite} {uniteLabel(art?.unite)}
+                          </td>
                           <td className="sb-mono">{fmt((art?.prix_vente || 0) * l.quantite)}</td>
                           <td>
                             <button className="sb-btn sb-btn-ghost" style={{ padding: "3px 6px" }} onClick={() => removeEditLigne(l.articleId)}>

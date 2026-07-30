@@ -6,9 +6,20 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
+import { UNITES } from "@/lib/constants";
 import ImageUploadField from "@/components/ImageUploadField";
 
-const emptyForm = { nom: "", categorie_id: "", prix_achat: "", frais_annexes: "", prix_vente: "", stock: "", seuil: "3", image_url: "" };
+const emptyForm = {
+  nom: "",
+  categorie_id: "",
+  unite: "unite",
+  prix_achat: "",
+  frais_annexes: "",
+  prix_vente: "",
+  stock: "",
+  seuil: "3",
+  image_url: "",
+};
 
 const FILTRE_TOUTES = "toutes";
 const FILTRE_SANS_CATEGORIE = "sans-categorie";
@@ -46,7 +57,7 @@ export default function ArticlesPage() {
         supabase.from("categories").select("*").eq("business_id", business.id).order("nom"),
         supabase
           .from("reappros")
-          .select("*, articles(nom)")
+          .select("*, articles(nom, unite)")
           .eq("business_id", business.id)
           .order("created_at", { ascending: false })
           .limit(10),
@@ -74,6 +85,7 @@ export default function ArticlesPage() {
   }, [business?.id]);
 
   const categorieName = (id) => categories.find((c) => c.id === id)?.nom ?? t("common.sansCategorie");
+  const uniteLabel = (u) => t(`common.unites.${u || "unite"}`);
   const stockTheorique = (article) => article.stock - (enAttenteParArticle[article.id] || 0);
 
   function ouvrirReappro(article) {
@@ -109,7 +121,7 @@ export default function ArticlesPage() {
       .single();
 
     setArticles((prev) => prev.map((a) => (a.id === reapproId ? updated : a)));
-    if (reappro) setReappros((prev) => [{ ...reappro, articles: { nom: article.nom } }, ...prev].slice(0, 10));
+    if (reappro) setReappros((prev) => [{ ...reappro, articles: { nom: article.nom, unite: article.unite } }, ...prev].slice(0, 10));
     setReapproId(null);
   }
 
@@ -119,6 +131,7 @@ export default function ArticlesPage() {
     setEditForm({
       nom: article.nom,
       categorie_id: article.categorie_id || "",
+      unite: article.unite || "unite",
       prix_achat: String(article.prix_achat),
       frais_annexes: String(article.frais_annexes || 0),
       prix_vente: String(article.prix_vente),
@@ -139,6 +152,7 @@ export default function ArticlesPage() {
       .update({
         nom: editForm.nom.trim(),
         categorie_id: editForm.categorie_id || null,
+        unite: editForm.unite || "unite",
         prix_achat: Number(editForm.prix_achat) || 0,
         frais_annexes: Number(editForm.frais_annexes) || 0,
         prix_vente: Number(editForm.prix_vente) || 0,
@@ -182,6 +196,7 @@ export default function ArticlesPage() {
         business_id: business.id,
         nom: form.nom,
         categorie_id: form.categorie_id || null,
+        unite: form.unite || "unite",
         prix_achat: Number(form.prix_achat) || 0,
         frais_annexes: Number(form.frais_annexes) || 0,
         prix_vente: Number(form.prix_vente) || 0,
@@ -321,6 +336,16 @@ export default function ArticlesPage() {
             </select>
           </div>
           <div className="sb-field">
+            <label>{t("articles.uniteLabel")}</label>
+            <select className="sb-input" value={form.unite} onChange={(e) => setForm({ ...form, unite: e.target.value })}>
+              {UNITES.map((u) => (
+                <option key={u} value={u}>
+                  {uniteLabel(u)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="sb-field">
             <label>{t("articles.stockInitialLabel")}</label>
             <input
               className="sb-input"
@@ -446,10 +471,14 @@ export default function ArticlesPage() {
                     <td className="sb-mono" style={{ color: margeReelle >= 0 ? "#0E8F6E" : "#C24E37" }}>
                       {fmt(margeReelle)}
                     </td>
-                    <td className="sb-mono">{a.stock}</td>
+                    <td className="sb-mono">
+                      {a.stock} {uniteLabel(a.unite)}
+                    </td>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span className="sb-mono">{theorique}</span>
+                        <span className="sb-mono">
+                          {theorique} {uniteLabel(a.unite)}
+                        </span>
                         {theorique <= 0 && <span className="sb-badge sb-badge-coral">{t("common.badgeTotalementCommande")}</span>}
                       </div>
                     </td>
@@ -513,7 +542,9 @@ export default function ArticlesPage() {
                     <td className="sb-mono" style={{ color: margeUnitaire >= 0 ? "#0E8F6E" : "#C24E37" }}>
                       {fmt(margeUnitaire)}
                     </td>
-                    <td className="sb-mono">{a.stock}</td>
+                    <td className="sb-mono">
+                      {a.stock} {uniteLabel(a.unite)}
+                    </td>
                     <td className="sb-mono" style={{ fontWeight: 600 }}>
                       {fmt(margeTotale)}
                     </td>
@@ -557,7 +588,9 @@ export default function ArticlesPage() {
                   <tr key={r.id}>
                     <td>{new Date(r.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
                     <td>{r.articles?.nom ?? "—"}</td>
-                    <td className="sb-mono">+{r.quantite}</td>
+                    <td className="sb-mono">
+                      +{r.quantite} {uniteLabel(r.articles?.unite)}
+                    </td>
                     <td className="sb-mono">{fmt(r.prix_achat)}</td>
                     <td className="sb-mono">{fmt(r.frais_annexes || 0)}</td>
                   </tr>
@@ -663,6 +696,16 @@ export default function ArticlesPage() {
                       {categories.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.nom}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="sb-field">
+                    <label>{t("articles.uniteLabel")}</label>
+                    <select className="sb-input" value={editForm.unite} onChange={(e) => setEditForm({ ...editForm, unite: e.target.value })}>
+                      {UNITES.map((u) => (
+                        <option key={u} value={u}>
+                          {uniteLabel(u)}
                         </option>
                       ))}
                     </select>

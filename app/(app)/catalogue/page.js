@@ -15,6 +15,7 @@ export default function CataloguePage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
+  const uniteLabel = (u) => t(`common.unites.${u || "unite"}`);
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,11 +57,26 @@ export default function CataloguePage() {
     { key: FILTRE_SANS_CATEGORIE, label: t("common.sansCategorie") },
     ...categories.map((c) => ({ key: c.id, label: c.nom })),
   ];
+  const activeCategoryLabel =
+    filtreCategorie === FILTRE_TOUTES ? null : filtresCategorie.find((opt) => opt.key === filtreCategorie)?.label;
 
   function buildTexte() {
-    const titre = t("catalogue.shareTitle", { name: business?.name || "SmartBiz" });
-    const lignes = filtres.map((a) => `• ${a.nom} — ${fmt(a.prix_vente)}`).join("\n");
+    const titre =
+      t("catalogue.shareTitle", { name: business?.name || "SmartBiz" }) + (activeCategoryLabel ? ` — ${activeCategoryLabel}` : "");
+    const lignes = filtres.map((a) => `• ${a.nom} — ${fmt(a.prix_vente)} / ${uniteLabel(a.unite)}`).join("\n");
     return `${titre}\n\n${lignes}\n\n${t("catalogue.shareFooter")}`;
+  }
+
+  function imprimer() {
+    const original = document.title;
+    document.title =
+      `${t("catalogue.title")} — ${business?.name || "SmartBiz"}` + (activeCategoryLabel ? ` — ${activeCategoryLabel}` : "");
+    const restore = () => {
+      document.title = original;
+      window.removeEventListener("afterprint", restore);
+    };
+    window.addEventListener("afterprint", restore);
+    window.print();
   }
 
   async function copierTexte() {
@@ -92,7 +108,7 @@ export default function CataloguePage() {
           <button className="sb-btn" style={{ background: "#25D366", color: "#fff" }} onClick={partagerWhatsApp}>
             <Share2 size={13} /> {t("catalogue.partager")}
           </button>
-          <button className="sb-btn sb-btn-primary" onClick={() => window.print()}>
+          <button className="sb-btn sb-btn-primary" onClick={imprimer}>
             <Printer size={13} /> {t("catalogue.imprimerPdf")}
           </button>
         </div>
@@ -128,7 +144,9 @@ export default function CataloguePage() {
         </div>
         <div>
           <div className="sb-catalogue-banner-name">{business?.name || t("common.defaultBusinessName")}</div>
-          <div className="sb-catalogue-banner-tagline">{t("catalogue.headerSub")}</div>
+          <div className="sb-catalogue-banner-tagline">
+            {activeCategoryLabel ? `${t("catalogue.headerSub")} — ${activeCategoryLabel}` : t("catalogue.headerSub")}
+          </div>
         </div>
       </div>
 
@@ -148,7 +166,9 @@ export default function CataloguePage() {
                 </div>
               )}
               <div className="sb-catalogue-nom">{a.nom}</div>
-              <div className="sb-catalogue-prix">{fmt(a.prix_vente)}</div>
+              <div className="sb-catalogue-prix">
+                {fmt(a.prix_vente)} <span className="sb-catalogue-unite">/ {uniteLabel(a.unite)}</span>
+              </div>
             </div>
           ))}
         </div>
