@@ -460,6 +460,18 @@ introduite par la migration ci-dessous).
 Nécessite `supabase-parametres-globaux-logo-migration.sql` (voir
 Démarrage), à exécuter après `supabase-paiements-manuels-migration.sql`.
 
+## Navigation mobile (menu hamburger)
+
+En dessous de 860px de large (`components/Sidebar.js`, `app/globals.css`),
+la sidebar bascule en barre horizontale réduite au logo/nom de boutique et
+à un bouton hamburger ; la navigation elle-même devient un panneau
+coulissant (`position: fixed`, translaté hors écran par défaut) ouvert par
+ce bouton, avec un overlay assombri en fond. Se referme au clic sur
+l'overlay, sur un lien de nav, ou sur le bouton (qui devient une croix une
+fois ouvert). Au-dessus de 860px, aucun changement : la sidebar reste
+affichée en permanence comme avant, le bouton hamburger et le panneau
+restent masqués (`display: none` hors media query).
+
 ## Structure
 
 ```
