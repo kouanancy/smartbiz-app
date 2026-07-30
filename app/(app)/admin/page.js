@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ShieldCheck, ShieldOff, XCircle, ImageIcon } from "lucide-react";
+import { CheckCircle2, ShieldCheck, ShieldOff, XCircle, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
@@ -33,6 +33,7 @@ export default function AdminPage() {
   const [msg, setMsg] = useState("");
   const [rejetId, setRejetId] = useState(null);
   const [raisonRejet, setRaisonRejet] = useState("");
+  const [previewPaiement, setPreviewPaiement] = useState(null);
 
   useEffect(() => {
     if (business && !business.is_admin) router.replace("/dashboard");
@@ -171,15 +172,14 @@ export default function AdminPage() {
                       </td>
                       <td>
                         {paiement ? (
-                          <a
-                            href={paiement.justificatif_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="sb-btn sb-btn-ghost"
-                            style={{ padding: "4px 8px" }}
+                          <div
+                            className="sb-thumb-upload"
+                            style={{ width: 44, height: 44 }}
+                            onClick={() => setPreviewPaiement(paiement)}
+                            title={t("admin.voirJustificatif", { montant: fmt(paiement.montant) })}
                           >
-                            <ImageIcon size={12} /> {t("admin.voirJustificatif", { montant: fmt(paiement.montant) })}
-                          </a>
+                            <img src={paiement.justificatif_url} alt="" />
+                          </div>
                         ) : (
                           <span style={{ color: "#A6A29D", fontSize: 12.5 }}>—</span>
                         )}
@@ -253,6 +253,33 @@ export default function AdminPage() {
                 {t("admin.confirmerRejet")}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {previewPaiement && (
+        <div className="sb-modal-overlay" onClick={() => setPreviewPaiement(null)}>
+          <div className="sb-card" style={{ width: 420, maxWidth: "92vw", background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+              <div className="sb-section-title" style={{ margin: 0 }}>
+                {t("admin.justificatifModalTitle")}
+              </div>
+              <button
+                onClick={() => setPreviewPaiement(null)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 10px" }}>
+              {t("paiement.colMontant")} : <strong>{fmt(previewPaiement.montant)}</strong> —{" "}
+              {new Date(previewPaiement.created_at).toLocaleDateString(dateLocale(business?.langue))}
+            </p>
+            <img
+              src={previewPaiement.justificatif_url}
+              alt=""
+              style={{ width: "100%", borderRadius: 10, border: "1px solid var(--line)" }}
+            />
           </div>
         </div>
       )}
