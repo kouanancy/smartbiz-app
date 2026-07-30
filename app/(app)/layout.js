@@ -53,7 +53,10 @@ export default function AppLayout({ children }) {
   // Sidebar.js). L'expiration de l'essai est gérée en amont dans
   // AuthProvider (bascule vers 'en_attente_paiement' dès que la date est
   // dépassée), donc arriver ici avec 'essai' signifie qu'il reste du temps.
-  if (business.subscription_status !== "actif" && business.subscription_status !== "essai") {
+  // Un compte administrateur garde un accès complet quel que soit son
+  // subscription_status : le blocage automatique à l'expiration ne
+  // concerne que les comptes commerçants classiques.
+  if (!business.is_admin && business.subscription_status !== "actif" && business.subscription_status !== "essai") {
     return <PendingSubscription business={business} />;
   }
 
