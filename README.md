@@ -41,7 +41,11 @@ clients — voir « Clients : suppression vs désactivation » plus bas),
 `articles.unite` — voir « Unité de mesure » plus bas), et enfin
 `supabase-businesses-admin-migration.sql` (ajoute `businesses.is_admin` et
 `businesses.email`, la policy RLS et la fonction associées — voir « Espace
-Administration » plus bas).
+Administration » plus bas), et enfin
+`supabase-paiements-manuels-migration.sql` (colonnes de justificatif sur
+`paiements_abonnement`, RLS durcie, nouvelle table `parametres_globaux` —
+voir « Paiement manuel vérifié » plus bas ; nécessite que la migration
+précédente ait déjà été exécutée).
 
 ## Variables d'environnement
 
@@ -75,8 +79,9 @@ clé.
    Dans les deux cas, l'accès à l'application (Tableau de bord, Commandes,
    Articles, Clients, Catalogue, Paramètres) est bloqué.
 5. Le passage à `actif` (fin d'essai payée ou renouvellement classique) se
-   fait pour l'instant manuellement depuis l'espace Administration
-   (« Marquer comme payé », voir plus bas) ; le webhook CinetPay (voir
+   fait via le circuit de paiement manuel vérifié décrit ci-dessous
+   (« Marquer comme payé » dans l'espace Administration, une fois le
+   justificatif contrôlé) ; le webhook CinetPay (voir
    `smartbiz-backend-roadmap.md`) l'automatisera plus tard — indépendamment
    du statut précédent.
 
@@ -281,7 +286,12 @@ triées en premier. Deux actions par ligne :
 - **Marquer comme payé** : `subscription_status → 'actif'` et
   `subscription_expires_at →` aujourd'hui + 1 mois, quel que soit le
   statut ou la date précédente — le pendant manuel de ce que fera le
-  webhook CinetPay plus tard.
+  webhook CinetPay plus tard. Si un justificatif est en attente pour ce
+  commerçant, il passe aussi à `reussi`. Un lien « Voir » (nouvel onglet)
+  ouvre le justificatif à contrôler avant de cliquer, et un bouton
+  « Rejeter » (visible seulement s'il y a un justificatif en attente)
+  ouvre une modale demandant une raison, affichée au commerçant — voir
+  « Paiement manuel vérifié » plus bas.
 - **Donner/Retirer les droits admin** : bascule `is_admin`. Désactivé sur
   sa propre ligne pour éviter de se retirer ses propres droits par erreur
   (il faut alors passer par un autre compte admin, ou l'éditeur SQL
@@ -307,6 +317,70 @@ attribue aussi les droits admin au compte `koua.nancy@gmail.com` — si ce
 compte ne s'est pas encore inscrit au moment où tu exécutes la migration,
 relance-la après sa première connexion.
 
+## Paiement manuel vérifié
+
+En attendant le webhook CinetPay, l'abonnement se paie via Wave puis se
+vérifie à la main : le commerçant paie et envoie une preuve, l'admin
+contrôle et débloque. Toute la logique vit dans
+`components/PaiementAbonnement.js`, un composant partagé monté à deux
+endroits :
+
+- **`PendingSubscription.js`** (écran de blocage) : seul endroit accessible
+  à un compte dont le statut n'est ni `actif` ni `essai` (le shell normal
+  de l'app, sidebar comprise, ne se rend pas du tout dans ce cas), donc
+  c'est là que doit vivre le flux complet pour un compte bloqué. Absent
+  pour un compte `suspendu` (une suspension n'est pas forcément liée à un
+  impayé).
+- **Carte « Abonnement » de `parametres/page.js`** : pour un renouvellement
+  anticipé pendant que le compte est encore `actif` ou en `essai` (page
+  seulement accessible dans ce cas, donc jamais en double avec l'écran de
+  blocage).
+
+**Ce que montre le composant** : le prix (`parametres_globaux.abonnement_prix`,
+formaté selon la devise de la boutique comme partout ailleurs), le QR Wave
+(`parametres_globaux.wave_qr_url`) ou à défaut le numéro Wave
+(`wave_telephone`) si le QR n'est pas encore renseigné, un champ d'upload
+(`ImageUploadField`, même mécanisme que les photos d'articles ou le logo)
+et l'historique des paiements envoyés par cette boutique
+(`paiements_abonnement`, triés du plus récent au plus ancien). Le paiement
+le plus récent détermine la bannière affichée en haut : « en attente de
+vérification » (message exact demandé : « Merci ! Ton paiement est en
+cours de vérification, l'activation peut prendre jusqu'à 1 heure. ») s'il
+est `en_attente`, la raison du rejet s'il est `echoue`, rien s'il est
+`reussi` ou s'il n'y a encore aucun envoi.
+
+**À l'envoi d'un justificatif** (`ImageUploadField` → Storage → URL
+publique) : une ligne est insérée dans `paiements_abonnement` avec
+`statut = 'en_attente'`, `montant` = prix courant au moment de l'envoi
+(figé, comme les prix sur `commande_lignes`), puis un appel best-effort à
+`POST /api/notify-admin-payment` (route serveur Next.js, jamais exposée au
+client) envoie un e-mail à l'administratrice via l'API REST de Resend. Un
+échec de cet appel (clé absente, Resend indisponible...) n'empêche jamais
+le commerçant de considérer son envoi comme réussi — l'admin voit de toute
+façon les paiements en attente dans `/admin`. Nécessite `RESEND_API_KEY`
+(et idéalement `RESEND_FROM_EMAIL` avec un domaine vérifié dans Resend,
+sans quoi l'adresse sandbox par défaut ne peut envoyer qu'à l'adresse du
+compte Resend lui-même) — voir `.env.local.example`.
+
+**Sécurité RLS** : la policy d'origine sur `paiements_abonnement`
+(`for all`, propriétaire de la boutique) permettait à un commerçant de
+faire passer lui-même son paiement à `reussi` sans jamais payer. La
+migration la remplace par deux policies restreintes au commerçant
+(lecture de ses propres lignes ; insertion limitée à
+`statut = 'en_attente'`) plus une policy admin complète
+(`is_admin_user()`, même fonction que pour `businesses`) — seul un
+administrateur peut faire passer un paiement à `reussi` ou `echoue`.
+
+**Réglages globaux** : `parametres_globaux` est une table à une seule
+ligne (créée par la migration), lisible par tout compte connecté
+(QR/numéro/prix n'ont rien de confidentiel) mais modifiable uniquement par
+un administrateur, depuis une carte dédiée dans Paramètres (visible si
+`business.is_admin`) réutilisant `ImageUploadField` pour le QR exactement
+comme le logo de la boutique.
+
+Nécessite `supabase-paiements-manuels-migration.sql` (voir Démarrage), à
+exécuter après `supabase-businesses-admin-migration.sql`.
+
 ## Structure
 
 ```
@@ -323,8 +397,10 @@ app/
   (app)/catalogue/         catalogue partageable (WhatsApp / impression)
   (app)/parametres/        boutique, thème, zones de livraison, notifications
   (app)/admin/             espace Administration (visible si is_admin)
+  api/notify-admin-payment/   route serveur : e-mail Resend à la soumission d'un justificatif
 components/
-  Sidebar.js, PendingSubscription.js, Receipt.js, ImageUploadField.js
+  Sidebar.js, PendingSubscription.js, Receipt.js, ImageUploadField.js,
+  PaiementAbonnement.js   flux de paiement Wave (montant, QR/tél., upload, historique)
 lib/
   supabaseClient.js        client Supabase (browser)
   AuthProvider.js          contexte auth + création automatique de la ligne business
@@ -351,7 +427,9 @@ lib/
 - **Photo d'article et logo de la boutique** : upload réel vers Supabase
   Storage (voir section dédiée ci-dessus).
 - Remplacer une photo (ou repasser sur « Sans catégorie » côté image, ou
-  changer le logo) ne supprime pas l'ancien fichier du bucket — nettoyage à
+  changer le logo ou le QR Wave) ne supprime pas l'ancien fichier du
+  bucket, et chaque justificatif de paiement envoyé y reste indéfiniment
+  (aucune suppression automatique après vérification) — nettoyage à
   prévoir plus tard si le volume de fichiers orphelins devient significatif.
 - **Numérotation des commandes** (`next_numero`) et mise à jour du stock
   (au passage « Livré ») ne sont pas transactionnelles (plusieurs appels
@@ -364,5 +442,11 @@ lib/
   création) — c'est justement ce que la colonne « Stock théorique » et son
   badge « Totalement commandé » signalent, à charge pour le commerçant
   d'arbitrer laquelle honorer en premier au moment de livrer.
-- **Paiement CinetPay** et **notifications e-mail (Resend)** ne sont pas
-  encore branchés, conformément à `smartbiz-backend-roadmap.md`.
+- **Paiement CinetPay** (prélèvement en ligne automatisé) n'est pas encore
+  branché, conformément à `smartbiz-backend-roadmap.md` — le paiement
+  manuel Wave vérifié (voir section dédiée) fait le pont en attendant.
+  **Resend** n'est branché que pour la notification admin de nouveau
+  justificatif ; les autres notifications prévues dans Paramètres
+  (confirmations de commande, rapports de stock) restent à faire.
+- Le prix de départ de l'abonnement (5 000 FCFA/mois) est une valeur
+  indicative, modifiable à tout moment depuis Paramètres → Paiement Wave.

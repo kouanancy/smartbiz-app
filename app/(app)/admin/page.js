@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ShieldCheck, ShieldOff } from "lucide-react";
+import { CheckCircle2, ShieldCheck, ShieldOff, XCircle, ImageIcon } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { dateLocale } from "@/lib/format";
+import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 
 const STATUT_BADGE_CLASS = {
@@ -25,10 +25,14 @@ function expireBientot(b) {
 export default function AdminPage() {
   const { business } = useAuth();
   const router = useRouter();
+  const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const [businesses, setBusinesses] = useState([]);
+  const [paiementsEnAttente, setPaiementsEnAttente] = useState([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
+  const [rejetId, setRejetId] = useState(null);
+  const [raisonRejet, setRaisonRejet] = useState("");
 
   useEffect(() => {
     if (business && !business.is_admin) router.replace("/dashboard");
@@ -39,17 +43,19 @@ export default function AdminPage() {
     let active = true;
     async function load() {
       setLoading(true);
-      const { data } = await supabase
-        .from("businesses")
-        .select("id, owner_id, name, email, subscription_status, subscription_expires_at, is_admin");
+      const [businessesRes, paiementsRes] = await Promise.all([
+        supabase.from("businesses").select("id, owner_id, name, email, subscription_status, subscription_expires_at, is_admin"),
+        supabase.from("paiements_abonnement").select("*").eq("statut", "en_attente").order("created_at", { ascending: true }),
+      ]);
       if (!active) return;
       setBusinesses(
-        (data || []).sort((a, b) => {
+        (businessesRes.data || []).sort((a, b) => {
           if (!a.subscription_expires_at) return 1;
           if (!b.subscription_expires_at) return -1;
           return new Date(a.subscription_expires_at) - new Date(b.subscription_expires_at);
         })
       );
+      setPaiementsEnAttente(paiementsRes.data || []);
       setLoading(false);
     }
     load();
@@ -57,6 +63,10 @@ export default function AdminPage() {
       active = false;
     };
   }, [business?.is_admin]);
+
+  function paiementEnAttentePour(businessId) {
+    return paiementsEnAttente.find((p) => p.business_id === businessId) || null;
+  }
 
   async function marquerPaye(b) {
     const nouvelleExpiration = new Date();
@@ -72,7 +82,29 @@ export default function AdminPage() {
       return;
     }
     setBusinesses((prev) => prev.map((x) => (x.id === b.id ? data : x)));
+
+    const paiement = paiementEnAttentePour(b.id);
+    if (paiement) {
+      const { error: paiementError } = await supabase.from("paiements_abonnement").update({ statut: "reussi" }).eq("id", paiement.id);
+      if (!paiementError) setPaiementsEnAttente((prev) => prev.filter((p) => p.id !== paiement.id));
+    }
     setMsg(t("admin.paidSuccess"));
+  }
+
+  async function confirmerRejet() {
+    if (!raisonRejet.trim()) return;
+    const { error } = await supabase
+      .from("paiements_abonnement")
+      .update({ statut: "echoue", raison_rejet: raisonRejet.trim() })
+      .eq("id", rejetId);
+    if (error) {
+      setMsg(t("admin.rejectError", { message: error.message }));
+      return;
+    }
+    setPaiementsEnAttente((prev) => prev.filter((p) => p.id !== rejetId));
+    setRejetId(null);
+    setRaisonRejet("");
+    setMsg(t("admin.rejectSuccess"));
   }
 
   async function toggleAdmin(b) {
@@ -110,12 +142,14 @@ export default function AdminPage() {
                   <th>{t("admin.colEmail")}</th>
                   <th>{t("admin.colStatut")}</th>
                   <th>{t("admin.colExpiration")}</th>
+                  <th>{t("admin.colJustificatif")}</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 {businesses.map((b) => {
                   const soiMeme = b.owner_id === business.owner_id;
+                  const paiement = paiementEnAttentePour(b.id);
                   return (
                     <tr key={b.id} style={expireBientot(b) ? { background: "#FBF1E6" } : undefined}>
                       <td>{b.name || t("common.defaultBusinessName")}</td>
@@ -136,10 +170,37 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td>
+                        {paiement ? (
+                          <a
+                            href={paiement.justificatif_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="sb-btn sb-btn-ghost"
+                            style={{ padding: "4px 8px" }}
+                          >
+                            <ImageIcon size={12} /> {t("admin.voirJustificatif", { montant: fmt(paiement.montant) })}
+                          </a>
+                        ) : (
+                          <span style={{ color: "#A6A29D", fontSize: 12.5 }}>—</span>
+                        )}
+                      </td>
+                      <td>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                           <button className="sb-btn sb-btn-emerald" style={{ padding: "4px 8px" }} onClick={() => marquerPaye(b)}>
                             <CheckCircle2 size={12} /> {t("admin.marquerPaye")}
                           </button>
+                          {paiement && (
+                            <button
+                              className="sb-btn sb-btn-ghost"
+                              style={{ padding: "4px 8px", color: "#C24E37" }}
+                              onClick={() => {
+                                setRejetId(paiement.id);
+                                setRaisonRejet("");
+                              }}
+                            >
+                              <XCircle size={12} /> {t("admin.rejeter")}
+                            </button>
+                          )}
                           <button
                             className="sb-btn sb-btn-ghost"
                             style={{ padding: "4px 8px" }}
@@ -157,6 +218,41 @@ export default function AdminPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {rejetId && (
+        <div className="sb-modal-overlay" onClick={() => setRejetId(null)}>
+          <div className="sb-card" style={{ width: 360, background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+            <div className="sb-section-title" style={{ margin: "0 0 4px" }}>
+              {t("admin.rejeterModalTitle")}
+            </div>
+            <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("admin.rejeterModalSub")}</p>
+            <div className="sb-field">
+              <label>{t("admin.raisonRejetLabel")}</label>
+              <textarea
+                className="sb-input"
+                rows={3}
+                style={{ resize: "vertical", fontFamily: "inherit" }}
+                placeholder={t("admin.raisonRejetPlaceholder")}
+                value={raisonRejet}
+                onChange={(e) => setRaisonRejet(e.target.value)}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button className="sb-btn sb-btn-ghost" style={{ flex: 1, justifyContent: "center" }} onClick={() => setRejetId(null)}>
+                {t("admin.annuler")}
+              </button>
+              <button
+                className="sb-btn"
+                style={{ flex: 1, justifyContent: "center", background: "#C24E37", color: "#fff" }}
+                onClick={confirmerRejet}
+                disabled={!raisonRejet.trim()}
+              >
+                {t("admin.confirmerRejet")}
+              </button>
+            </div>
           </div>
         </div>
       )}

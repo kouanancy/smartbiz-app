@@ -8,11 +8,17 @@ import { fmt as fmtBase } from "@/lib/format";
 import { THEMES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import ImageUploadField from "@/components/ImageUploadField";
+import PaiementAbonnement from "@/components/PaiementAbonnement";
 
 export default function ParametresPage() {
   const { business, setBusiness } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
+  const [parametresGlobaux, setParametresGlobaux] = useState(null);
+  const [waveQrDraft, setWaveQrDraft] = useState("");
+  const [waveTelDraft, setWaveTelDraft] = useState("");
+  const [prixDraft, setPrixDraft] = useState("");
+  const [waveMsg, setWaveMsg] = useState("");
   const [nameDraft, setNameDraft] = useState(business?.name || "");
   const [logoDraft, setLogoDraft] = useState(business?.logo_url || "");
   const [emailDraft, setEmailDraft] = useState(business?.notif_email || "");
@@ -41,6 +47,26 @@ export default function ParametresPage() {
     };
   }, [business?.id]);
 
+  useEffect(() => {
+    if (!business?.is_admin) return;
+    let active = true;
+    supabase
+      .from("parametres_globaux")
+      .select("*")
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active || !data) return;
+        setParametresGlobaux(data);
+        setWaveQrDraft(data.wave_qr_url || "");
+        setWaveTelDraft(data.wave_telephone || "");
+        setPrixDraft(String(data.abonnement_prix ?? ""));
+      });
+    return () => {
+      active = false;
+    };
+  }, [business?.is_admin]);
+
   async function updateBusiness(patch) {
     const { data, error } = await supabase.from("businesses").update(patch).eq("id", business.id).select().single();
     if (!error && data) setBusiness(data);
@@ -62,6 +88,31 @@ export default function ParametresPage() {
 
   async function enregistrerLangue(l) {
     await updateBusiness({ langue: l });
+  }
+
+  async function enregistrerParametresGlobaux() {
+    if (!parametresGlobaux) return;
+    const prix = Number(prixDraft);
+    if (Number.isNaN(prix) || prix < 0) {
+      setWaveMsg(t("parametres.waveMontantInvalide"));
+      return;
+    }
+    const { data, error } = await supabase
+      .from("parametres_globaux")
+      .update({
+        wave_qr_url: waveQrDraft.trim() || null,
+        wave_telephone: waveTelDraft.trim() || null,
+        abonnement_prix: prix,
+      })
+      .eq("id", parametresGlobaux.id)
+      .select()
+      .single();
+    if (error) {
+      setWaveMsg(t("common.error", { message: error.message }));
+      return;
+    }
+    setParametresGlobaux(data);
+    setWaveMsg(t("parametres.waveSavedMsg"));
   }
 
   async function enregistrerNotifications() {
@@ -313,14 +364,68 @@ export default function ParametresPage() {
         )}
       </div>
 
-      <div className="sb-card">
+      <div className="sb-card" style={{ marginBottom: business?.is_admin ? 16 : 0 }}>
         <div className="sb-section-title">{t("parametres.abonnementTitle")}</div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 4px" }}>
+        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>
           {t("parametres.statutActuelLabel")}
           <strong>{t(`common.subscriptionStatus.${business?.subscription_status}`)}</strong>
         </p>
-        <p style={{ fontSize: 11, color: "#8A8682", margin: 0 }}>{t("parametres.abonnementNote")}</p>
+        {business?.id && <PaiementAbonnement business={business} />}
       </div>
+
+      {business?.is_admin && (
+        <div className="sb-card">
+          <div className="sb-section-title">{t("parametres.waveTitle")}</div>
+          <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("parametres.waveSub")}</p>
+          {waveMsg && (
+            <div className="sb-badge sb-badge-emerald" style={{ marginBottom: 12, fontSize: 12.5, padding: "6px 10px" }}>
+              {waveMsg}
+            </div>
+          )}
+          <div style={{ marginBottom: 14 }}>
+            <ImageUploadField
+              label={t("parametres.waveQrLabel")}
+              businessId={business.id}
+              folder="wave-qr"
+              value={waveQrDraft}
+              onChange={(url) => {
+                setWaveQrDraft(url);
+                setWaveMsg("");
+              }}
+            />
+          </div>
+          <div className="sb-form-grid">
+            <div className="sb-field">
+              <label>{t("parametres.waveTelLabel")}</label>
+              <input
+                className="sb-input"
+                placeholder={t("parametres.waveTelPlaceholder")}
+                value={waveTelDraft}
+                onChange={(e) => {
+                  setWaveTelDraft(e.target.value);
+                  setWaveMsg("");
+                }}
+              />
+            </div>
+            <div className="sb-field">
+              <label>{t("parametres.wavePrixLabel")}</label>
+              <input
+                className="sb-input"
+                type="number"
+                placeholder={t("parametres.wavePrixPlaceholder")}
+                value={prixDraft}
+                onChange={(e) => {
+                  setPrixDraft(e.target.value);
+                  setWaveMsg("");
+                }}
+              />
+            </div>
+          </div>
+          <button className="sb-btn sb-btn-primary" style={{ marginTop: 12 }} onClick={enregistrerParametresGlobaux}>
+            {t("parametres.enregistrer")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
