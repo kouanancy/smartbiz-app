@@ -24,7 +24,7 @@ function expireBientot(b) {
 }
 
 export default function AdminPage() {
-  const { business } = useAuth();
+  const { business, refreshBusiness } = useAuth();
   const router = useRouter();
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
@@ -88,6 +88,11 @@ export default function AdminPage() {
       return;
     }
     setBusinesses((prev) => prev.map((x) => (x.id === b.id ? data : x)));
+    // Le contexte AuthProvider (donc la sidebar) garde sa propre copie de
+    // "business" : sans ce rafraîchissement, une action sur sa propre
+    // boutique (ex. marquer son propre abonnement comme payé) resterait
+    // invisible dans la sidebar jusqu'à la prochaine reconnexion.
+    if (b.owner_id === business.owner_id) refreshBusiness();
 
     const paiement = paiementEnAttentePour(b.id);
     if (paiement) {
@@ -131,6 +136,7 @@ export default function AdminPage() {
       return;
     }
     setBusinesses((prev) => prev.map((x) => (x.id === b.id ? data : x)));
+    if (b.owner_id === business.owner_id) refreshBusiness();
   }
 
   if (!business?.is_admin) return null;
@@ -183,7 +189,6 @@ export default function AdminPage() {
               </thead>
               <tbody>
                 {businesses.map((b) => {
-                  const soiMeme = b.owner_id === business.owner_id;
                   const paiement = paiementEnAttentePour(b.id);
                   return (
                     <tr key={b.id} style={expireBientot(b) ? { background: "#FBF1E6" } : undefined}>
@@ -220,9 +225,11 @@ export default function AdminPage() {
                       </td>
                       <td>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          <button className="sb-btn sb-btn-emerald" style={{ padding: "4px 8px" }} onClick={() => marquerPaye(b)}>
-                            <CheckCircle2 size={12} /> {t("admin.marquerPaye")}
-                          </button>
+                          {!b.is_admin && (
+                            <button className="sb-btn sb-btn-emerald" style={{ padding: "4px 8px" }} onClick={() => marquerPaye(b)}>
+                              <CheckCircle2 size={12} /> {t("admin.marquerPaye")}
+                            </button>
+                          )}
                           {paiement && (
                             <button
                               className="sb-btn sb-btn-ghost"
@@ -235,13 +242,7 @@ export default function AdminPage() {
                               <XCircle size={12} /> {t("admin.rejeter")}
                             </button>
                           )}
-                          <button
-                            className="sb-btn sb-btn-ghost"
-                            style={{ padding: "4px 8px" }}
-                            onClick={() => toggleAdmin(b)}
-                            disabled={soiMeme && b.is_admin}
-                            title={soiMeme && b.is_admin ? t("admin.retirerAdminSoiMemeTitre") : undefined}
-                          >
+                          <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => toggleAdmin(b)}>
                             {b.is_admin ? <ShieldOff size={12} /> : <ShieldCheck size={12} />}{" "}
                             {b.is_admin ? t("admin.retirerAdmin") : t("admin.donnerAdmin")}
                           </button>

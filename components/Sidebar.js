@@ -35,7 +35,7 @@ export default function Sidebar({ business, onSignOut }) {
   const logo = business?.logo_url;
 
   const joursRestants =
-    business?.subscription_status === "essai" && business?.subscription_expires_at
+    !business?.is_admin && business?.subscription_status === "essai" && business?.subscription_expires_at
       ? Math.max(1, Math.ceil((new Date(business.subscription_expires_at) - new Date()) / (1000 * 60 * 60 * 24)))
       : null;
   const navItems = business?.is_admin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
