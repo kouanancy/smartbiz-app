@@ -31,8 +31,8 @@ export default function Receipt({ commande, business, onClose }) {
   });
   const [platformLogo, setPlatformLogo] = useState("");
 
-  // Logo SmartBiz pour le pied de page "Propulsé par SmartBiz" — indépendant
-  // du logo de boutique (celui-ci reste géré par l'administratrice).
+  // Logo Doka pour le pied de page "Propulsé par Doka" — indépendant du
+  // logo de boutique (celui-ci reste géré par l'administratrice).
   useEffect(() => {
     supabase
       .from("parametres_globaux")
@@ -49,7 +49,7 @@ export default function Receipt({ commande, business, onClose }) {
     const message = t("receipt.whatsappMessage", {
       clientNom: client?.nom || "",
       numero: commande.numero,
-      businessName: businessName || "SmartBiz",
+      businessName: businessName || "Doka",
       lignesTxt,
       livraisonLine: commande.livraison_frais > 0 ? t("receipt.whatsappLivraisonLine", { frais: fmt(commande.livraison_frais) }) : "",
       total: fmt(totalGeneral),
@@ -72,7 +72,7 @@ export default function Receipt({ commande, business, onClose }) {
               <span className="sb-display" style={{ fontWeight: 700, fontSize: 17 }}>{businessName}</span>
             ) : (
               <div className="sb-display" style={{ fontWeight: 700, fontSize: 17 }}>
-                Smart<span style={{ color: accent }}>Biz</span>
+                <span style={{ color: accent }}>Doka</span>
               </div>
             )}
             <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
@@ -165,7 +165,7 @@ export default function Receipt({ commande, business, onClose }) {
               {logo ? (
                 <img src={logo} alt={businessName || "Logo"} />
               ) : (
-                <div className="sb-receipt-print-logo-fallback">{(businessName || "SB").slice(0, 2).toUpperCase()}</div>
+                <div className="sb-receipt-print-logo-fallback">{(businessName || "Doka").slice(0, 2).toUpperCase()}</div>
               )}
               <span className="sb-receipt-print-brand-name">{businessName || t("common.defaultBusinessName")}</span>
             </div>

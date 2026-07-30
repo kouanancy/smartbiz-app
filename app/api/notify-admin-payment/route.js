@@ -22,10 +22,10 @@ export async function POST(request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || "SmartBiz <onboarding@resend.dev>",
+        from: process.env.RESEND_FROM_EMAIL || "Doka <onboarding@resend.dev>",
         to: ADMIN_EMAIL,
         subject: `Nouveau paiement à vérifier — ${businessName || "une boutique"}`,
-        text: `${businessName || "Une boutique"} vient d'envoyer un justificatif de paiement sur SmartBiz. Rends-toi dans l'espace Administration pour le vérifier.`,
+        text: `${businessName || "Une boutique"} vient d'envoyer un justificatif de paiement sur Doka. Rends-toi dans l'espace Administration pour le vérifier.`,
       }),
     });
     if (!res.ok) throw new Error(await res.text());

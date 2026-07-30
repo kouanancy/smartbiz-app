@@ -5,6 +5,11 @@ prototype `smartbiz.jsx` (données en mémoire) par une vraie application
 Next.js connectée à Supabase, avec authentification, isolation des données
 par boutique (Row Level Security) et abonnement payant.
 
+La marque affichée aux utilisateurs est **Doka** (page de connexion,
+sidebar, pied de page des reçus, PWA…) — seuls le nom du dépôt, le schéma
+Supabase et les identifiants internes du code gardent le nom historique
+« SmartBiz ».
+
 ## Stack
 
 - Next.js 16 (App Router, JavaScript)
@@ -48,7 +53,7 @@ voir « Paiement manuel vérifié » plus bas ; nécessite que la migration
 précédente ait déjà été exécutée), et enfin
 `supabase-parametres-globaux-logo-migration.sql` (colonnes de logo/icônes sur
 `parametres_globaux`, policy de lecture rendue publique — voir « Logo
-SmartBiz (marque de la plateforme) » plus bas ; nécessite
+Doka (marque de la plateforme) » plus bas ; nécessite
 `supabase-paiements-manuels-migration.sql`), et enfin
 `supabase-businesses-owner-unique-migration.sql` (fusionne les doublons
 `businesses` déjà existants puis ajoute une contrainte unique sur
@@ -396,7 +401,7 @@ administrateur peut faire passer un paiement à `reussi` ou `echoue`.
 
 **Réglages globaux** : `parametres_globaux` est une table à une seule
 ligne (créée par la migration), lisible publiquement (QR/numéro/prix n'ont
-rien de confidentiel — voir aussi « Logo SmartBiz » ci-dessous pour
+rien de confidentiel — voir aussi « Logo Doka » ci-dessous pour
 pourquoi la lecture est publique et pas seulement réservée aux comptes
 connectés) mais modifiable uniquement par un administrateur, depuis une
 carte dédiée dans Paramètres (visible si `business.is_admin`) réutilisant
@@ -405,11 +410,11 @@ carte dédiée dans Paramètres (visible si `business.is_admin`) réutilisant
 Nécessite `supabase-paiements-manuels-migration.sql` (voir Démarrage), à
 exécuter après `supabase-businesses-admin-migration.sql`.
 
-## Logo SmartBiz (marque de la plateforme)
+## Logo Doka (marque de la plateforme)
 
 Différent du logo de boutique (personnalisable par chaque commerçant dans
 ses propres Paramètres, voir « Photos d'articles (et logo de la
-boutique) » plus haut) : le logo SmartBiz est la marque par défaut de la
+boutique) » plus haut) : le logo Doka est la marque par défaut de la
 plateforme elle-même, gérée par l'administratrice depuis une carte dédiée
 en haut de l'espace Administration (`components/LogoPlatformUpload.js`,
 même mécanisme d'upload que les autres images de l'app, stocké dans le
@@ -445,10 +450,10 @@ le changement se répercute aussitôt pour tous les comptes.
   d'exploitation, pas de l'app (le prochain lancement/réinstallation la
   reprend).
 - **En-tête de la page de connexion/inscription** (`app/login/page.js`) :
-  remplace le texte « SmartBiz » par défaut, uniquement pour les comptes
+  remplace le texte « Doka » par défaut, uniquement pour les comptes
   qui n'ont pas encore leur propre logo de boutique personnalisé (celui-ci
   ne s'affiche qu'après connexion).
-- **Pied de page « Propulsé par SmartBiz » des reçus**
+- **Pied de page « Propulsé par Doka » des reçus**
   (`components/Receipt.js`) : petite icône ajoutée devant le texte, dans
   l'aperçu écran et la version imprimée.
 

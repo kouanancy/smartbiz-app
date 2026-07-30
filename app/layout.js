@@ -3,12 +3,12 @@ import { AuthProvider } from "@/lib/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
 
 const METADATA_BASE = {
-  title: "SmartBiz",
+  title: "Doka",
   description: "Mini ERP pour petits commerçants",
   manifest: "/manifest.webmanifest",
 };
 
-// Icônes dynamiques : dépendent du logo SmartBiz choisi par l'administratrice
+// Icônes dynamiques : dépendent du logo Doka choisi par l'administratrice
 // (parametres_globaux), lu ici côté serveur à chaque requête. En échec (pas de
 // réseau, table vide…) on retombe sur les métadonnées de base sans icônes.
 export async function generateMetadata() {
