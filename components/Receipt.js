@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, MessageCircle, Printer, X } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 
@@ -27,6 +29,18 @@ export default function Receipt({ commande, business, onClose }) {
     month: "long",
     year: "numeric",
   });
+  const [platformLogo, setPlatformLogo] = useState("");
+
+  // Logo SmartBiz pour le pied de page "Propulsé par SmartBiz" — indépendant
+  // du logo de boutique (celui-ci reste géré par l'administratrice).
+  useEffect(() => {
+    supabase
+      .from("parametres_globaux")
+      .select("logo_url")
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setPlatformLogo(data?.logo_url || ""));
+  }, []);
 
   function envoyerWhatsApp() {
     const numero = toWhatsAppNumber(client?.telephone);
@@ -133,7 +147,10 @@ export default function Receipt({ commande, business, onClose }) {
             </button>
           </div>
 
-          <p style={{ textAlign: "center", fontSize: 10.5, color: "#A6A29D", margin: "12px 0 0" }}>{t("common.poweredBy")}</p>
+          <p style={{ textAlign: "center", fontSize: 10.5, color: "#A6A29D", margin: "12px 0 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            {platformLogo && <img src={platformLogo} alt="" style={{ height: 12, width: 12, objectFit: "contain" }} />}
+            {t("common.poweredBy")}
+          </p>
         </div>
       </div>
 
@@ -244,7 +261,10 @@ export default function Receipt({ commande, business, onClose }) {
             <span>{t("receipt.stampConfirmee")}</span>
           </div>
 
-          <div className="sb-receipt-print-footer">{t("common.poweredBy")}</div>
+          <div className="sb-receipt-print-footer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+            {platformLogo && <img src={platformLogo} alt="" style={{ height: 12, width: 12, objectFit: "contain" }} />}
+            {t("common.poweredBy")}
+          </div>
         </div>,
         document.body
       )}

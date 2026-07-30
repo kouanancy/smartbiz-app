@@ -45,7 +45,11 @@ Administration » plus bas), et enfin
 `supabase-paiements-manuels-migration.sql` (colonnes de justificatif sur
 `paiements_abonnement`, RLS durcie, nouvelle table `parametres_globaux` —
 voir « Paiement manuel vérifié » plus bas ; nécessite que la migration
-précédente ait déjà été exécutée).
+précédente ait déjà été exécutée), et enfin
+`supabase-parametres-globaux-logo-migration.sql` (colonnes de logo/icônes sur
+`parametres_globaux`, policy de lecture rendue publique — voir « Logo
+SmartBiz (marque de la plateforme) » plus bas ; nécessite
+`supabase-paiements-manuels-migration.sql`).
 
 ## Variables d'environnement
 
@@ -372,14 +376,70 @@ migration la remplace par deux policies restreintes au commerçant
 administrateur peut faire passer un paiement à `reussi` ou `echoue`.
 
 **Réglages globaux** : `parametres_globaux` est une table à une seule
-ligne (créée par la migration), lisible par tout compte connecté
-(QR/numéro/prix n'ont rien de confidentiel) mais modifiable uniquement par
-un administrateur, depuis une carte dédiée dans Paramètres (visible si
-`business.is_admin`) réutilisant `ImageUploadField` pour le QR exactement
-comme le logo de la boutique.
+ligne (créée par la migration), lisible publiquement (QR/numéro/prix n'ont
+rien de confidentiel — voir aussi « Logo SmartBiz » ci-dessous pour
+pourquoi la lecture est publique et pas seulement réservée aux comptes
+connectés) mais modifiable uniquement par un administrateur, depuis une
+carte dédiée dans Paramètres (visible si `business.is_admin`) réutilisant
+`ImageUploadField` pour le QR exactement comme le logo de la boutique.
 
 Nécessite `supabase-paiements-manuels-migration.sql` (voir Démarrage), à
 exécuter après `supabase-businesses-admin-migration.sql`.
+
+## Logo SmartBiz (marque de la plateforme)
+
+Différent du logo de boutique (personnalisable par chaque commerçant dans
+ses propres Paramètres, voir « Photos d'articles (et logo de la
+boutique) » plus haut) : le logo SmartBiz est la marque par défaut de la
+plateforme elle-même, gérée par l'administratrice depuis une carte dédiée
+en haut de l'espace Administration (`components/LogoPlatformUpload.js`,
+même mécanisme d'upload que les autres images de l'app, stocké dans le
+bucket `article-photos` déjà existant sous
+`<business_id>/smartbiz-logo/`).
+
+Un seul fichier envoyé déclenche deux choses :
+
+- l'upload du logo original (`parametres_globaux.logo_url`) ;
+- la génération, côté client via `<canvas>`, de trois variantes carrées
+  (découpe centrée façon "cover", pas de bandes vides) : 192×192 et
+  512×512 pour le manifest PWA, 180×180 pour l'icône Apple
+  (`icon_192_url`, `icon_512_url`, `icon_apple_180_url`). Le
+  redimensionnement se fait depuis le fichier local
+  (`URL.createObjectURL`, même origine) plutôt que depuis l'URL déjà
+  hébergée sur Supabase Storage, pour ne jamais dépendre des en-têtes CORS
+  du bucket lors du dessin sur canvas.
+
+Les quatre URLs sont enregistrées immédiatement (pas de bouton
+« Enregistrer » séparé) dès que les quatre uploads réussissent, pour que
+le changement se répercute aussitôt pour tous les comptes.
+
+**Où ce logo est utilisé automatiquement :**
+
+- **Icône d'écran d'accueil (PWA)** : `app/manifest.js` (convention
+  Next.js — servi dynamiquement à `/manifest.webmanifest`) lit
+  `icon_192_url`/`icon_512_url` à chaque requête et les expose dans le
+  manifest ; `app/layout.js` utilise `generateMetadata()` (async, remplace
+  l'export statique `metadata`) pour ajouter `icon_apple_180_url` en
+  `<link rel="apple-touch-icon">`. **Limite connue** : une icône déjà
+  installée sur l'écran d'accueil d'un téléphone ne se met pas forcément à
+  jour instantanément — c'est une limitation du cache PWA du système
+  d'exploitation, pas de l'app (le prochain lancement/réinstallation la
+  reprend).
+- **En-tête de la page de connexion/inscription** (`app/login/page.js`) :
+  remplace le texte « SmartBiz » par défaut, uniquement pour les comptes
+  qui n'ont pas encore leur propre logo de boutique personnalisé (celui-ci
+  ne s'affiche qu'après connexion).
+- **Pied de page « Propulsé par SmartBiz » des reçus**
+  (`components/Receipt.js`) : petite icône ajoutée devant le texte, dans
+  l'aperçu écran et la version imprimée.
+
+Chaque point de consommation lit `parametres_globaux` avec repli
+silencieux en cas d'échec (aucune session au moment de la lecture pour la
+page de connexion et le manifest — d'où la policy de lecture publique
+introduite par la migration ci-dessous).
+
+Nécessite `supabase-parametres-globaux-logo-migration.sql` (voir
+Démarrage), à exécuter après `supabase-paiements-manuels-migration.sql`.
 
 ## Structure
 

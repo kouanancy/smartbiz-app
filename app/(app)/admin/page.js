@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
+import LogoPlatformUpload from "@/components/LogoPlatformUpload";
 
 const STATUT_BADGE_CLASS = {
   essai: "sb-badge-amber",
@@ -34,6 +35,8 @@ export default function AdminPage() {
   const [rejetId, setRejetId] = useState(null);
   const [raisonRejet, setRaisonRejet] = useState("");
   const [previewPaiement, setPreviewPaiement] = useState(null);
+  const [platformLogo, setPlatformLogo] = useState(null);
+  const [logoMsg, setLogoMsg] = useState("");
 
   useEffect(() => {
     if (business && !business.is_admin) router.replace("/dashboard");
@@ -44,9 +47,10 @@ export default function AdminPage() {
     let active = true;
     async function load() {
       setLoading(true);
-      const [businessesRes, paiementsRes] = await Promise.all([
+      const [businessesRes, paiementsRes, parametresRes] = await Promise.all([
         supabase.from("businesses").select("id, owner_id, name, email, subscription_status, subscription_expires_at, is_admin"),
         supabase.from("paiements_abonnement").select("*").eq("statut", "en_attente").order("created_at", { ascending: true }),
+        supabase.from("parametres_globaux").select("id, logo_url, icon_192_url, icon_512_url, icon_apple_180_url").maybeSingle(),
       ]);
       if (!active) return;
       setBusinesses(
@@ -57,6 +61,7 @@ export default function AdminPage() {
         })
       );
       setPaiementsEnAttente(paiementsRes.data || []);
+      setPlatformLogo(parametresRes.data || null);
       setLoading(false);
     }
     load();
@@ -108,6 +113,17 @@ export default function AdminPage() {
     setMsg(t("admin.rejectSuccess"));
   }
 
+  async function enregistrerLogoPlatform(urls) {
+    if (!platformLogo?.id) return;
+    const { data, error } = await supabase.from("parametres_globaux").update(urls).eq("id", platformLogo.id).select().single();
+    if (error) {
+      setLogoMsg(t("admin.logoSaveError", { message: error.message }));
+      return;
+    }
+    setPlatformLogo(data);
+    setLogoMsg(t("admin.logoSaveSuccess"));
+  }
+
   async function toggleAdmin(b) {
     const { data, error } = await supabase.from("businesses").update({ is_admin: !b.is_admin }).eq("id", b.id).select().single();
     if (error) {
@@ -130,6 +146,24 @@ export default function AdminPage() {
           {msg}
         </div>
       )}
+
+      <div className="sb-card" style={{ marginBottom: 16, maxWidth: 420 }}>
+        <div className="sb-section-title" style={{ margin: "0 0 4px" }}>
+          {t("admin.logoTitle")}
+        </div>
+        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("admin.logoSub")}</p>
+        <LogoPlatformUpload
+          label={t("admin.logoLabel")}
+          businessId={business.id}
+          value={platformLogo?.logo_url || ""}
+          onChange={enregistrerLogoPlatform}
+        />
+        {logoMsg && (
+          <div className="sb-badge sb-badge-emerald" style={{ marginTop: 12, fontSize: 12.5, padding: "6px 10px" }}>
+            {logoMsg}
+          </div>
+        )}
+      </div>
 
       {businesses.length === 0 ? (
         <p style={{ fontSize: 13, color: "#6B6A63" }}>{t("admin.aucunCommercant")}</p>
