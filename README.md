@@ -97,6 +97,16 @@ clé.
    justificatif contrôlé) ; le webhook CinetPay (voir
    `smartbiz-backend-roadmap.md`) l'automatisera plus tard — indépendamment
    du statut précédent.
+6. **Exception admin** : un compte `is_admin = true` garde un accès complet
+   quel que soit son `subscription_status`/`subscription_expires_at` — le
+   blocage automatique à l'expiration ne concerne que les comptes
+   commerçants classiques. Cette exception est appliquée à deux endroits :
+   `verifierExpirationAbonnement` (`lib/AuthProvider.js`) ne bascule jamais
+   le statut d'un compte admin, et la condition de blocage dans
+   `app/(app)/layout.js` ignore le statut si `business.is_admin` — donc
+   aussi bien à la connexion qu'à toute revérification pendant la
+   navigation (le `business` du contexte `AuthProvider` est partagé par
+   toute l'app).
 
 ## Photos d'articles (et logo de la boutique)
 
