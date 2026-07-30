@@ -64,9 +64,7 @@ export default function Sidebar({ business, onSignOut }) {
         ) : businessName ? (
           <span>{businessName}</span>
         ) : (
-          <>
-            Smart<span>Biz</span>
-          </>
+          <span>Doka</span>
         )}
         {joursRestants !== null && (
           <div className="sb-trial-badge">

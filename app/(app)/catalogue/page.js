@@ -62,7 +62,7 @@ export default function CataloguePage() {
 
   function buildTexte() {
     const titre =
-      t("catalogue.shareTitle", { name: business?.name || "SmartBiz" }) + (activeCategoryLabel ? ` — ${activeCategoryLabel}` : "");
+      t("catalogue.shareTitle", { name: business?.name || "Doka" }) + (activeCategoryLabel ? ` — ${activeCategoryLabel}` : "");
     const lignes = filtres.map((a) => `• ${a.nom} — ${fmt(a.prix_vente)} / ${uniteLabel(a.unite)}`).join("\n");
     return `${titre}\n\n${lignes}\n\n${t("catalogue.shareFooter")}`;
   }
@@ -70,7 +70,7 @@ export default function CataloguePage() {
   function imprimer() {
     const original = document.title;
     document.title =
-      `${t("catalogue.title")} — ${business?.name || "SmartBiz"}` + (activeCategoryLabel ? ` — ${activeCategoryLabel}` : "");
+      `${t("catalogue.title")} — ${business?.name || "Doka"}` + (activeCategoryLabel ? ` — ${activeCategoryLabel}` : "");
     const restore = () => {
       document.title = original;
       window.removeEventListener("afterprint", restore);

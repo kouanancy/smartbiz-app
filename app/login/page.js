@@ -23,7 +23,7 @@ export default function LoginPage() {
     if (session) router.replace("/dashboard");
   }, [session, router]);
 
-  // Logo SmartBiz choisi par l'administratrice : lecture publique (aucune
+  // Logo Doka choisi par l'administratrice : lecture publique (aucune
   // session à ce stade), affiché ici pour les comptes qui n'ont pas encore
   // personnalisé leur propre logo de boutique (celui-là s'affiche dans le
   // dashboard/reçus une fois connecté, pas ici).
@@ -83,10 +83,10 @@ export default function LoginPage() {
     <div className="sb-auth-screen">
       <div className="sb-auth-card">
         {platformLogo ? (
-          <img src={platformLogo} alt="SmartBiz" style={{ height: 40, marginBottom: 4 }} />
+          <img src={platformLogo} alt="Doka" style={{ height: 40, marginBottom: 4 }} />
         ) : (
           <div className="sb-auth-brand">
-            Smart<span>Biz</span>
+            <span>Doka</span>
           </div>
         )}
         <p className="sb-auth-sub">Pilotez votre commerce, simplement.</p>
@@ -178,7 +178,7 @@ export default function LoginPage() {
         <p className="sb-auth-footer">
           {mode === "signup"
             ? "Un compte gratuit à créer, l'accès complet s'active après paiement de l'abonnement."
-            : "Propulsé par SmartBiz"}
+            : "Propulsé par Doka"}
         </p>
       </div>
     </div>

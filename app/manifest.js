@@ -1,8 +1,8 @@
 import { supabase } from "@/lib/supabaseClient";
 
 const MANIFEST_BASE = {
-  name: "SmartBiz",
-  short_name: "SmartBiz",
+  name: "Doka",
+  short_name: "Doka",
   description: "Mini ERP pour petits commerçants",
   start_url: "/",
   display: "standalone",
@@ -11,7 +11,7 @@ const MANIFEST_BASE = {
 };
 
 // Manifest PWA dynamique : les icônes d'écran d'accueil reflètent le logo
-// SmartBiz choisi par l'administratrice (parametres_globaux), sans build ni
+// Doka choisi par l'administratrice (parametres_globaux), sans build ni
 // déploiement. En échec (pas de réseau, table vide…) on sert un manifest sans
 // icônes plutôt que de casser l'installation de l'app.
 export default async function manifest() {

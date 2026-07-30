@@ -39,7 +39,7 @@ function resizeToSquarePng(img, size) {
   });
 }
 
-// Widget dédié au logo de la plateforme SmartBiz (espace Administration) :
+// Widget dédié au logo de la plateforme Doka (espace Administration) :
 // contrairement à ImageUploadField (une image → une URL), un seul fichier
 // choisi déclenche ici l'envoi du logo original ET la génération/upload de
 // 3 icônes carrées, retournées ensemble via onChange. Le redimensionnement
@@ -103,7 +103,7 @@ export default function LogoPlatformUpload({ label, businessId, value, onChange 
 
       onChange(urls);
     } catch (err) {
-      console.error("Erreur d'upload du logo SmartBiz :", err);
+      console.error("Erreur d'upload du logo Doka :", err);
       const notFound = /bucket.*not.*found/i.test(err?.message || "");
       setError(
         notFound
