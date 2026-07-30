@@ -49,7 +49,10 @@ précédente ait déjà été exécutée), et enfin
 `supabase-parametres-globaux-logo-migration.sql` (colonnes de logo/icônes sur
 `parametres_globaux`, policy de lecture rendue publique — voir « Logo
 SmartBiz (marque de la plateforme) » plus bas ; nécessite
-`supabase-paiements-manuels-migration.sql`).
+`supabase-paiements-manuels-migration.sql`), et enfin
+`supabase-businesses-owner-unique-migration.sql` (fusionne les doublons
+`businesses` déjà existants puis ajoute une contrainte unique sur
+`owner_id` — voir « Fonctionnement du compte / abonnement » plus bas).
 
 ## Variables d'environnement
 
@@ -68,7 +71,13 @@ clé.
    `businesses` avec `owner_id = auth.uid()`, `subscription_status = 'essai'`
    et `subscription_expires_at` = date de création + 7 jours (colonne déjà
    présente dans `smartbiz-schema.sql`, jusque-là inutilisée — voir
-   `lib/AuthProvider.js`, `ensureBusiness`).
+   `lib/AuthProvider.js`, `ensureBusiness`). `owner_id` est **unique**
+   (`supabase-businesses-owner-unique-migration.sql`) : un compte ne peut
+   jamais avoir deux boutiques. `ensureBusiness` fait une lecture puis une
+   création, ce qui reste théoriquement une course entre onglets/appels
+   concurrents — c'est justement la contrainte unique qui tranche en base ;
+   côté client, un conflit (code Postgres `23505`) fait simplement relire la
+   ligne déjà créée par l'appel gagnant plutôt que d'échouer.
 3. **Pendant l'essai**, l'accès à l'application est complet, comme avec un
    abonnement `actif`. La sidebar affiche un indicateur discret du nombre de
    jours restants (« Essai — X jours restants »).
