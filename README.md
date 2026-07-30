@@ -34,9 +34,11 @@ clients — voir « Clients : suppression vs désactivation » plus bas),
 `supabase-commandes-livraison-migration.sql` (ajoutent et font évoluer
 `commandes.statut` — voir « Commandes : cycle de vie » plus bas),
 `supabase-businesses-devise-migration.sql` (ajoute la colonne
-`businesses.devise` — voir « Devise » plus bas), et enfin
+`businesses.devise` — voir « Devise » plus bas),
 `supabase-businesses-langue-migration.sql` (ajoute la colonne
-`businesses.langue` — voir « Langue » plus bas).
+`businesses.langue` — voir « Langue » plus bas), et enfin
+`supabase-articles-unite-migration.sql` (ajoute la colonne
+`articles.unite` — voir « Unité de mesure » plus bas).
 
 ## Variables d'environnement
 
@@ -159,6 +161,22 @@ déjà totalement commandé... ») — l'article reste sélectionnable tant que 
 stock réel le permet, l'avertissement sert seulement à prévenir un
 sur-engagement avant de valider.
 
+## Unité de mesure
+
+`articles.unite` (`'unite' | 'metre' | 'kilo'`, `'unite'` par défaut) se
+choisit dans les formulaires « Nouvel article » / « Modifier l'article » et
+s'affiche accolée à toute quantité de cet article dans l'application :
+tableau du stock (Articles), historique de réappro, ligne de commande
+(Nouvelle commande, Commandes, reçu) et prix au Catalogue (`15 000 FCFA /
+Mètre`). Les libellés (« Unité »/« Mètre »/« Kilo » en français, « Unit »/
+« Meter »/« Kilo » en anglais) vivent dans `lib/i18n` comme le reste des
+textes traduits ; la liste des clés valides est centralisée dans
+`UNITES` (`lib/constants.js`). Comme pour `nom`, cette unité n'est pas
+recopiée sur `commande_lignes` — elle est retrouvée par jointure sur
+`articles` à l'affichage, y compris pour l'historique des commandes déjà
+livrées ou annulées. Nécessite la migration
+`supabase-articles-unite-migration.sql` (voir Démarrage).
+
 ## Devise
 
 `businesses.devise` (`'FCFA' | 'EUR' | 'USD'`, `'FCFA'` par défaut pour tout
@@ -222,6 +240,23 @@ fichier `lib/i18n/<code>.js` avec les mêmes clés, l'enregistrer dans
 `DICTS` (`lib/i18n/index.js`) et l'ajouter au sélecteur de Paramètres.
 Nécessite la migration `supabase-businesses-langue-migration.sql` (voir
 Démarrage).
+
+## Catalogue
+
+Le bouton « Imprimer / PDF » imprime exactement ce qui est affiché à
+l'écran : la grille d'articles (`.sb-catalogue-grid`) est déjà filtrée par
+`filtreCategorie` avant d'être rendue, pour l'écran comme pour
+l'impression — seuls les boutons/filtres eux-mêmes sont masqués à
+l'impression (classe `.sb-no-print`), pas les données. Filtrer sur une
+catégorie puis imprimer ne produit donc que les articles de cette
+catégorie.
+
+Quand un filtre de catégorie est actif, son nom s'ajoute au titre du
+document imprimé/PDF (`document.title`, mis à jour juste avant
+`window.print()` et restauré à la fermeture de l'aperçu via l'événement
+`afterprint`) ainsi qu'au sous-titre du bandeau affiché sur la page —
+utile pour distinguer plusieurs PDF imprimés séparément par catégorie
+(ex. « Catalogue — Chez Aïcha Beauté — Mèches »).
 
 ## Structure
 

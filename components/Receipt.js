@@ -16,6 +16,7 @@ function toWhatsAppNumber(tel) {
 export default function Receipt({ commande, business, onClose }) {
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
+  const uniteLabel = (u) => t(`common.unites.${u || "unite"}`);
   const client = commande.client;
   const totalGeneral = commande.ca + (commande.livraison_frais || 0);
   const businessName = business?.name;
@@ -30,7 +31,7 @@ export default function Receipt({ commande, business, onClose }) {
   function envoyerWhatsApp() {
     const numero = toWhatsAppNumber(client?.telephone);
     if (!numero) return;
-    const lignesTxt = commande.lignes.map((l) => `- ${l.nom} ×${l.quantite}`).join("\n");
+    const lignesTxt = commande.lignes.map((l) => `- ${l.nom} ×${l.quantite} ${uniteLabel(l.unite)}`).join("\n");
     const message = t("receipt.whatsappMessage", {
       clientNom: client?.nom || "",
       numero: commande.numero,
@@ -95,7 +96,7 @@ export default function Receipt({ commande, business, onClose }) {
           <div style={{ borderTop: "1px dashed #E4E2D8", borderBottom: "1px dashed #E4E2D8", padding: "10px 0", marginBottom: 12 }}>
             {commande.lignes.map((l, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
-                <span>{l.nom} ×{l.quantite}</span>
+                <span>{l.nom} ×{l.quantite} {uniteLabel(l.unite)}</span>
                 <span className="sb-mono">{fmt(l.prix_vente * l.quantite)}</span>
               </div>
             ))}
@@ -213,7 +214,9 @@ export default function Receipt({ commande, business, onClose }) {
                 <tr key={i}>
                   <td>{l.nom}</td>
                   <td style={{ textAlign: "right" }}>{fmt(l.prix_vente)}</td>
-                  <td style={{ textAlign: "center" }}>{l.quantite}</td>
+                  <td style={{ textAlign: "center" }}>
+                    {l.quantite} {uniteLabel(l.unite)}
+                  </td>
                   <td style={{ textAlign: "right" }}>{fmt(l.prix_vente * l.quantite)}</td>
                 </tr>
               ))}
