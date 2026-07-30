@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,6 +14,8 @@ import {
   LogOut,
   Clock,
   ShieldCheck,
+  Menu,
+  X,
 } from "lucide-react";
 import { t as tBase } from "@/lib/i18n";
 
@@ -33,6 +36,16 @@ export default function Sidebar({ business, onSignOut }) {
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const businessName = business?.name;
   const logo = business?.logo_url;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [lastPathname, setLastPathname] = useState(pathname);
+
+  // Referme le menu mobile à chaque changement de page (ajustement pendant
+  // le rendu plutôt que dans un effect, pour éviter un rendu en cascade —
+  // sans ça, un lien vers la page déjà active ne fermerait jamais le menu).
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
+    setMenuOpen(false);
+  }
 
   const joursRestants =
     !business?.is_admin && business?.subscription_status === "essai" && business?.subscription_expires_at
@@ -61,7 +74,17 @@ export default function Sidebar({ business, onSignOut }) {
           </div>
         )}
       </div>
-      <nav className="sb-nav">
+      <button
+        type="button"
+        className="sb-menu-toggle"
+        onClick={() => setMenuOpen((v) => !v)}
+        aria-label={menuOpen ? t("sidebar.fermerMenu") : t("sidebar.ouvrirMenu")}
+        aria-expanded={menuOpen}
+      >
+        {menuOpen ? <X size={20} /> : <Menu size={20} />}
+      </button>
+      {menuOpen && <div className="sb-nav-backdrop" onClick={() => setMenuOpen(false)} />}
+      <nav className={`sb-nav${menuOpen ? " sb-nav-open" : ""}`}>
         {navItems.map((item) => (
           <NavItem
             key={item.href}
@@ -69,6 +92,7 @@ export default function Sidebar({ business, onSignOut }) {
             icon={<item.icon size={16} />}
             label={t(`sidebar.nav.${item.key}`)}
             active={pathname === item.href}
+            onClick={() => setMenuOpen(false)}
           />
         ))}
         <button className="sb-nav-item" onClick={onSignOut} type="button">
@@ -81,9 +105,9 @@ export default function Sidebar({ business, onSignOut }) {
   );
 }
 
-function NavItem({ href, icon, label, active }) {
+function NavItem({ href, icon, label, active, onClick }) {
   return (
-    <Link href={href} className={`sb-nav-item${active ? " active" : ""}`}>
+    <Link href={href} className={`sb-nav-item${active ? " active" : ""}`} onClick={onClick}>
       {icon}
       {label}
     </Link>
