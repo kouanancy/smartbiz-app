@@ -12,6 +12,7 @@ import {
   Palette,
   LogOut,
   Clock,
+  ShieldCheck,
 } from "lucide-react";
 import { t as tBase } from "@/lib/i18n";
 
@@ -25,6 +26,8 @@ const NAV_ITEMS = [
   { href: "/parametres", icon: Palette, key: "parametres" },
 ];
 
+const ADMIN_NAV_ITEM = { href: "/admin", icon: ShieldCheck, key: "admin" };
+
 export default function Sidebar({ business, onSignOut }) {
   const pathname = usePathname();
   const t = (key, vars) => tBase(business?.langue, key, vars);
@@ -35,6 +38,7 @@ export default function Sidebar({ business, onSignOut }) {
     business?.subscription_status === "essai" && business?.subscription_expires_at
       ? Math.max(1, Math.ceil((new Date(business.subscription_expires_at) - new Date()) / (1000 * 60 * 60 * 24)))
       : null;
+  const navItems = business?.is_admin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
 
   return (
     <aside className="sb-sidebar">
@@ -58,7 +62,7 @@ export default function Sidebar({ business, onSignOut }) {
         )}
       </div>
       <nav className="sb-nav">
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <NavItem
             key={item.href}
             href={item.href}

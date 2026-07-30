@@ -36,9 +36,12 @@ clients — voir « Clients : suppression vs désactivation » plus bas),
 `supabase-businesses-devise-migration.sql` (ajoute la colonne
 `businesses.devise` — voir « Devise » plus bas),
 `supabase-businesses-langue-migration.sql` (ajoute la colonne
-`businesses.langue` — voir « Langue » plus bas), et enfin
+`businesses.langue` — voir « Langue » plus bas),
 `supabase-articles-unite-migration.sql` (ajoute la colonne
-`articles.unite` — voir « Unité de mesure » plus bas).
+`articles.unite` — voir « Unité de mesure » plus bas), et enfin
+`supabase-businesses-admin-migration.sql` (ajoute `businesses.is_admin` et
+`businesses.email`, la policy RLS et la fonction associées — voir « Espace
+Administration » plus bas).
 
 ## Variables d'environnement
 
@@ -61,18 +64,21 @@ clé.
 3. **Pendant l'essai**, l'accès à l'application est complet, comme avec un
    abonnement `actif`. La sidebar affiche un indicateur discret du nombre de
    jours restants (« Essai — X jours restants »).
-4. **À l'expiration** des 7 jours, le statut bascule automatiquement vers
-   `en_attente_paiement` — l'application n'ayant pas de tâche planifiée
-   côté serveur, cette bascule est vérifiée paresseusement à chaque
-   chargement de la boutique (`expireEssaiSiDepasse` dans
-   `lib/AuthProvider.js`) plutôt que par un cron. Une fois `en_attente_paiement`
-   (essai expiré ou abonnement classique jamais payé), l'accès à
-   l'application (Tableau de bord, Commandes, Articles, Clients, Catalogue,
-   Paramètres) est bloqué — l'utilisateur voit l'écran « Abonnement en
-   attente de paiement ».
+4. **À l'expiration** de `subscription_expires_at`, le statut bascule
+   automatiquement — l'application n'ayant pas de tâche planifiée côté
+   serveur, cette bascule est vérifiée paresseusement à chaque connexion /
+   chargement de la boutique (`verifierExpirationAbonnement` dans
+   `lib/AuthProvider.js`) plutôt que par un cron. Deux cas selon le statut
+   précédent : un essai dépassé (jamais payé) passe à
+   `en_attente_paiement` ; un abonnement `actif` dépassé (payé, puis
+   expiré) passe à `expire`, avec son propre écran « Abonnement expiré ».
+   Dans les deux cas, l'accès à l'application (Tableau de bord, Commandes,
+   Articles, Clients, Catalogue, Paramètres) est bloqué.
 5. Le passage à `actif` (fin d'essai payée ou renouvellement classique) se
-   fera via le webhook CinetPay (voir `smartbiz-backend-roadmap.md`), pas
-   encore branché à ce stade — indépendamment du statut précédent.
+   fait pour l'instant manuellement depuis l'espace Administration
+   (« Marquer comme payé », voir plus bas) ; le webhook CinetPay (voir
+   `smartbiz-backend-roadmap.md`) l'automatisera plus tard — indépendamment
+   du statut précédent.
 
 ## Photos d'articles (et logo de la boutique)
 
@@ -258,6 +264,49 @@ document imprimé/PDF (`document.title`, mis à jour juste avant
 utile pour distinguer plusieurs PDF imprimés séparément par catégorie
 (ex. « Catalogue — Chez Aïcha Beauté — Mèches »).
 
+## Espace Administration
+
+`businesses.is_admin` (`boolean`, `false` par défaut) donne accès à
+`/admin`, une page listant tous les commerçants inscrits (nom, e-mail,
+statut d'abonnement, date d'expiration) — jamais attribué automatiquement
+à l'inscription. L'entrée « Administration » n'apparaît dans la sidebar
+que si `business.is_admin` est vrai (`components/Sidebar.js`) ; la page
+elle-même redirige tout compte non-admin vers `/dashboard`
+(`app/(app)/admin/page.js`).
+
+Les lignes dont l'abonnement (`actif` ou `essai`) expire dans les 7 jours
+à venir sont mises en évidence (fond ambre, badge « Expire bientôt ») et
+triées en premier. Deux actions par ligne :
+
+- **Marquer comme payé** : `subscription_status → 'actif'` et
+  `subscription_expires_at →` aujourd'hui + 1 mois, quel que soit le
+  statut ou la date précédente — le pendant manuel de ce que fera le
+  webhook CinetPay plus tard.
+- **Donner/Retirer les droits admin** : bascule `is_admin`. Désactivé sur
+  sa propre ligne pour éviter de se retirer ses propres droits par erreur
+  (il faut alors passer par un autre compte admin, ou l'éditeur SQL
+  Supabase).
+
+**Accès multi-comptes** : comme `businesses` n'a par défaut qu'une policy
+RLS restreignant chaque commerçant à sa propre ligne
+(`owner_id = auth.uid()`), l'espace Administration a besoin d'une policy
+supplémentaire pour voir/modifier toutes les lignes. Une sous-requête RLS
+classique sur `businesses` à l'intérieur de sa propre policy provoquerait
+une récursion RLS ; la migration contourne ça avec une fonction
+`is_admin_user()` en `security definer` (qui lit `is_admin` avec les
+privilèges de son propriétaire, donc sans re-déclencher le RLS), utilisée
+comme condition de la policy admin.
+
+`businesses.email` (dupliqué depuis `auth.users`, schéma protégé non
+accessible depuis le client) est renseigné à l'inscription
+(`lib/AuthProvider.js`) et rétroactivement pour les comptes déjà existants
+par la migration elle-même.
+
+Nécessite `supabase-businesses-admin-migration.sql` (voir Démarrage), qui
+attribue aussi les droits admin au compte `koua.nancy@gmail.com` — si ce
+compte ne s'est pas encore inscrit au moment où tu exécutes la migration,
+relance-la après sa première connexion.
+
 ## Structure
 
 ```
@@ -273,6 +322,7 @@ app/
   (app)/clients/           clients
   (app)/catalogue/         catalogue partageable (WhatsApp / impression)
   (app)/parametres/        boutique, thème, zones de livraison, notifications
+  (app)/admin/             espace Administration (visible si is_admin)
 components/
   Sidebar.js, PendingSubscription.js, Receipt.js, ImageUploadField.js
 lib/
@@ -286,14 +336,18 @@ lib/
 
 - **Sécurité RLS à durcir avant la mise en prod payante** : la policy
   `businesses for all using (owner_id = auth.uid())` du schéma autorise un
-  commerçant à modifier n'importe quelle colonne de sa propre ligne,
-  y compris `subscription_status` et `subscription_expires_at` (donc,
-  potentiellement, à se prolonger un essai indéfiniment). Tant que le
+  commerçant à modifier n'importe quelle colonne de sa propre ligne, y
+  compris `subscription_status`, `subscription_expires_at` (donc,
+  potentiellement, à se prolonger un essai/abonnement indéfiniment) **et
+  `is_admin`** (donc, potentiellement, à s'auto-attribuer les droits admin
+  et accéder à `/admin` — les données des autres commerçants restent
+  cependant protégées tant que le compte n'est pas physiquement compromis,
+  puisque cette policy ne donne accès qu'à sa propre ligne). Tant que le
   paiement CinetPay n'est pas branché (qui devra passer par une clé
   `service_role` côté serveur, jamais exposée au client), il est recommandé
   de restreindre l'`UPDATE` de cette table aux colonnes non liées à la
-  facturation (ex. policy dédiée ou colonnes gérées uniquement via une
-  fonction serveur).
+  facturation/aux droits admin (ex. policy dédiée ou colonnes gérées
+  uniquement via une fonction serveur).
 - **Photo d'article et logo de la boutique** : upload réel vers Supabase
   Storage (voir section dédiée ci-dessus).
 - Remplacer une photo (ou repasser sur « Sans catégorie » côté image, ou
