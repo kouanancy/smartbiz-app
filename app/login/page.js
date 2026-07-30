@@ -17,10 +17,24 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [platformLogo, setPlatformLogo] = useState("");
 
   useEffect(() => {
     if (session) router.replace("/dashboard");
   }, [session, router]);
+
+  // Logo SmartBiz choisi par l'administratrice : lecture publique (aucune
+  // session à ce stade), affiché ici pour les comptes qui n'ont pas encore
+  // personnalisé leur propre logo de boutique (celui-là s'affiche dans le
+  // dashboard/reçus une fois connecté, pas ici).
+  useEffect(() => {
+    supabase
+      .from("parametres_globaux")
+      .select("logo_url")
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setPlatformLogo(data?.logo_url || ""));
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -68,9 +82,13 @@ export default function LoginPage() {
   return (
     <div className="sb-auth-screen">
       <div className="sb-auth-card">
-        <div className="sb-auth-brand">
-          Smart<span>Biz</span>
-        </div>
+        {platformLogo ? (
+          <img src={platformLogo} alt="SmartBiz" style={{ height: 40, marginBottom: 4 }} />
+        ) : (
+          <div className="sb-auth-brand">
+            Smart<span>Biz</span>
+          </div>
+        )}
         <p className="sb-auth-sub">Pilotez votre commerce, simplement.</p>
 
         <div className="sb-auth-tabs">

@@ -1,0 +1,179 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { Image as ImageIcon, Upload, X } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+
+const BUCKET = "article-photos";
+const MAX_SIZE_MB = 5;
+// Tailles carrées à pré-générer pour l'icône d'écran d'accueil (PWA) :
+// 192/512 pour le manifest, 180 pour l'icône Apple.
+const ICON_SIZES = [
+  { key: "icon_192_url", size: 192 },
+  { key: "icon_512_url", size: 512 },
+  { key: "icon_apple_180_url", size: 180 },
+];
+
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Image illisible"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// Découpe centrée au carré (cover) puis redimensionne — un logo carré n'a
+// pas de bandes vides, contrairement à un simple redimensionnement "contain".
+function resizeToSquarePng(img, size) {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    const sx = (img.naturalWidth - side) / 2;
+    const sy = (img.naturalHeight - side) / 2;
+    ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("toBlob a échoué"))), "image/png");
+  });
+}
+
+// Widget dédié au logo de la plateforme SmartBiz (espace Administration) :
+// contrairement à ImageUploadField (une image → une URL), un seul fichier
+// choisi déclenche ici l'envoi du logo original ET la génération/upload de
+// 3 icônes carrées, retournées ensemble via onChange. Le redimensionnement
+// se fait depuis le File local (URL.createObjectURL, même origine) plutôt
+// que depuis l'URL déjà hébergée, pour ne jamais dépendre des en-têtes
+// CORS du bucket Storage lors du dessin sur canvas.
+export default function LogoPlatformUpload({ label, businessId, value, onChange }) {
+  const fileInputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const [previewUrl, setPreviewUrl] = useState(value || "");
+  const [lastValue, setLastValue] = useState(value || "");
+
+  if (value !== lastValue) {
+    setLastValue(value || "");
+    setPreviewUrl(value || "");
+  }
+
+  async function uploadFile(file) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Le fichier doit être une image.");
+      return;
+    }
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      setError(`Image trop lourde (max ${MAX_SIZE_MB} Mo).`);
+      return;
+    }
+
+    setError("");
+    setUploading(true);
+    const localPreview = URL.createObjectURL(file);
+    setPreviewUrl(localPreview);
+
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+      const uid = crypto.randomUUID();
+
+      const basePath = `${businessId}/smartbiz-logo/${uid}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from(BUCKET).upload(basePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type,
+      });
+      if (uploadError) throw uploadError;
+      const logoUrl = supabase.storage.from(BUCKET).getPublicUrl(basePath).data.publicUrl;
+
+      const img = await loadImage(file);
+      const urls = { logo_url: logoUrl };
+      for (const { key, size } of ICON_SIZES) {
+        const blob = await resizeToSquarePng(img, size);
+        const iconPath = `${businessId}/smartbiz-logo/icon-${size}-${uid}.png`;
+        const { error: iconError } = await supabase.storage.from(BUCKET).upload(iconPath, blob, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: "image/png",
+        });
+        if (iconError) throw iconError;
+        urls[key] = supabase.storage.from(BUCKET).getPublicUrl(iconPath).data.publicUrl;
+      }
+
+      onChange(urls);
+    } catch (err) {
+      console.error("Erreur d'upload du logo SmartBiz :", err);
+      const notFound = /bucket.*not.*found/i.test(err?.message || "");
+      setError(
+        notFound
+          ? `Le bucket "${BUCKET}" n'existe pas encore sur ce projet Supabase — exécute supabase-storage-setup.sql dans l'éditeur SQL.`
+          : "Échec de l'envoi du logo. Réessaie."
+      );
+      setPreviewUrl(value || "");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleFileChange(e) {
+    const file = e.target.files?.[0];
+    uploadFile(file);
+    e.target.value = "";
+  }
+
+  function handlePaste(e) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        uploadFile(item.getAsFile());
+        break;
+      }
+    }
+  }
+
+  function handleRemove() {
+    setPreviewUrl("");
+    setError("");
+    onChange({ logo_url: "", icon_192_url: "", icon_512_url: "", icon_apple_180_url: "" });
+  }
+
+  return (
+    <div className="sb-field">
+      {label && <label>{label}</label>}
+      <div className="sb-image-upload" onPaste={handlePaste} tabIndex={0}>
+        {previewUrl ? (
+          <div className="sb-image-upload-preview">
+            <img src={previewUrl} alt="Aperçu" />
+          </div>
+        ) : (
+          <div className="sb-image-upload-placeholder">
+            <ImageIcon size={18} />
+          </div>
+        )}
+        <div className="sb-image-upload-actions">
+          <button
+            type="button"
+            className="sb-btn sb-btn-ghost"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            <Upload size={13} /> {uploading ? "Envoi…" : previewUrl ? "Changer" : "Choisir une image"}
+          </button>
+          {previewUrl && !uploading && (
+            <button type="button" className="sb-btn sb-btn-ghost" onClick={handleRemove}>
+              <X size={13} /> Retirer
+            </button>
+          )}
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: "none" }} />
+        </div>
+      </div>
+      <p style={{ fontSize: 11, color: "#8A8682", margin: 0 }}>
+        Clique dans la zone puis colle une image (Ctrl+V), ou choisis un fichier — idéalement carrée.
+      </p>
+      {error && <p style={{ fontSize: 11, color: "#C24E37", margin: 0 }}>{error}</p>}
+    </div>
+  );
+}
