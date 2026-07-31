@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { CheckCircle2, FileSpreadsheet, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 import { UNITES } from "@/lib/constants";
+import { exportToExcel, dateFichier } from "@/lib/exportExcel";
 import ImageUploadField from "@/components/ImageUploadField";
 
 const emptyForm = {
@@ -264,6 +265,20 @@ export default function ArticlesPage() {
     ...categories.map((c) => ({ key: c.id, label: c.nom })),
   ];
 
+  function exporterExcel() {
+    const rows = articlesFiltres.map((a) => ({
+      [t("articles.colArticle")]: a.nom,
+      [t("articles.colCategorie")]: categorieName(a.categorie_id),
+      [t("articles.colAchat")]: a.prix_achat,
+      [t("articles.colFraisAnnexes")]: a.frais_annexes || 0,
+      [t("articles.colVente")]: a.prix_vente,
+      [t("articles.colMargeReelle")]: a.prix_vente - a.prix_achat - (a.frais_annexes || 0),
+      [t("articles.colStock")]: a.stock,
+      [t("articles.uniteLabel")]: uniteLabel(a.unite),
+    }));
+    exportToExcel(`stock-${dateFichier()}.xlsx`, "Stock", rows);
+  }
+
   if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
 
   return (
@@ -276,6 +291,9 @@ export default function ArticlesPage() {
         <div style={{ display: "flex", gap: 8 }}>
           <button className="sb-btn sb-btn-ghost" onClick={() => setShowCatManager((s) => !s)}>
             {t("articles.categoriesBtn")}
+          </button>
+          <button className="sb-btn sb-btn-ghost" onClick={exporterExcel}>
+            <FileSpreadsheet size={14} /> {t("common.exporterExcel")}
           </button>
           <button className="sb-btn sb-btn-primary" onClick={() => setShowForm((s) => !s)}>
             <Plus size={14} /> {t("articles.newArticle")}

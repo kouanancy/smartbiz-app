@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Printer } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, monthLabel, dateLocale } from "@/lib/format";
 import { THEMES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
+import { exportToExcel, dateFichier } from "@/lib/exportExcel";
 
 const MOIS_A_AFFICHER = 12;
 const PERIODE_MOIS = { mois: 1, trimestre: 3, semestre: 6, annee: 12 };
@@ -141,6 +142,15 @@ export default function TresoreriePage() {
     window.print();
   }
 
+  function exporterExcel() {
+    const rows = tableRows.map((b) => ({
+      [t("tresorerie.colMois")]: b.labelFull,
+      [t("tresorerie.colCa")]: b.ca,
+      [t("tresorerie.colMarge")]: b.marge,
+    }));
+    exportToExcel(`tresorerie-${dateFichier()}.xlsx`, "Tresorerie", rows);
+  }
+
   if (loading) return <p className="sb-sub">{t("tresorerie.loading")}</p>;
 
   return (
@@ -151,9 +161,14 @@ export default function TresoreriePage() {
             <h1 className="sb-h1">{t("tresorerie.title")}</h1>
             <p className="sb-sub">{t("tresorerie.subtitle")}</p>
           </div>
-          <button className="sb-btn sb-btn-primary" onClick={imprimer}>
-            <Printer size={13} /> {t("tresorerie.imprimerPdf")}
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="sb-btn sb-btn-ghost" onClick={exporterExcel}>
+              <FileSpreadsheet size={13} /> {t("common.exporterExcel")}
+            </button>
+            <button className="sb-btn sb-btn-primary" onClick={imprimer}>
+              <Printer size={13} /> {t("tresorerie.imprimerPdf")}
+            </button>
+          </div>
         </div>
 
         <div className="sb-grid-stats" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>

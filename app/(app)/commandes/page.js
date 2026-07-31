@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Ban, CheckCircle2, Pencil, Plus, Printer, TruckIcon, Trash2, X } from "lucide-react";
+import { Ban, CheckCircle2, FileSpreadsheet, Pencil, Plus, Printer, TruckIcon, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
+import { exportToExcel, dateFichier } from "@/lib/exportExcel";
 import Receipt from "@/components/Receipt";
 
 const STATUT_BADGE_CLASS = {
@@ -292,6 +293,21 @@ export default function CommandesPage() {
     { key: "livree", label: t("commandes.filterLivrees") },
   ];
 
+  function exporterExcel() {
+    const rows = commandesFiltrees.map((c) => ({
+      [t("dashboard.colNumero")]: c.numero,
+      [t("dashboard.colDate")]: new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue)),
+      [t("commandes.colCliente")]: c.clients?.nom ?? "—",
+      [t("commandes.colArticles")]: c.commande_lignes
+        .map((l) => `${l.articles?.nom ?? "—"} ×${l.quantite} ${uniteLabel(l.articles?.unite)}`)
+        .join(", "),
+      [t("commandes.colCa")]: c.ca,
+      [t("commandes.colMargeReelle")]: c.marge,
+      [t("commandes.colStatut")]: t(`common.commandeStatut.${c.statut}`) || c.statut,
+    }));
+    exportToExcel(`commandes-${dateFichier()}.xlsx`, "Commandes", rows);
+  }
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
@@ -299,9 +315,14 @@ export default function CommandesPage() {
           <h1 className="sb-h1">{t("commandes.title")}</h1>
           <p className="sb-sub">{t("commandes.subtitle", { n: commandes.length })}</p>
         </div>
-        <span className="sb-badge sb-badge-amber" style={{ fontSize: 12.5, padding: "6px 10px" }}>
-          {t("commandes.nbEnAttente", { n: nbEnAttente })}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <button className="sb-btn sb-btn-ghost" onClick={exporterExcel}>
+            <FileSpreadsheet size={14} /> {t("common.exporterExcel")}
+          </button>
+          <span className="sb-badge sb-badge-amber" style={{ fontSize: 12.5, padding: "6px 10px" }}>
+            {t("commandes.nbEnAttente", { n: nbEnAttente })}
+          </span>
+        </div>
       </div>
 
       <div className="sb-toggle-group" style={{ margin: "14px 0", flexWrap: "wrap", display: "inline-flex" }}>

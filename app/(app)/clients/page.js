@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Pencil, Plus, RotateCcw, Search, Trash2, UserX, X } from "lucide-react";
+import { CheckCircle2, FileSpreadsheet, Pencil, Plus, RotateCcw, Search, Trash2, UserX, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
+import { exportToExcel, dateFichier } from "@/lib/exportExcel";
 
 const normalizeTel = (tel) => (tel || "").replace(/\D/g, "");
 
@@ -181,6 +182,21 @@ export default function ClientsPage() {
     setClients((prev) => prev.filter((c) => c.id !== client.id));
   }
 
+  function exporterExcel() {
+    const rows = filtered.map((c) => {
+      const s = stats(c.id);
+      return {
+        [t("clients.colNom")]: c.nom,
+        [t("clients.colTelephone")]: c.telephone,
+        [t("clients.colAdresse")]: c.adresse || "",
+        [t("clients.colEmail")]: c.email || "",
+        [t("clients.colCommandes")]: s.count,
+        [t("clients.colTotalAchats")]: s.total,
+      };
+    });
+    exportToExcel(`clients-${dateFichier()}.xlsx`, "Clients", rows);
+  }
+
   if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
 
   return (
@@ -190,15 +206,20 @@ export default function ClientsPage() {
           <h1 className="sb-h1">{t("clients.title")}</h1>
           <p className="sb-sub">{t("clients.subtitleCount", { n: clients.length })}</p>
         </div>
-        <button
-          className="sb-btn sb-btn-primary"
-          onClick={() => {
-            setShowForm((s) => !s);
-            setMsg("");
-          }}
-        >
-          <Plus size={14} /> {t("clients.newClient")}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="sb-btn sb-btn-ghost" onClick={exporterExcel}>
+            <FileSpreadsheet size={14} /> {t("common.exporterExcel")}
+          </button>
+          <button
+            className="sb-btn sb-btn-primary"
+            onClick={() => {
+              setShowForm((s) => !s);
+              setMsg("");
+            }}
+          >
+            <Plus size={14} /> {t("clients.newClient")}
+          </button>
+        </div>
       </div>
 
       {msg && (
