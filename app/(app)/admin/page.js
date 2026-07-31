@@ -42,6 +42,8 @@ export default function AdminPage() {
   const [waveTelDraft, setWaveTelDraft] = useState("");
   const [prixDraft, setPrixDraft] = useState("");
   const [waveMsg, setWaveMsg] = useState("");
+  const [supportTelDraft, setSupportTelDraft] = useState("");
+  const [supportMsg, setSupportMsg] = useState("");
 
   useEffect(() => {
     if (business && !business.is_admin) router.replace("/dashboard");
@@ -72,6 +74,7 @@ export default function AdminPage() {
         setWaveQrDraft(parametres.wave_qr_url || "");
         setWaveTelDraft(parametres.wave_telephone || "");
         setPrixDraft(String(parametres.abonnement_prix ?? ""));
+        setSupportTelDraft(parametres.support_telephone || "");
       }
       setLoading(false);
     }
@@ -160,6 +163,22 @@ export default function AdminPage() {
     }
     setParametresGlobaux(data);
     setWaveMsg(t("admin.waveSavedMsg"));
+  }
+
+  async function enregistrerSupport() {
+    if (!parametresGlobaux) return;
+    const { data, error } = await supabase
+      .from("parametres_globaux")
+      .update({ support_telephone: supportTelDraft.trim() || null })
+      .eq("id", parametresGlobaux.id)
+      .select()
+      .single();
+    if (error) {
+      setSupportMsg(t("common.error", { message: error.message }));
+      return;
+    }
+    setParametresGlobaux(data);
+    setSupportMsg(t("admin.supportSavedMsg"));
   }
 
   async function toggleAdmin(b) {
@@ -252,6 +271,36 @@ export default function AdminPage() {
           </div>
         </div>
         <button className="sb-btn sb-btn-primary" style={{ marginTop: 12 }} onClick={enregistrerParametresGlobaux}>
+          {t("parametres.enregistrer")}
+        </button>
+      </div>
+
+      <div className="sb-card" style={{ marginBottom: 16, maxWidth: 480 }}>
+        <div className="sb-section-title">{t("admin.supportTitle")}</div>
+        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("admin.supportSub")}</p>
+        {supportMsg && (
+          <div className="sb-badge sb-badge-emerald" style={{ marginBottom: 12, fontSize: 12.5, padding: "6px 10px" }}>
+            {supportMsg}
+          </div>
+        )}
+        {!parametresGlobaux?.support_telephone && (
+          <div className="sb-badge sb-badge-amber" style={{ display: "block", marginBottom: 12, fontSize: 12.5, padding: "8px 12px" }}>
+            {t("admin.supportTelMissing")}
+          </div>
+        )}
+        <div className="sb-field">
+          <label>{t("admin.supportTelLabel")}</label>
+          <input
+            className="sb-input"
+            placeholder={t("admin.supportTelPlaceholder")}
+            value={supportTelDraft}
+            onChange={(e) => {
+              setSupportTelDraft(e.target.value);
+              setSupportMsg("");
+            }}
+          />
+        </div>
+        <button className="sb-btn sb-btn-primary" style={{ marginTop: 12 }} onClick={enregistrerSupport}>
           {t("parametres.enregistrer")}
         </button>
       </div>

@@ -63,7 +63,10 @@ enfin `supabase-admin-scope-abonnement-migration.sql` (retire l'accès
 direct de l'administratrice à la table `businesses` et le remplace par
 trois fonctions limitées aux colonnes d'abonnement — voir « Espace
 Administration » plus bas ; nécessite
-`supabase-businesses-admin-migration.sql`).
+`supabase-businesses-admin-migration.sql`), et enfin
+`supabase-support-telephone-migration.sql` (colonne `support_telephone`
+sur `parametres_globaux` — voir « Aide / Support » plus bas ; nécessite
+`supabase-paiements-manuels-migration.sql`).
 
 ## Variables d'environnement
 
@@ -597,14 +600,18 @@ Page `/aide` (`app/(app)/aide/page.js`), accessible à tout commerçant —
 entrée de sidebar entre Paramètres et Administration. Reste volontairement
 simple : pas de formulaire de ticket, seulement deux moyens de contact.
 
-- **WhatsApp** : réutilise `wave_telephone` (`parametres_globaux`), déjà
-  configuré dans l'espace Administration pour les paiements — aucun champ
-  de contact séparé à maintenir. Le numéro est normalisé et le lien
-  `wa.me` pré-rempli construits par `toWhatsAppNumber`
-  (`lib/format.js`, extrait de `components/Receipt.js` où vivait la même
-  logique pour le bouton d'envoi de confirmation de commande, maintenant
-  partagée entre les deux). Si aucun numéro n'est configuré, le bouton est
-  remplacé par une note invitant à utiliser l'e-mail à la place.
+- **WhatsApp** : numéro dédié (`parametres_globaux.support_telephone`),
+  configuré dans une carte « Support » séparée de l'espace Administration
+  — volontairement indépendant de `wave_telephone` (numéro Wave des
+  paiements), les deux rôles n'ayant aucune raison de partager le même
+  numéro. L'admin voit un avertissement tant que ce champ est vide. Le
+  numéro est normalisé et le lien `wa.me` pré-rempli construits par
+  `toWhatsAppNumber` (`lib/format.js`, extrait de `components/Receipt.js`
+  où vivait la même logique pour le bouton d'envoi de confirmation de
+  commande, maintenant partagée entre les deux). Si aucun numéro n'est
+  configuré, le bouton est remplacé par une note invitant à utiliser
+  l'e-mail à la place plutôt que de retomber silencieusement sur le
+  numéro Wave.
 - **E-mail** : adresse fixe `contact@doka.ci`, bouton `mailto:` en repli.
 
 ## Structure

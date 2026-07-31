@@ -12,21 +12,21 @@ const SUPPORT_EMAIL = "contact@doka.ci";
 export default function AidePage() {
   const { business } = useAuth();
   const t = (key, vars) => tBase(business?.langue, key, vars);
-  const [waveTelephone, setWaveTelephone] = useState("");
+  const [supportTelephone, setSupportTelephone] = useState("");
 
-  // Même numéro que celui déjà configuré dans l'espace Administration pour
-  // les paiements Wave (parametres_globaux, lecture publique) — pas de
-  // champ de contact séparé à maintenir.
+  // Numéro dédié au support (parametres_globaux.support_telephone,
+  // lecture publique), indépendant du numéro Wave des paiements — les
+  // deux rôles n'ont aucune raison de partager le même numéro.
   useEffect(() => {
     supabase
       .from("parametres_globaux")
-      .select("wave_telephone")
+      .select("support_telephone")
       .limit(1)
       .maybeSingle()
-      .then(({ data }) => setWaveTelephone(data?.wave_telephone || ""));
+      .then(({ data }) => setSupportTelephone(data?.support_telephone || ""));
   }, []);
 
-  const numeroWhatsApp = toWhatsAppNumber(waveTelephone);
+  const numeroWhatsApp = toWhatsAppNumber(supportTelephone);
 
   function contacterWhatsApp() {
     const message = t("aide.whatsappMessage", { businessName: business?.name || t("common.defaultBusinessName") });
