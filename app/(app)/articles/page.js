@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, FileSpreadsheet, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
-import { UNITES } from "@/lib/constants";
+import { UNITES, PAGE_SIZE } from "@/lib/constants";
 import { exportToExcel, dateFichier } from "@/lib/exportExcel";
 import ImageUploadField from "@/components/ImageUploadField";
+import Pagination from "@/components/Pagination";
 
 const emptyForm = {
   nom: "",
@@ -30,6 +31,10 @@ export default function ArticlesPage() {
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const [articles, setArticles] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [margeTotaleFiltre, setMargeTotaleFiltre] = useState(0);
+  const [page, setPage] = useState(0);
+  const [refreshTick, setRefreshTick] = useState(0);
   const [categories, setCategories] = useState([]);
   const [reappros, setReappros] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +46,7 @@ export default function ArticlesPage() {
   const [catMsg, setCatMsg] = useState("");
   const [filtreCategorie, setFiltreCategorie] = useState(FILTRE_TOUTES);
   const [recherche, setRecherche] = useState("");
+  const [rechercheDebounced, setRechercheDebounced] = useState("");
   const [reapproId, setReapproId] = useState(null);
   const [reapproForm, setReapproForm] = useState({ quantite: "", prix_achat: "", frais_annexes: "" });
   const [editingId, setEditingId] = useState(null);
@@ -48,13 +54,44 @@ export default function ArticlesPage() {
   const [editError, setEditError] = useState("");
   const [enAttenteParArticle, setEnAttenteParArticle] = useState({});
 
+  // Recherche tapée au fil de l'eau, mais requêtée après une courte pause
+  // (300 ms) pour ne pas interroger Supabase à chaque frappe — la page
+  // revient aussi au début, sinon on pourrait se retrouver sur une page
+  // qui n'existe plus pour les nouveaux résultats.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setRechercheDebounced(recherche.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [recherche]);
+
+  // Filtre catégorie + recherche appliqués côté serveur — partagé entre le
+  // chargement paginé, l'agrégat de marge totale et l'export Excel (les
+  // trois doivent respecter exactement le même filtre). Mémorisé pour ne
+  // changer d'identité que si le filtre ou la recherche changent réellement,
+  // afin de rester une dépendance stable des useEffect ci-dessous.
+  const appliquerFiltresArticles = useCallback(
+    (query) => {
+      let q = query;
+      if (filtreCategorie === FILTRE_SANS_CATEGORIE) q = q.is("categorie_id", null);
+      else if (filtreCategorie !== FILTRE_TOUTES) q = q.eq("categorie_id", filtreCategorie);
+      if (rechercheDebounced) q = q.ilike("nom", `%${rechercheDebounced}%`);
+      return q;
+    },
+    [filtreCategorie, rechercheDebounced]
+  );
+
+  // Données indépendantes de la pagination du stock : catégories (peu
+  // nombreuses), historique de réappro (déjà limité à 10) et quantités en
+  // attente par article (nécessaires même pour les articles hors de la
+  // page affichée si on les recroise ailleurs) — chargées une seule fois
+  // par boutique, jamais reparcourues au changement de page/filtre.
   useEffect(() => {
     if (!business?.id) return;
     let active = true;
-    async function load() {
-      setLoading(true);
-      const [articlesRes, categoriesRes, reapprosRes, enAttenteRes] = await Promise.all([
-        supabase.from("articles").select("*").eq("business_id", business.id).order("nom"),
+    async function loadStatique() {
+      const [categoriesRes, reapprosRes, enAttenteRes] = await Promise.all([
         supabase.from("categories").select("*").eq("business_id", business.id).order("nom"),
         supabase
           .from("reappros")
@@ -69,7 +106,6 @@ export default function ArticlesPage() {
           .eq("commandes.statut", "en_attente"),
       ]);
       if (!active) return;
-      setArticles(articlesRes.data || []);
       setCategories(categoriesRes.data || []);
       setReappros(reapprosRes.data || []);
       const parArticle = {};
@@ -77,13 +113,62 @@ export default function ArticlesPage() {
         parArticle[l.article_id] = (parArticle[l.article_id] || 0) + l.quantite;
       });
       setEnAttenteParArticle(parArticle);
+    }
+    loadStatique();
+    return () => {
+      active = false;
+    };
+  }, [business?.id]);
+
+  // Page courante du stock, filtrée et recherchée côté serveur — seule
+  // cette requête charge des lignes d'articles (25 à la fois), jamais la
+  // liste complète.
+  useEffect(() => {
+    if (!business?.id) return;
+    let active = true;
+    async function load() {
+      const { data, count } = await appliquerFiltresArticles(
+        supabase.from("articles").select("*", { count: "exact" }).eq("business_id", business.id)
+      )
+        .order("nom")
+        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+      if (!active) return;
+      const total = count || 0;
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      // Une suppression peut vider la dernière page : on se rabat sur la
+      // nouvelle dernière page plutôt que d'afficher une page vide.
+      if (page > 0 && page >= totalPages) {
+        setPage(totalPages - 1);
+        return;
+      }
+      setArticles(data || []);
+      setTotalCount(total);
       setLoading(false);
     }
     load();
     return () => {
       active = false;
     };
-  }, [business?.id]);
+  }, [business?.id, page, appliquerFiltresArticles, refreshTick]);
+
+  // Marge totale exposée en stock pour le filtre actif — calculée à part
+  // (uniquement les 4 colonnes numériques nécessaires, sans pagination) car
+  // la page affichée ne contient jamais tous les articles filtrés.
+  useEffect(() => {
+    if (!business?.id) return;
+    let active = true;
+    async function loadMargeTotale() {
+      const { data } = await appliquerFiltresArticles(
+        supabase.from("articles").select("prix_vente,prix_achat,frais_annexes,stock").eq("business_id", business.id)
+      );
+      if (!active) return;
+      setMargeTotaleFiltre((data || []).reduce((s, a) => s + (a.prix_vente - a.prix_achat - (a.frais_annexes || 0)) * a.stock, 0));
+    }
+    loadMargeTotale();
+    return () => {
+      active = false;
+    };
+  }, [business?.id, appliquerFiltresArticles, refreshTick]);
 
   const categorieName = (id) => categories.find((c) => c.id === id)?.nom ?? t("common.sansCategorie");
   const uniteLabel = (u) => t(`common.unites.${u || "unite"}`);
@@ -121,8 +206,13 @@ export default function ArticlesPage() {
       .select()
       .single();
 
+    // Un réappro ne change ni le nom ni la catégorie : l'article reste à sa
+    // place sur la page actuelle, une simple mise à jour locale suffit pour
+    // le tableau — mais la marge totale (agrégat séparé) doit être
+    // recalculée puisque le stock/prix d'achat viennent de changer.
     setArticles((prev) => prev.map((a) => (a.id === reapproId ? updated : a)));
     if (reappro) setReappros((prev) => [{ ...reappro, articles: { nom: article.nom, unite: article.unite } }, ...prev].slice(0, 10));
+    setRefreshTick((t) => t + 1);
     setReapproId(null);
   }
 
@@ -148,7 +238,7 @@ export default function ArticlesPage() {
       setEditError(t("articles.nomRequiredError"));
       return;
     }
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("articles")
       .update({
         nom: editForm.nom.trim(),
@@ -168,7 +258,9 @@ export default function ArticlesPage() {
       setEditError(error.message);
       return;
     }
-    setArticles((prev) => prev.map((a) => (a.id === editingId ? data : a)).sort((a, b) => a.nom.localeCompare(b.nom)));
+    // Le nom (tri) ou la catégorie (filtre) ont pu changer : on recharge la
+    // page depuis le serveur plutôt que de corriger la position localement.
+    setRefreshTick((t) => t + 1);
     setEditingId(null);
     setEditError("");
   }
@@ -185,30 +277,26 @@ export default function ArticlesPage() {
       }
       return;
     }
-    setArticles((prev) => prev.filter((a) => a.id !== article.id));
+    setRefreshTick((t) => t + 1);
   }
 
   async function submit(e) {
     e.preventDefault();
     if (!form.nom || !form.prix_vente) return;
-    const { data, error } = await supabase
-      .from("articles")
-      .insert({
-        business_id: business.id,
-        nom: form.nom,
-        categorie_id: form.categorie_id || null,
-        unite: form.unite || "unite",
-        prix_achat: Number(form.prix_achat) || 0,
-        frais_annexes: Number(form.frais_annexes) || 0,
-        prix_vente: Number(form.prix_vente) || 0,
-        stock: Math.max(0, Number(form.stock) || 0),
-        seuil: Number(form.seuil) || 3,
-        image_url: form.image_url || null,
-      })
-      .select()
-      .single();
+    const { error } = await supabase.from("articles").insert({
+      business_id: business.id,
+      nom: form.nom,
+      categorie_id: form.categorie_id || null,
+      unite: form.unite || "unite",
+      prix_achat: Number(form.prix_achat) || 0,
+      frais_annexes: Number(form.frais_annexes) || 0,
+      prix_vente: Number(form.prix_vente) || 0,
+      stock: Math.max(0, Number(form.stock) || 0),
+      seuil: Number(form.seuil) || 3,
+      image_url: form.image_url || null,
+    });
     if (error) return;
-    setArticles((prev) => [...prev, data].sort((a, b) => a.nom.localeCompare(b.nom)));
+    setRefreshTick((t) => t + 1);
     setForm(emptyForm);
     setShowForm(false);
   }
@@ -235,8 +323,15 @@ export default function ArticlesPage() {
   }
 
   async function removeCategory(cat) {
-    const utilisee = articles.some((a) => a.categorie_id === cat.id);
-    if (utilisee) {
+    // La page affichée ne contient qu'un sous-ensemble des articles : on ne
+    // peut plus se fier au tableau local pour savoir si la catégorie est
+    // utilisée ailleurs, d'où cette vérification directement en base.
+    const { count } = await supabase
+      .from("articles")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", business.id)
+      .eq("categorie_id", cat.id);
+    if (count > 0) {
       setCatMsg(t("articles.catUsedMsg", { nom: cat.nom }));
       return;
     }
@@ -250,23 +345,17 @@ export default function ArticlesPage() {
     if (filtreCategorie === cat.id) setFiltreCategorie(FILTRE_TOUTES);
   }
 
-  const rechercheNormalisee = recherche.trim().toLowerCase();
-  const articlesFiltres = articles.filter((a) => {
-    const matchCategorie =
-      filtreCategorie === FILTRE_TOUTES ||
-      (filtreCategorie === FILTRE_SANS_CATEGORIE ? !a.categorie_id : a.categorie_id === filtreCategorie);
-    const matchRecherche = !rechercheNormalisee || a.nom.toLowerCase().includes(rechercheNormalisee);
-    return matchCategorie && matchRecherche;
-  });
-
   const filtresCategorie = [
     { key: FILTRE_TOUTES, label: t("common.toutes") },
     { key: FILTRE_SANS_CATEGORIE, label: t("common.sansCategorie") },
     ...categories.map((c) => ({ key: c.id, label: c.nom })),
   ];
 
-  function exporterExcel() {
-    const rows = articlesFiltres.map((a) => ({
+  // L'export doit couvrir tout le stock filtré, pas seulement la page
+  // affichée à l'écran — nouvelle requête dédiée, sans pagination.
+  async function exporterExcel() {
+    const { data } = await appliquerFiltresArticles(supabase.from("articles").select("*").eq("business_id", business.id)).order("nom");
+    const rows = (data || []).map((a) => ({
       [t("articles.colArticle")]: a.nom,
       [t("articles.colCategorie")]: categorieName(a.categorie_id),
       [t("articles.colAchat")]: a.prix_achat,
@@ -281,12 +370,14 @@ export default function ArticlesPage() {
 
   if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
 
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h1 className="sb-h1">{t("articles.title")}</h1>
-          <p className="sb-sub">{t("articles.subtitleCount", { n: articles.length })}</p>
+          <p className="sb-sub">{t("articles.subtitleCount", { n: totalCount })}</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="sb-btn sb-btn-ghost" onClick={() => setShowCatManager((s) => !s)}>
@@ -444,7 +535,10 @@ export default function ArticlesPage() {
           <button
             key={opt.key}
             className={`sb-toggle-item${filtreCategorie === opt.key ? " active" : ""}`}
-            onClick={() => setFiltreCategorie(opt.key)}
+            onClick={() => {
+              setFiltreCategorie(opt.key);
+              setPage(0);
+            }}
           >
             {opt.label}
           </button>
@@ -470,7 +564,7 @@ export default function ArticlesPage() {
               </tr>
             </thead>
             <tbody>
-              {articlesFiltres.map((a) => {
+              {articles.map((a) => {
                 const margeReelle = a.prix_vente - a.prix_achat - (a.frais_annexes || 0);
                 const theorique = stockTheorique(a);
                 return (
@@ -540,6 +634,7 @@ export default function ArticlesPage() {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} label={t("common.pageSur", { page: page + 1, total: totalPages })} />
       </div>
 
       <div className="sb-card">
@@ -557,7 +652,7 @@ export default function ArticlesPage() {
               </tr>
             </thead>
             <tbody>
-              {articlesFiltres.map((a) => {
+              {articles.map((a) => {
                 const coutReel = a.prix_achat + (a.frais_annexes || 0);
                 const margeUnitaire = a.prix_vente - coutReel;
                 const margeTotale = margeUnitaire * a.stock;
@@ -585,7 +680,7 @@ export default function ArticlesPage() {
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
                 <td className="sb-mono" style={{ fontWeight: 700, borderTop: "1px solid var(--line)", color: "var(--accent-deep)" }}>
-                  {fmt(articlesFiltres.reduce((s, a) => s + (a.prix_vente - a.prix_achat - (a.frais_annexes || 0)) * a.stock, 0))}
+                  {fmt(margeTotaleFiltre)}
                 </td>
               </tr>
             </tfoot>

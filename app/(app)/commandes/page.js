@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Ban, CheckCircle2, FileSpreadsheet, Pencil, Plus, Printer, TruckIcon, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
-import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
+import { OPERATEURS_MOBILE_MONEY, PAGE_SIZE } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import { exportToExcel, dateFichier } from "@/lib/exportExcel";
 import Receipt from "@/components/Receipt";
+import Pagination from "@/components/Pagination";
 
 const STATUT_BADGE_CLASS = {
   en_attente: "sb-badge-amber",
@@ -16,12 +17,19 @@ const STATUT_BADGE_CLASS = {
   annulee: "sb-badge-coral",
 };
 
+const COMMANDE_SELECT =
+  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, articles(nom, unite))";
+
 export default function CommandesPage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const uniteLabel = (u) => t(`common.unites.${u || "unite"}`);
   const [commandes, setCommandes] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [nbEnAttente, setNbEnAttente] = useState(0);
   const [clients, setClients] = useState([]);
   const [articles, setArticles] = useState([]);
   const [zones, setZones] = useState([]);
@@ -41,39 +49,82 @@ export default function CommandesPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
 
+  // Filtre statut appliqué côté serveur — partagé entre le chargement
+  // paginé et l'export Excel, qui doivent respecter le même filtre.
+  const appliquerFiltreStatut = useCallback(
+    (query) => (filtreStatut === "toutes" ? query : query.eq("statut", filtreStatut)),
+    [filtreStatut]
+  );
+
+  // Listes complètes nécessaires aux menus déroulants de la modale de
+  // modification (client, article, zone) — indépendantes de la pagination
+  // des commandes, chargées une seule fois par boutique. Le stock des
+  // articles est corrigé localement après une livraison (marquerLivree),
+  // donc pas besoin de les rafraîchir à chaque mutation de commande.
   useEffect(() => {
     if (!business?.id) return;
     let active = true;
-    async function load() {
-      setLoading(true);
-      const [commandesRes, clientsRes, articlesRes, zonesRes] = await Promise.all([
-        supabase
-          .from("commandes")
-          .select(
-            "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, articles(nom, unite))"
-          )
-          .eq("business_id", business.id)
-          .order("created_at", { ascending: false }),
+    async function loadStatique() {
+      const [clientsRes, articlesRes, zonesRes] = await Promise.all([
         supabase.from("clients").select("*").eq("business_id", business.id).order("nom"),
         supabase.from("articles").select("*").eq("business_id", business.id).order("nom"),
         supabase.from("zones_livraison").select("*").eq("business_id", business.id).order("zone"),
       ]);
       if (!active) return;
-      setCommandes(commandesRes.data || []);
       setClients(clientsRes.data || []);
       setArticles(articlesRes.data || []);
       setZones(zonesRes.data || []);
+    }
+    loadStatique();
+    return () => {
+      active = false;
+    };
+  }, [business?.id]);
+
+  // Compteur "en attente" du badge, toujours global (indépendant du filtre
+  // statut affiché) — rafraîchi après chaque mutation de commande.
+  useEffect(() => {
+    if (!business?.id) return;
+    let active = true;
+    supabase
+      .from("commandes")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", business.id)
+      .eq("statut", "en_attente")
+      .then(({ count }) => {
+        if (active) setNbEnAttente(count || 0);
+      });
+    return () => {
+      active = false;
+    };
+  }, [business?.id, refreshTick]);
+
+  // Page courante des commandes, filtrée par statut côté serveur.
+  useEffect(() => {
+    if (!business?.id) return;
+    let active = true;
+    async function load() {
+      const { data, count } = await appliquerFiltreStatut(
+        supabase.from("commandes").select(COMMANDE_SELECT, { count: "exact" }).eq("business_id", business.id)
+      )
+        .order("created_at", { ascending: false })
+        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+      if (!active) return;
+      const total = count || 0;
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      if (page > 0 && page >= totalPages) {
+        setPage(totalPages - 1);
+        return;
+      }
+      setCommandes(data || []);
+      setTotalCount(total);
       setLoading(false);
     }
     load();
     return () => {
       active = false;
     };
-  }, [business?.id]);
-
-  const nbEnAttente = commandes.filter((c) => c.statut === "en_attente").length;
-  const commandesFiltrees =
-    filtreStatut === "toutes" ? commandes : commandes.filter((c) => c.statut === filtreStatut);
+  }, [business?.id, page, appliquerFiltreStatut, refreshTick]);
 
   function reprint(c) {
     setReceipt({
@@ -123,13 +174,18 @@ export default function CommandesPage() {
       )
     );
 
+    // La liste complète des articles (menu déroulant de la modale) n'est
+    // pas paginée : une correction locale du stock reste valide ici.
     setArticles((prev) =>
       prev.map((a) => {
         const upd = stockUpdates.find((u) => u.articleId === a.id);
         return upd ? { ...a, stock: upd.nouveauStock } : a;
       })
     );
-    setCommandes((prev) => prev.map((c) => (c.id === commande.id ? { ...c, statut: "livree" } : c)));
+    // La commande elle-même peut disparaître de la page affichée (filtre
+    // "en attente" par exemple) : on recharge depuis le serveur plutôt que
+    // de corriger la liste locale.
+    setRefreshTick((t2) => t2 + 1);
   }
 
   // ---------- Modification (uniquement tant qu'en attente : le stock n'a pas encore bougé) ----------
@@ -237,32 +293,7 @@ export default function CommandesPage() {
       );
       if (insertError) throw insertError;
 
-      setCommandes((prev) =>
-        prev.map((c) =>
-          c.id === editingId
-            ? {
-                ...c,
-                client_id: editClientId,
-                clients: clients.find((cl) => cl.id === editClientId) || c.clients,
-                ca,
-                marge,
-                livraison_type: editTypeLivraison,
-                livraison_zone: editTypeLivraison === "livraison" ? editZoneLivraison : null,
-                livraison_frais: editFraisLivraison,
-                paiement_mode: editModePaiement,
-                paiement_operateur: editModePaiement === "mobile_money" ? editOperateur : null,
-                commande_lignes: fullLignes.map((l) => ({
-                  article_id: l.articleId,
-                  quantite: l.quantite,
-                  prix_vente: l.prix_vente,
-                  prix_achat: l.prix_achat,
-                  frais_annexes: l.frais_annexes,
-                  articles: { nom: l.nom, unite: l.unite },
-                })),
-              }
-            : c
-        )
-      );
+      setRefreshTick((t2) => t2 + 1);
       setEditingId(null);
     } catch (err) {
       setEditError(err.message || t("commandes.editGenericError"));
@@ -282,10 +313,8 @@ export default function CommandesPage() {
       window.alert(t("commandes.annulerError", { message: error.message }));
       return;
     }
-    setCommandes((prev) => prev.map((c) => (c.id === commande.id ? { ...c, statut: "annulee" } : c)));
+    setRefreshTick((t2) => t2 + 1);
   }
-
-  if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
 
   const filtresStatut = [
     { key: "toutes", label: t("common.toutes") },
@@ -293,8 +322,13 @@ export default function CommandesPage() {
     { key: "livree", label: t("commandes.filterLivrees") },
   ];
 
-  function exporterExcel() {
-    const rows = commandesFiltrees.map((c) => ({
+  // L'export doit couvrir tout l'historique filtré, pas seulement la page
+  // affichée à l'écran — nouvelle requête dédiée, sans pagination.
+  async function exporterExcel() {
+    const { data } = await appliquerFiltreStatut(
+      supabase.from("commandes").select(COMMANDE_SELECT).eq("business_id", business.id)
+    ).order("created_at", { ascending: false });
+    const rows = (data || []).map((c) => ({
       [t("dashboard.colNumero")]: c.numero,
       [t("dashboard.colDate")]: new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue)),
       [t("commandes.colCliente")]: c.clients?.nom ?? "—",
@@ -308,12 +342,16 @@ export default function CommandesPage() {
     exportToExcel(`commandes-${dateFichier()}.xlsx`, "Commandes", rows);
   }
 
+  if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
         <div>
           <h1 className="sb-h1">{t("commandes.title")}</h1>
-          <p className="sb-sub">{t("commandes.subtitle", { n: commandes.length })}</p>
+          <p className="sb-sub">{t("commandes.subtitle", { n: totalCount })}</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <button className="sb-btn sb-btn-ghost" onClick={exporterExcel}>
@@ -330,7 +368,10 @@ export default function CommandesPage() {
           <button
             key={opt.key}
             className={`sb-toggle-item${filtreStatut === opt.key ? " active" : ""}`}
-            onClick={() => setFiltreStatut(opt.key)}
+            onClick={() => {
+              setFiltreStatut(opt.key);
+              setPage(0);
+            }}
           >
             {opt.label}
           </button>
@@ -353,7 +394,7 @@ export default function CommandesPage() {
               </tr>
             </thead>
             <tbody>
-              {commandesFiltrees.map((c) => {
+              {commandes.map((c) => {
                 const enAttente = c.statut === "en_attente";
                 return (
                   <tr key={c.id} style={c.statut === "annulee" ? { opacity: 0.55 } : undefined}>
@@ -406,6 +447,7 @@ export default function CommandesPage() {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} label={t("common.pageSur", { page: page + 1, total: totalPages })} />
       </div>
 
       {receipt && <Receipt commande={receipt} business={business} onClose={() => setReceipt(null)} />}

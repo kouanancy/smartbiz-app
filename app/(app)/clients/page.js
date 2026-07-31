@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, FileSpreadsheet, Pencil, Plus, RotateCcw, Search, Trash2, UserX, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
+import { PAGE_SIZE } from "@/lib/constants";
 import { exportToExcel, dateFichier } from "@/lib/exportExcel";
+import Pagination from "@/components/Pagination";
 
 const normalizeTel = (tel) => (tel || "").replace(/\D/g, "");
 
@@ -15,9 +17,14 @@ export default function ClientsPage() {
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const [clients, setClients] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [refreshTick, setRefreshTick] = useState(0);
   const [commandes, setCommandes] = useState([]);
+  const [clientsPourDoublon, setClientsPourDoublon] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [qDebounced, setQDebounced] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ nom: "", adresse: "", email: "", telephone: "" });
   const [erreurTel, setErreurTel] = useState(false);
@@ -29,34 +36,84 @@ export default function ClientsPage() {
   const [editErreurTel, setEditErreurTel] = useState(false);
   const [editError, setEditError] = useState("");
 
+  // Recherche tapée au fil de l'eau, requêtée après une courte pause (300 ms)
+  // pour ne pas interroger Supabase à chaque frappe — retour à la première
+  // page à chaque nouvelle recherche.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setQDebounced(q.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [q]);
+
+  // Recherche + "afficher les désactivés" appliqués côté serveur — partagé
+  // entre le chargement paginé et l'export Excel, qui doivent respecter le
+  // même filtre. actif est traité comme "vrai" tant qu'il n'est pas
+  // explicitement à false (anciennes lignes sans valeur), comme avant.
+  const appliquerFiltresClients = useCallback(
+    (query) => {
+      let q2 = query;
+      if (!showDesactives) q2 = q2.or("actif.is.null,actif.eq.true");
+      if (qDebounced) q2 = q2.ilike("nom", `%${qDebounced}%`);
+      return q2;
+    },
+    [showDesactives, qDebounced]
+  );
+
+  // Statistiques par client (nombre de commandes, total des achats) et
+  // détection de doublon de téléphone ont besoin de voir TOUTE la
+  // boutique, pas seulement la page affichée — chargées à part, une seule
+  // fois par boutique (rafraîchies après une mutation de client).
+  useEffect(() => {
+    if (!business?.id) return;
+    let active = true;
+    async function loadStatique() {
+      const [commandesRes, clientsRes] = await Promise.all([
+        supabase.from("commandes").select("client_id, ca").eq("business_id", business.id),
+        supabase.from("clients").select("id,nom,telephone").eq("business_id", business.id),
+      ]);
+      if (!active) return;
+      setCommandes(commandesRes.data || []);
+      setClientsPourDoublon(clientsRes.data || []);
+    }
+    loadStatique();
+    return () => {
+      active = false;
+    };
+  }, [business?.id, refreshTick]);
+
+  // Page courante des clients, filtrée et recherchée côté serveur.
   useEffect(() => {
     if (!business?.id) return;
     let active = true;
     async function load() {
-      setLoading(true);
-      const [clientsRes, commandesRes] = await Promise.all([
-        supabase.from("clients").select("*").eq("business_id", business.id).order("nom"),
-        supabase.from("commandes").select("client_id, ca").eq("business_id", business.id),
-      ]);
+      const { data, count } = await appliquerFiltresClients(
+        supabase.from("clients").select("*", { count: "exact" }).eq("business_id", business.id)
+      )
+        .order("nom")
+        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
       if (!active) return;
-      setClients(clientsRes.data || []);
-      setCommandes(commandesRes.data || []);
+      const total = count || 0;
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      if (page > 0 && page >= totalPages) {
+        setPage(totalPages - 1);
+        return;
+      }
+      setClients(data || []);
+      setTotalCount(total);
       setLoading(false);
     }
     load();
     return () => {
       active = false;
     };
-  }, [business?.id]);
+  }, [business?.id, page, appliquerFiltresClients, refreshTick]);
 
   const stats = (id) => {
     const own = commandes.filter((c) => c.client_id === id);
     return { count: own.length, total: own.reduce((s, c) => s + c.ca, 0) };
   };
-  const filtered = clients.filter((c) => {
-    if (!showDesactives && c.actif === false) return false;
-    return c.nom.toLowerCase().includes(q.toLowerCase());
-  });
 
   // Un même numéro de téléphone ne doit pas être partagé par deux clients de
   // la boutique. excludeId permet d'ignorer le client lui-même lors d'une
@@ -64,7 +121,7 @@ export default function ClientsPage() {
   function trouverDoublonTelephone(telephone, excludeId) {
     const norm = normalizeTel(telephone);
     if (!norm) return null;
-    return clients.find((c) => c.id !== excludeId && normalizeTel(c.telephone) === norm) || null;
+    return clientsPourDoublon.find((c) => c.id !== excludeId && normalizeTel(c.telephone) === norm) || null;
   }
 
   async function submit(e) {
@@ -94,7 +151,7 @@ export default function ClientsPage() {
       setMsg(t("common.error", { message: error.message }));
       return;
     }
-    setClients((prev) => [...prev, data].sort((a, b) => a.nom.localeCompare(b.nom)));
+    setRefreshTick((t2) => t2 + 1);
     setMsg(t("clients.savedSuccess", { nom: data.nom || t("clients.defaultNom") }));
     setForm({ nom: "", adresse: "", email: "", telephone: "" });
     setShowForm(false);
@@ -130,7 +187,7 @@ export default function ClientsPage() {
       }
     }
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("clients")
       .update({
         nom: editForm.nom.trim(),
@@ -145,26 +202,26 @@ export default function ClientsPage() {
       setEditError(error.message);
       return;
     }
-    setClients((prev) => prev.map((c) => (c.id === editingId ? data : c)).sort((a, b) => a.nom.localeCompare(b.nom)));
+    setRefreshTick((t2) => t2 + 1);
     setEditingId(null);
   }
 
   async function desactiverClient(client) {
-    const { data, error } = await supabase.from("clients").update({ actif: false }).eq("id", client.id).select().single();
+    const { error } = await supabase.from("clients").update({ actif: false }).eq("id", client.id);
     if (error) {
       window.alert(t("clients.desactiverError", { message: error.message }));
       return;
     }
-    setClients((prev) => prev.map((c) => (c.id === client.id ? data : c)));
+    setRefreshTick((t2) => t2 + 1);
   }
 
   async function reactiverClient(client) {
-    const { data, error } = await supabase.from("clients").update({ actif: true }).eq("id", client.id).select().single();
+    const { error } = await supabase.from("clients").update({ actif: true }).eq("id", client.id);
     if (error) {
       window.alert(t("clients.reactiverError", { message: error.message }));
       return;
     }
-    setClients((prev) => prev.map((c) => (c.id === client.id ? data : c)));
+    setRefreshTick((t2) => t2 + 1);
   }
 
   async function supprimerClient(client) {
@@ -179,11 +236,14 @@ export default function ClientsPage() {
       }
       return;
     }
-    setClients((prev) => prev.filter((c) => c.id !== client.id));
+    setRefreshTick((t2) => t2 + 1);
   }
 
-  function exporterExcel() {
-    const rows = filtered.map((c) => {
+  // L'export doit couvrir tous les clients filtrés, pas seulement la page
+  // affichée à l'écran — nouvelle requête dédiée, sans pagination.
+  async function exporterExcel() {
+    const { data } = await appliquerFiltresClients(supabase.from("clients").select("*").eq("business_id", business.id)).order("nom");
+    const rows = (data || []).map((c) => {
       const s = stats(c.id);
       return {
         [t("clients.colNom")]: c.nom,
@@ -199,12 +259,14 @@ export default function ClientsPage() {
 
   if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
 
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h1 className="sb-h1">{t("clients.title")}</h1>
-          <p className="sb-sub">{t("clients.subtitleCount", { n: clients.length })}</p>
+          <p className="sb-sub">{t("clients.subtitleCount", { n: totalCount })}</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="sb-btn sb-btn-ghost" onClick={exporterExcel}>
@@ -292,7 +354,14 @@ export default function ClientsPage() {
           />
         </div>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#6E6B68", cursor: "pointer" }}>
-          <input type="checkbox" checked={showDesactives} onChange={(e) => setShowDesactives(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={showDesactives}
+            onChange={(e) => {
+              setShowDesactives(e.target.checked);
+              setPage(0);
+            }}
+          />
           {t("clients.showDisabled")}
         </label>
       </div>
@@ -313,7 +382,7 @@ export default function ClientsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => {
+              {clients.map((c) => {
                 const s = stats(c.id);
                 const desactive = c.actif === false;
                 return (
@@ -361,6 +430,7 @@ export default function ClientsPage() {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} label={t("common.pageSur", { page: page + 1, total: totalPages })} />
       </div>
 
       {editingId && (
