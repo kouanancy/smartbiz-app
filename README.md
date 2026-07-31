@@ -199,9 +199,13 @@ création) → `livree` ou `annulee`.
 
 Le stock affiché sur la page Articles (`articles.stock`) est le stock réel.
 À côté, la colonne **Stock théorique** = stock réel − somme des quantités de
-cet article dans les commandes encore `en_attente`. Un article dont le stock
-théorique tombe à 0 (ou moins, si plusieurs commandes en attente dépassent
-ensemble le stock réel) affiche un badge « Totalement commandé ».
+cet article dans les commandes encore `en_attente`. Le badge « Totalement
+commandé » n'apparaît que si ce stock théorique est ≤ 0 **et** qu'il existe
+au moins une commande en attente sur cet article (`enAttenteParArticle`) —
+un article neuf à stock réel 0 sans aucune commande passée n'a théorique
+que 0 lui aussi (0 − 0), mais ce n'est pas la même situation : le badge
+« Rupture » de la colonne suivante suffit à la signaler, sans laisser
+penser à tort que des clients attendent une livraison.
 
 Le stock ne doit jamais être négatif : le champ « Stock initial » du
 formulaire de création a `min={0}` (le clic sur la flèche de décrément d'un
