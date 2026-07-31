@@ -299,14 +299,52 @@ aller-retour serveur, sur quatre modules :
   derniers mois (mois, CA, marge) que l'export PDF, à côté du bouton
   « Imprimer / PDF ».
 
-Chaque export réutilise le tableau déjà filtré affiché à l'écran (aucune
-requête supplémentaire) et exporte les montants en valeurs numériques
-brutes (pas de mise en forme monétaire), pour rester exploitables dans un
-tableur. `lib/exportExcel.js` n'utilise que le chemin d'écriture de `xlsx`
-(`json_to_sheet` / `writeFile`) sur des données locales de confiance — les
-failles connues de la bibliothèque (pollution de prototype, ReDoS)
-concernent uniquement l'analyse de fichiers importés (`XLSX.read`), un
-chemin que cette app n'utilise jamais.
+Chaque export respecte exactement le filtre et la recherche actifs à
+l'écran, et couvre l'intégralité des résultats correspondants — jamais
+seulement la page affichée (voir « Pagination » plus bas). Sur Stock,
+Clients et Commandes, désormais paginés, cela veut dire une requête
+Supabase dédiée au moment de l'export (mêmes filtres que la liste,
+simplement sans `.range()`) plutôt qu'une réutilisation du tableau déjà
+chargé à l'écran ; sur Trésorerie (page non paginée), l'export réutilise
+directement le tableau déjà affiché. Les montants sont exportés en valeurs
+numériques brutes (pas de mise en forme monétaire), pour rester
+exploitables dans un tableur. `lib/exportExcel.js` n'utilise que le chemin
+d'écriture de `xlsx` (`json_to_sheet` / `writeFile`) sur des données
+locales de confiance — les failles connues de la bibliothèque (pollution
+de prototype, ReDoS) concernent uniquement l'analyse de fichiers importés
+(`XLSX.read`), un chemin que cette app n'utilise jamais.
+
+## Pagination
+
+Stock (`/articles`), Clients (`/clients`) et Commandes (`/commandes`)
+chargent leurs listes 25 lignes à la fois (`PAGE_SIZE`,
+`lib/constants.js`) plutôt que la totalité d'un coup, via `.range()` côté
+Supabase — filtre, recherche et tri sont eux aussi appliqués côté serveur
+(`.eq()`/`.ilike()`/`.is()`/`.order()`), pas recalculés côté client sur un
+tableau déjà en mémoire. Navigation page précédente / suivante
+(`components/Pagination.js`, masquée dès qu'une seule page suffit).
+
+- **Recherche débattue (debounce)** : la frappe met à jour l'input
+  immédiatement, mais la requête Supabase n'est déclenchée que 300 ms après
+  la dernière touche, pour éviter une requête par caractère tapé.
+- **Filtres et pagination restent cohérents** : changer de catégorie, de
+  recherche ou de statut ramène automatiquement à la page 1 ; supprimer la
+  dernière ligne de la dernière page rabat sur la nouvelle dernière page
+  plutôt que d'afficher une page vide.
+- **Après une création/modification/suppression**, la page affichée est
+  rechargée depuis le serveur (compteur `refreshTick` interne) plutôt que
+  corrigée localement — plus simple et plus sûr dès qu'un tri, une
+  catégorie ou un statut peuvent faire changer la position d'une ligne.
+- **Ce qui reste volontairement non paginé** : les données nécessaires à
+  autre chose qu'à l'affichage de la liste elle-même — listes complètes
+  pour les menus déroulants (clients/articles/zones dans la modale de
+  commande), agrégats globaux qui doivent rester exacts quel que soit le
+  nombre de pages (marge totale exposée en stock sur Articles, statistiques
+  par client sur Clients, badge « en attente » sur Commandes), et la
+  détection de doublon de téléphone sur Clients (doit voir tous les
+  clients de la boutique, pas seulement la page affichée). Chacun de ces
+  cas utilise une requête Supabase dédiée, indépendante de la pagination de
+  la liste principale.
 
 ## Unité de mesure
 
