@@ -200,7 +200,7 @@ export default function ArticlesPage() {
         prix_achat: Number(form.prix_achat) || 0,
         frais_annexes: Number(form.frais_annexes) || 0,
         prix_vente: Number(form.prix_vente) || 0,
-        stock: Number(form.stock) || 0,
+        stock: Math.max(0, Number(form.stock) || 0),
         seuil: Number(form.seuil) || 3,
         image_url: form.image_url || null,
       })
@@ -351,6 +351,7 @@ export default function ArticlesPage() {
               className="sb-input"
               placeholder={t("articles.stockInitialPlaceholder")}
               type="number"
+              min={0}
               value={form.stock}
               onChange={(e) => setForm({ ...form, stock: e.target.value })}
             />

@@ -9,6 +9,7 @@ import { fmt as fmtBase } from "@/lib/format";
 import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import Receipt from "@/components/Receipt";
+import ArticleSelect from "@/components/ArticleSelect";
 
 export default function NouvelleCommandePage() {
   const { business, setBusiness } = useAuth();
@@ -416,14 +417,14 @@ export default function NouvelleCommandePage() {
             <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
               <div className="sb-field" style={{ flex: 2, minWidth: 160 }}>
                 <label>{t("nouvelle.articleLabel")}</label>
-                <select className="sb-input" value={articleSel} onChange={(e) => setArticleSel(e.target.value)}>
-                  <option value="">{t("nouvelle.selectArticle")}</option>
-                  {articles.map((a) => (
-                    <option key={a.id} value={a.id} disabled={a.stock === 0}>
-                      {a.nom} — {fmt(a.prix_vente)} {t("nouvelle.stockSuffix", { n: a.stock, unite: uniteLabel(a.unite) })}
-                    </option>
-                  ))}
-                </select>
+                <ArticleSelect
+                  articles={articles}
+                  value={articleSel}
+                  onChange={setArticleSel}
+                  isDisabled={(a) => a.stock <= 0}
+                  placeholder={t("nouvelle.selectArticle")}
+                  getLabel={(a) => `${a.nom} — ${fmt(a.prix_vente)} ${t("nouvelle.stockSuffix", { n: a.stock, unite: uniteLabel(a.unite) })}`}
+                />
               </div>
               <div className="sb-field" style={{ flex: 0.5, minWidth: 70 }}>
                 <label>{t("nouvelle.quantiteLabel")}</label>
@@ -473,7 +474,14 @@ export default function NouvelleCommandePage() {
                 style={{ marginTop: 10, fontSize: 12, padding: "8px 12px", display: "flex", alignItems: "center", gap: 6 }}
               >
                 <AlertTriangle size={13} />
-                {t("nouvelle.dejaCommandeWarning")}
+                {/* Stock théorique à 0 ou moins a deux causes bien différentes :
+                    des commandes en attente qui couvrent tout le stock réel
+                    (avertissement "déjà commandé"), ou un article qui n'a tout
+                    simplement aucun stock réel, sans jamais avoir été commandé
+                    (ex. article tout juste créé à 0) — un tout autre message. */}
+                {(enAttenteParArticle[articleSelectionne.id] || 0) > 0
+                  ? t("nouvelle.dejaCommandeWarning")
+                  : t("nouvelle.aucunStockWarning")}
               </div>
             )}
 
