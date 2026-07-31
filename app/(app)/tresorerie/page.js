@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { Printer } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
@@ -56,6 +58,21 @@ function buildSemaines(commandes, t) {
   return buckets;
 }
 
+const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+// Ex. "Mai à Juillet 2026" (trimestre/semestre/année) ou "Juillet 2026" (mois).
+function periodeRangeLabel(periode, moisBuckets) {
+  if (periode === "mois") {
+    return capitalize(moisBuckets[moisBuckets.length - 1]?.labelFull || "");
+  }
+  const slice = moisBuckets.slice(-PERIODE_MOIS[periode]);
+  const premier = slice[0];
+  const dernier = slice[slice.length - 1];
+  if (!premier || !dernier) return "";
+  if (premier.key === dernier.key) return capitalize(dernier.labelFull);
+  return `${capitalize(premier.label)} à ${capitalize(dernier.labelFull)}`;
+}
+
 export default function TresoreriePage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
@@ -64,6 +81,18 @@ export default function TresoreriePage() {
   const [commandes, setCommandes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [periode, setPeriode] = useState("trimestre");
+  const [platformLogo, setPlatformLogo] = useState("");
+
+  // Logo Doka pour le pied de page "Propulsé par Doka" du rapport imprimé —
+  // indépendant du logo de boutique, affiché dans l'en-tête.
+  useEffect(() => {
+    supabase
+      .from("parametres_globaux")
+      .select("logo_url")
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setPlatformLogo(data?.logo_url || ""));
+  }, []);
 
   useEffect(() => {
     if (!business?.id) return;
@@ -101,88 +130,176 @@ export default function TresoreriePage() {
   const tableRows = [...moisBuckets].reverse();
   const aucuneDonnee = chartData.every((b) => b.ca === 0 && b.marge === 0);
 
+  function imprimer() {
+    const original = document.title;
+    document.title = `${t("tresorerie.rapportTitle")} — ${business?.name || "Doka"}`;
+    const restore = () => {
+      document.title = original;
+      window.removeEventListener("afterprint", restore);
+    };
+    window.addEventListener("afterprint", restore);
+    window.print();
+  }
+
   if (loading) return <p className="sb-sub">{t("tresorerie.loading")}</p>;
 
   return (
-    <div>
-      <h1 className="sb-h1">{t("tresorerie.title")}</h1>
-      <p className="sb-sub">{t("tresorerie.subtitle")}</p>
+    <>
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+          <div>
+            <h1 className="sb-h1">{t("tresorerie.title")}</h1>
+            <p className="sb-sub">{t("tresorerie.subtitle")}</p>
+          </div>
+          <button className="sb-btn sb-btn-primary" onClick={imprimer}>
+            <Printer size={13} /> {t("tresorerie.imprimerPdf")}
+          </button>
+        </div>
 
-      <div className="sb-grid-stats" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
-        <div className="sb-card">
-          <div className="sb-stat-label">{t("tresorerie.caTotal")}</div>
-          <div className="sb-stat-value" style={{ color: accent }}>
-            {fmt(totaux.ca)}
+        <div className="sb-grid-stats" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+          <div className="sb-card">
+            <div className="sb-stat-label">{t("tresorerie.caTotal")}</div>
+            <div className="sb-stat-value" style={{ color: accent }}>
+              {fmt(totaux.ca)}
+            </div>
+          </div>
+          <div className="sb-card">
+            <div className="sb-stat-label">{t("tresorerie.margeTotale")}</div>
+            <div className="sb-stat-value" style={{ color: "#0E8F6E" }}>
+              {fmt(totaux.marge)}
+            </div>
           </div>
         </div>
-        <div className="sb-card">
-          <div className="sb-stat-label">{t("tresorerie.margeTotale")}</div>
-          <div className="sb-stat-value" style={{ color: "#0E8F6E" }}>
-            {fmt(totaux.marge)}
-          </div>
-        </div>
-      </div>
 
-      <div className="sb-card" style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-          <div className="sb-section-title" style={{ margin: 0 }}>
-            {t("tresorerie.evolutionTitle")}
-          </div>
-          <div className="sb-toggle-group">
-            {["mois", "trimestre", "semestre", "annee"].map((key) => (
-              <button
-                key={key}
-                className={`sb-toggle-item${periode === key ? " active" : ""}`}
-                onClick={() => setPeriode(key)}
-              >
-                {t(`tresorerie.${key}`)}
-              </button>
-            ))}
-          </div>
-        </div>
-        {aucuneDonnee ? (
-          <p style={{ fontSize: 13, color: "#6B6A63" }}>{t("tresorerie.aucuneDonnee")}</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={240}>
-            <ComposedChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E4E2D8" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#6B6A63" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#6B6A63" }} axisLine={false} tickLine={false} width={44} />
-              <Tooltip formatter={(v) => fmt(v)} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #E4E2D8" }} />
-              <Legend
-                wrapperStyle={{ fontSize: 12 }}
-                formatter={(v) => (v === "ca" ? t("tresorerie.legendCa") : t("tresorerie.legendMarge"))}
-              />
-              <Bar dataKey="ca" name="ca" fill={accent} radius={[5, 5, 0, 0]} />
-              <Bar dataKey="marge" name="marge" fill="#0E8F6E" radius={[5, 5, 0, 0]} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      <div className="sb-card">
-        <div className="sb-section-title">{t("tresorerie.tableTitle")}</div>
-        <div className="sb-table-scroll">
-          <table className="sb-table">
-            <thead>
-              <tr>
-                <th>{t("tresorerie.colMois")}</th>
-                <th>{t("tresorerie.colCa")}</th>
-                <th>{t("tresorerie.colMarge")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableRows.map((b) => (
-                <tr key={b.key}>
-                  <td>{b.labelFull}</td>
-                  <td className="sb-mono">{fmt(b.ca)}</td>
-                  <td className="sb-mono">{fmt(b.marge)}</td>
-                </tr>
+        <div className="sb-card" style={{ marginBottom: 20 }}>
+          <div
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}
+          >
+            <div className="sb-section-title" style={{ margin: 0 }}>
+              {t("tresorerie.evolutionTitle")}
+            </div>
+            <div className="sb-toggle-group">
+              {["mois", "trimestre", "semestre", "annee"].map((key) => (
+                <button
+                  key={key}
+                  className={`sb-toggle-item${periode === key ? " active" : ""}`}
+                  onClick={() => setPeriode(key)}
+                >
+                  {t(`tresorerie.${key}`)}
+                </button>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </div>
+          {aucuneDonnee ? (
+            <p style={{ fontSize: 13, color: "#6B6A63" }}>{t("tresorerie.aucuneDonnee")}</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <ComposedChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E4E2D8" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#6B6A63" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#6B6A63" }} axisLine={false} tickLine={false} width={44} />
+                <Tooltip formatter={(v) => fmt(v)} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #E4E2D8" }} />
+                <Legend
+                  wrapperStyle={{ fontSize: 12 }}
+                  formatter={(v) => (v === "ca" ? t("tresorerie.legendCa") : t("tresorerie.legendMarge"))}
+                />
+                <Bar dataKey="ca" name="ca" fill={accent} radius={[5, 5, 0, 0]} />
+                <Bar dataKey="marge" name="marge" fill="#0E8F6E" radius={[5, 5, 0, 0]} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div className="sb-card">
+          <div className="sb-section-title">{t("tresorerie.tableTitle")}</div>
+          <div className="sb-table-scroll">
+            <table className="sb-table">
+              <thead>
+                <tr>
+                  <th>{t("tresorerie.colMois")}</th>
+                  <th>{t("tresorerie.colCa")}</th>
+                  <th>{t("tresorerie.colMarge")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableRows.map((b) => (
+                  <tr key={b.key}>
+                    <td>{b.labelFull}</td>
+                    <td className="sb-mono">{fmt(b.ca)}</td>
+                    <td className="sb-mono">{fmt(b.marge)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Mise en page dédiée à l'impression — pleine page A4, invisible à
+          l'écran. Rendue via un portail directement dans <body> (comme
+          components/Receipt.js) pour ne dépendre d'aucune structure de page
+          parente. Le portail ne produit aucun DOM à cet endroit précis de
+          l'arbre React (son contenu est téléporté dans <body>), donc ce
+          garde-fou ne crée pas de désaccord d'hydratation — il évite
+          seulement le crash de `document` pendant le rendu serveur de
+          cette page, statiquement pré-rendue. Uniquement le tableau
+          récapitulatif et les totaux, pas le graphique — voir la note
+          dans globals.css. */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <div className="sb-tresorerie-print">
+            <div className="sb-tresorerie-print-header">
+              <div className="sb-tresorerie-print-brand">
+                {business?.logo_url ? (
+                  <img src={business.logo_url} alt={business?.name || "Logo"} />
+                ) : (
+                  <div className="sb-tresorerie-print-logo-fallback">{(business?.name || "Doka").slice(0, 2).toUpperCase()}</div>
+                )}
+                <span className="sb-tresorerie-print-brand-name">{business?.name || t("common.defaultBusinessName")}</span>
+              </div>
+              <div className="sb-tresorerie-print-title">
+                <h1>{t("tresorerie.rapportTitle")}</h1>
+                <p>{t("tresorerie.rapportPeriode", { periode: t(`tresorerie.${periode}`), range: periodeRangeLabel(periode, moisBuckets) })}</p>
+              </div>
+            </div>
+
+            <div className="sb-tresorerie-print-totals">
+              <div>
+                <div className="label">{t("tresorerie.caTotal")}</div>
+                <div className="value">{fmt(totaux.ca)}</div>
+              </div>
+              <div>
+                <div className="label">{t("tresorerie.margeTotale")}</div>
+                <div className="value">{fmt(totaux.marge)}</div>
+              </div>
+            </div>
+
+            <table className="sb-tresorerie-print-table">
+              <thead>
+                <tr>
+                  <th>{t("tresorerie.colMois")}</th>
+                  <th>{t("tresorerie.colCa")}</th>
+                  <th>{t("tresorerie.colMarge")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableRows.map((b) => (
+                  <tr key={b.key}>
+                    <td>{b.labelFull}</td>
+                    <td>{fmt(b.ca)}</td>
+                    <td>{fmt(b.marge)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="sb-tresorerie-print-footer">
+              {platformLogo && <img src={platformLogo} alt="" />}
+              {t("common.poweredBy")}
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }

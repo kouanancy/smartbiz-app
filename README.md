@@ -229,6 +229,22 @@ derniers mois glissants) :
   récent au plus ancien — indépendant de la période choisie pour le
   graphique.
 
+**Impression / export PDF** (« Imprimer / PDF », `window.print()` — même
+mécanisme que le Catalogue et les reçus) : mise en page dédiée pleine page
+A4, rendue via un portail directement dans `<body>` (comme
+`components/Receipt.js`), qui masque tout le reste de l'app pendant
+l'impression (`body:has(.sb-tresorerie-print) .sb-root { display: none }`)
+plutôt que de cacher élément par élément. Contient l'en-tête (logo et nom
+de la boutique, « Rapport de trésorerie », période sélectionnée — ex.
+« Trimestre — Mai à Juillet 2026 »), les totaux cumulés mis en évidence,
+le tableau récapitulatif des 12 mois et un pied de page « Propulsé par
+Doka ». **Volontairement sans le graphique** : un graphique `recharts`
+mesuré pendant qu'il est masqué (`display: none`, cas de ce portail avant
+impression) ne se redimensionne pas de façon fiable une fois affiché pour
+l'impression (limitation connue de `ResponsiveContainer` avec les media
+queries d'impression) — le tableau reste de toute façon l'essentiel pour
+un usage comptable.
+
 ## Unité de mesure
 
 `articles.unite` (`'unite' | 'metre' | 'kilo'`, `'unite'` par défaut) se
