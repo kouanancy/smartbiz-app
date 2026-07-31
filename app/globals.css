@@ -1223,6 +1223,125 @@ a {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Rapport de revenus Doka (espace Administration) — même principe    */
+/*  que le rapport de trésorerie ci-dessus (portail dans <body>,       */
+/*  invisible à l'écran), avec 4 indicateurs au lieu de 2 : la grille  */
+/*  des totaux passe donc en flex-wrap pour rester lisible sur une     */
+/*  page A4.                                                            */
+/* ------------------------------------------------------------------ */
+
+.sb-revenus-print {
+  display: none;
+}
+
+@media print {
+  body:has(.sb-revenus-print) .sb-root {
+    display: none !important;
+  }
+  .sb-revenus-print {
+    display: block;
+    width: 100%;
+    font-family: "Inter", sans-serif;
+    color: #2e2c2b;
+  }
+  .sb-revenus-print-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    border-bottom: 2px solid #2e2c2b;
+    padding-bottom: 18px;
+    margin-bottom: 28px;
+  }
+  .sb-revenus-print-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .sb-revenus-print-brand img {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    object-fit: cover;
+  }
+  .sb-revenus-print-logo-fallback {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    background: #e07a29;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+  }
+  .sb-revenus-print-brand-name {
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 700;
+    font-size: 24px;
+  }
+  .sb-revenus-print-title {
+    text-align: right;
+  }
+  .sb-revenus-print-title h1 {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    margin: 0 0 6px;
+  }
+  .sb-revenus-print-title p {
+    font-size: 12.5px;
+    color: #6e6b68;
+    margin: 2px 0 0;
+  }
+  .sb-revenus-print-totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .sb-revenus-print-totals > div {
+    flex: 1 1 21%;
+    border: 1px solid #e4e2d8;
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .sb-revenus-print-totals .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #8a8682;
+    margin-bottom: 8px;
+  }
+  .sb-revenus-print-totals .value {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .sb-revenus-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 24px;
+  }
+  .sb-revenus-print-table th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6e6b68;
+    padding: 10px 8px;
+    border-bottom: 2px solid #2e2c2b;
+  }
+  .sb-revenus-print-table td {
+    padding: 12px 8px;
+    font-size: 13px;
+    border-bottom: 1px solid #e4e2d8;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Écrans hors application (auth, chargement, abonnement en attente) */
 /* ------------------------------------------------------------------ */
 

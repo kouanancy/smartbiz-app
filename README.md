@@ -67,6 +67,10 @@ Administration » plus bas ; nécessite
 `supabase-businesses-admin-migration.sql`), et enfin
 `supabase-support-telephone-migration.sql` (colonne `support_telephone`
 sur `parametres_globaux` — voir « Aide / Support » plus bas ; nécessite
+`supabase-paiements-manuels-migration.sql`), et enfin
+`supabase-revenus-admin-migration.sql` (colonne `valide_at` sur
+`paiements_abonnement`, avec rétro-remplissage pour les paiements déjà
+validés — voir « Revenus Doka » plus bas ; nécessite
 `supabase-paiements-manuels-migration.sql`).
 
 ## Variables d'environnement
@@ -478,6 +482,42 @@ compte ne s'est pas encore inscrit au moment où tu exécutes la migration,
 relance-la après sa première connexion — puis
 `supabase-admin-scope-abonnement-migration.sql` pour restreindre l'accès
 aux seules données d'abonnement.
+
+## Revenus Doka
+
+Section dédiée en haut de l'espace Administration (`app/(app)/admin/page.js`)
+pour suivre ce que rapporte réellement la plateforme — distincte de la
+Trésorerie que voit chaque commerçant, qui ne concerne que sa propre
+activité. Alimentée uniquement par les paiements d'abonnement validés
+(`paiements_abonnement.statut = 'reussi'`), jamais par le CA/la marge des
+boutiques.
+
+- **Indicateurs clés** : revenu total encaissé (somme de tous les
+  paiements réussis), revenu du mois en cours, nombre de boutiques à
+  l'abonnement `actif`, nombre de comptes en `essai` — ces deux derniers
+  recalculés depuis la même liste de boutiques (`admin_list_businesses`)
+  que le tableau des commerçants plus bas.
+- **Graphique d'évolution** : revenu mensuel encaissé, avec le même
+  sélecteur Mois / Trimestre / Semestre / Année que la Trésorerie (« Mois »
+  détaille par semaine, les trois autres par mois glissants).
+- **Tableau détaillé** : tous les paiements validés (boutique, montant,
+  date de validation), triable en cliquant l'en-tête « Date de validation »
+  — le plus récent en premier par défaut.
+- **Export PDF et Excel** : mêmes mécanismes que partout ailleurs dans
+  l'app — impression via `window.print()` et une mise en page dédiée
+  (`.sb-revenus-print`, portail dans `<body>`, comme la Trésorerie), et
+  `.xlsx` via `lib/exportExcel.js` — respectant tous deux l'ordre de tri
+  actuellement affiché à l'écran.
+
+**Date de validation, distincte de la date d'envoi du justificatif.**
+`paiements_abonnement.created_at` correspond à l'envoi du justificatif par
+le commerçant, pas à sa validation par l'administratrice — d'où la
+nouvelle colonne `valide_at`, renseignée par `marquerPaye()` au moment où
+un paiement passe à `reussi` (`supabase-revenus-admin-migration.sql`, qui
+rétro-remplit aussi `valide_at = created_at` pour les paiements déjà
+validés avant cette migration). Aucune policy RLS supplémentaire n'est
+nécessaire : la policy admin existante sur `paiements_abonnement` (`for
+all`, `is_admin_user()`) couvre déjà cette colonne.
 
 ## Paiement manuel vérifié
 

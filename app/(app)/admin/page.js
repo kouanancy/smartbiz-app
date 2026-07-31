@@ -2,11 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ShieldCheck, ShieldOff, XCircle, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ArrowUpDown, CheckCircle2, FileSpreadsheet, Printer, ShieldCheck, ShieldOff, XCircle, X } from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt as fmtBase, dateLocale } from "@/lib/format";
+import { fmt as fmtBase, dateLocale, monthLabel } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
+import { THEMES } from "@/lib/constants";
+import { exportToExcel, dateFichier } from "@/lib/exportExcel";
 import LogoPlatformUpload from "@/components/LogoPlatformUpload";
 import ImageUploadField from "@/components/ImageUploadField";
 
@@ -24,13 +28,63 @@ function expireBientot(b) {
   return diffJours >= 0 && diffJours <= 7;
 }
 
+const MOIS_A_AFFICHER = 12;
+const PERIODE_MOIS = { mois: 1, trimestre: 3, semestre: 6, annee: 12 };
+
+// Un mois par entrée (11 mois avant aujourd'hui → mois courant), rempli à
+// partir des paiements validés (statut "reussi") — même principe que
+// buildMonthlyBuckets de la Trésorerie, mais un seul champ (montant) et
+// regroupé sur valide_at (date d'encaissement) plutôt que created_at (date
+// d'envoi du justificatif).
+function buildMonthlyBucketsRevenus(paiements, lang) {
+  const now = new Date();
+  const buckets = [];
+  for (let i = MOIS_A_AFFICHER - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    buckets.push({
+      key: `${d.getFullYear()}-${d.getMonth()}`,
+      label: monthLabel(d, lang),
+      labelFull: d.toLocaleDateString(dateLocale(lang), { month: "short", year: "numeric" }),
+      montant: 0,
+    });
+  }
+  paiements.forEach((p) => {
+    if (!p.valide_at) return;
+    const d = new Date(p.valide_at);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const b = buckets.find((x) => x.key === key);
+    if (b) b.montant += p.montant;
+  });
+  return buckets;
+}
+
+function buildSemainesRevenus(paiements, t) {
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const weeksCount = Math.ceil(daysInMonth / 7);
+  const buckets = Array.from({ length: weeksCount }, (_, i) => ({ label: t("dashboard.semaine", { n: i + 1 }), montant: 0 }));
+  paiements.forEach((p) => {
+    if (!p.valide_at) return;
+    const d = new Date(p.valide_at);
+    if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+      const w = Math.min(weeksCount, Math.ceil(d.getDate() / 7));
+      buckets[w - 1].montant += p.montant;
+    }
+  });
+  return buckets;
+}
+
 export default function AdminPage() {
   const { business, refreshBusiness } = useAuth();
   const router = useRouter();
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
+  const accent = THEMES[business?.theme_key || "orange"].accent;
   const [businesses, setBusinesses] = useState([]);
   const [paiementsEnAttente, setPaiementsEnAttente] = useState([]);
+  const [paiementsReussis, setPaiementsReussis] = useState([]);
+  const [periodeRevenu, setPeriodeRevenu] = useState("trimestre");
+  const [triDateAsc, setTriDateAsc] = useState(false);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
   const [rejetId, setRejetId] = useState(null);
@@ -54,9 +108,10 @@ export default function AdminPage() {
     let active = true;
     async function load() {
       setLoading(true);
-      const [businessesRes, paiementsRes, parametresRes] = await Promise.all([
+      const [businessesRes, paiementsRes, paiementsReussisRes, parametresRes] = await Promise.all([
         supabase.rpc("admin_list_businesses"),
         supabase.from("paiements_abonnement").select("*").eq("statut", "en_attente").order("created_at", { ascending: true }),
+        supabase.from("paiements_abonnement").select("*").eq("statut", "reussi").order("valide_at", { ascending: false }),
         supabase.from("parametres_globaux").select("*").maybeSingle(),
       ]);
       if (!active) return;
@@ -68,6 +123,7 @@ export default function AdminPage() {
         })
       );
       setPaiementsEnAttente(paiementsRes.data || []);
+      setPaiementsReussis(paiementsReussisRes.data || []);
       const parametres = parametresRes.data || null;
       setParametresGlobaux(parametres);
       if (parametres) {
@@ -107,8 +163,17 @@ export default function AdminPage() {
 
     const paiement = paiementEnAttentePour(b.id);
     if (paiement) {
-      const { error: paiementError } = await supabase.from("paiements_abonnement").update({ statut: "reussi" }).eq("id", paiement.id);
-      if (!paiementError) setPaiementsEnAttente((prev) => prev.filter((p) => p.id !== paiement.id));
+      const valideAt = new Date().toISOString();
+      const { data: paiementValide, error: paiementError } = await supabase
+        .from("paiements_abonnement")
+        .update({ statut: "reussi", valide_at: valideAt })
+        .eq("id", paiement.id)
+        .select()
+        .single();
+      if (!paiementError) {
+        setPaiementsEnAttente((prev) => prev.filter((p) => p.id !== paiement.id));
+        setPaiementsReussis((prev) => [paiementValide, ...prev]);
+      }
     }
     setMsg(t("admin.paidSuccess"));
   }
@@ -191,6 +256,55 @@ export default function AdminPage() {
     if (b.owner_id === business.owner_id) refreshBusiness();
   }
 
+  function nomBoutique(businessId) {
+    return businesses.find((x) => x.id === businessId)?.name || t("common.defaultBusinessName");
+  }
+
+  const maintenant = new Date();
+  const revenuTotal = paiementsReussis.reduce((s, p) => s + p.montant, 0);
+  const revenuMoisCourant = paiementsReussis
+    .filter((p) => {
+      if (!p.valide_at) return false;
+      const d = new Date(p.valide_at);
+      return d.getMonth() === maintenant.getMonth() && d.getFullYear() === maintenant.getFullYear();
+    })
+    .reduce((s, p) => s + p.montant, 0);
+  const nbAbonnesActifs = businesses.filter((b) => b.subscription_status === "actif").length;
+  const nbEnEssai = businesses.filter((b) => b.subscription_status === "essai").length;
+
+  const moisBucketsRevenus = buildMonthlyBucketsRevenus(paiementsReussis, business?.langue);
+  const semaineBucketsRevenus = buildSemainesRevenus(paiementsReussis, t);
+  const chartDataRevenus = periodeRevenu === "mois" ? semaineBucketsRevenus : moisBucketsRevenus.slice(-PERIODE_MOIS[periodeRevenu]);
+  const aucuneDonneeRevenu = chartDataRevenus.every((b) => b.montant === 0);
+
+  // Le paiement le plus récent en premier par défaut (triDateAsc = false) —
+  // l'en-tête "Date de validation" du tableau permet d'inverser l'ordre.
+  const paiementsTries = [...paiementsReussis].sort((a, b) => {
+    const da = new Date(a.valide_at || a.created_at);
+    const db = new Date(b.valide_at || b.created_at);
+    return triDateAsc ? da - db : db - da;
+  });
+
+  function exporterRevenusExcel() {
+    const rows = paiementsTries.map((p) => ({
+      [t("admin.revenus.colBoutique")]: nomBoutique(p.business_id),
+      [t("admin.revenus.colMontant")]: p.montant,
+      [t("admin.revenus.colDateValidation")]: p.valide_at ? new Date(p.valide_at).toLocaleDateString(dateLocale(business?.langue)) : "—",
+    }));
+    exportToExcel(`revenus-doka-${dateFichier()}.xlsx`, "Revenus", rows);
+  }
+
+  function imprimerRevenus() {
+    const original = document.title;
+    document.title = t("admin.revenus.rapportTitle");
+    const restore = () => {
+      document.title = original;
+      window.removeEventListener("afterprint", restore);
+    };
+    window.addEventListener("afterprint", restore);
+    window.print();
+  }
+
   if (!business?.is_admin) return null;
   if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
 
@@ -204,6 +318,115 @@ export default function AdminPage() {
           {msg}
         </div>
       )}
+
+      <div className="sb-card" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10, marginBottom: 4 }}>
+          <div>
+            <div className="sb-section-title" style={{ margin: 0 }}>
+              {t("admin.revenus.title")}
+            </div>
+            <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "4px 0 0" }}>{t("admin.revenus.subtitle")}</p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="sb-btn sb-btn-ghost" onClick={exporterRevenusExcel}>
+              <FileSpreadsheet size={13} /> {t("common.exporterExcel")}
+            </button>
+            <button className="sb-btn sb-btn-primary" onClick={imprimerRevenus}>
+              <Printer size={13} /> {t("admin.revenus.imprimerPdf")}
+            </button>
+          </div>
+        </div>
+
+        <div className="sb-grid-stats" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+          <div className="sb-card">
+            <div className="sb-stat-label">{t("admin.revenus.revenuTotal")}</div>
+            <div className="sb-stat-value" style={{ color: accent }}>
+              {fmt(revenuTotal)}
+            </div>
+          </div>
+          <div className="sb-card">
+            <div className="sb-stat-label">{t("admin.revenus.revenuMois")}</div>
+            <div className="sb-stat-value" style={{ color: "#0E8F6E" }}>
+              {fmt(revenuMoisCourant)}
+            </div>
+          </div>
+          <div className="sb-card">
+            <div className="sb-stat-label">{t("admin.revenus.abonnesActifs")}</div>
+            <div className="sb-stat-value">{nbAbonnesActifs}</div>
+          </div>
+          <div className="sb-card">
+            <div className="sb-stat-label">{t("admin.revenus.enEssai")}</div>
+            <div className="sb-stat-value">{nbEnEssai}</div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "6px 0 14px", flexWrap: "wrap", gap: 10 }}>
+          <div className="sb-section-title" style={{ margin: 0, fontSize: 13 }}>
+            {t("admin.revenus.evolutionTitle")}
+          </div>
+          <div className="sb-toggle-group">
+            {["mois", "trimestre", "semestre", "annee"].map((key) => (
+              <button
+                key={key}
+                className={`sb-toggle-item${periodeRevenu === key ? " active" : ""}`}
+                onClick={() => setPeriodeRevenu(key)}
+              >
+                {t(`admin.revenus.${key}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {aucuneDonneeRevenu ? (
+          <p style={{ fontSize: 13, color: "#6B6A63" }}>{t("admin.revenus.aucuneDonnee")}</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={chartDataRevenus}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E4E2D8" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#6B6A63" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#6B6A63" }} axisLine={false} tickLine={false} width={44} />
+              <Tooltip formatter={(v) => fmt(v)} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #E4E2D8" }} />
+              <Bar dataKey="montant" name="montant" fill={accent} radius={[5, 5, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+
+        <div className="sb-section-title" style={{ marginTop: 20 }}>
+          {t("admin.revenus.tableTitle")}
+        </div>
+        <div className="sb-table-scroll">
+          <table className="sb-table">
+            <thead>
+              <tr>
+                <th>{t("admin.revenus.colBoutique")}</th>
+                <th>{t("admin.revenus.colMontant")}</th>
+                <th style={{ cursor: "pointer" }} onClick={() => setTriDateAsc((s) => !s)}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    {t("admin.revenus.colDateValidation")} <ArrowUpDown size={12} />
+                  </span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {paiementsTries.length === 0 ? (
+                <tr>
+                  <td colSpan={3} style={{ color: "#6B6A63" }}>
+                    {t("admin.revenus.aucunPaiement")}
+                  </td>
+                </tr>
+              ) : (
+                paiementsTries.map((p) => (
+                  <tr key={p.id}>
+                    <td>{nomBoutique(p.business_id)}</td>
+                    <td className="sb-mono">{fmt(p.montant)}</td>
+                    <td>{p.valide_at ? new Date(p.valide_at).toLocaleDateString(dateLocale(business?.langue)) : "—"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div className="sb-card" style={{ marginBottom: 16, maxWidth: 420 }}>
         <div className="sb-section-title" style={{ margin: "0 0 4px" }}>
@@ -461,6 +684,70 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Mise en page dédiée à l'impression du rapport de revenus — même
+          principe que components/Receipt.js et tresorerie/page.js : rendue
+          via un portail directement dans <body>, invisible à l'écran. */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <div className="sb-revenus-print">
+            <div className="sb-revenus-print-header">
+              <div className="sb-revenus-print-brand">
+                {parametresGlobaux?.logo_url ? (
+                  <img src={parametresGlobaux.logo_url} alt="Doka" />
+                ) : (
+                  <div className="sb-revenus-print-logo-fallback">DK</div>
+                )}
+                <span className="sb-revenus-print-brand-name">Doka</span>
+              </div>
+              <div className="sb-revenus-print-title">
+                <h1>{t("admin.revenus.rapportTitle")}</h1>
+                <p>
+                  {maintenant.toLocaleDateString(dateLocale(business?.langue), { day: "numeric", month: "long", year: "numeric" })}
+                </p>
+              </div>
+            </div>
+
+            <div className="sb-revenus-print-totals">
+              <div>
+                <div className="label">{t("admin.revenus.revenuTotal")}</div>
+                <div className="value">{fmt(revenuTotal)}</div>
+              </div>
+              <div>
+                <div className="label">{t("admin.revenus.revenuMois")}</div>
+                <div className="value">{fmt(revenuMoisCourant)}</div>
+              </div>
+              <div>
+                <div className="label">{t("admin.revenus.abonnesActifs")}</div>
+                <div className="value">{nbAbonnesActifs}</div>
+              </div>
+              <div>
+                <div className="label">{t("admin.revenus.enEssai")}</div>
+                <div className="value">{nbEnEssai}</div>
+              </div>
+            </div>
+
+            <table className="sb-revenus-print-table">
+              <thead>
+                <tr>
+                  <th>{t("admin.revenus.colBoutique")}</th>
+                  <th>{t("admin.revenus.colMontant")}</th>
+                  <th>{t("admin.revenus.colDateValidation")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paiementsTries.map((p) => (
+                  <tr key={p.id}>
+                    <td>{nomBoutique(p.business_id)}</td>
+                    <td>{fmt(p.montant)}</td>
+                    <td>{p.valide_at ? new Date(p.valide_at).toLocaleDateString(dateLocale(business?.langue)) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
