@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   Wallet,
+  LifeBuoy,
 } from "lucide-react";
 import { t as tBase } from "@/lib/i18n";
 
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { href: "/clients", icon: Users, key: "clients" },
   { href: "/catalogue", icon: LayoutGrid, key: "catalogue" },
   { href: "/parametres", icon: Palette, key: "parametres" },
+  { href: "/aide", icon: LifeBuoy, key: "aide" },
 ];
 
 const ADMIN_NAV_ITEM = { href: "/admin", icon: ShieldCheck, key: "admin" };

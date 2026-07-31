@@ -4,16 +4,8 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, MessageCircle, Printer, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { fmt as fmtBase, dateLocale } from "@/lib/format";
+import { fmt as fmtBase, dateLocale, toWhatsAppNumber } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
-
-function toWhatsAppNumber(tel) {
-  const digits = (tel || "").replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.startsWith("225")) return digits;
-  if (digits.startsWith("0")) return "225" + digits.slice(1);
-  return "225" + digits;
-}
 
 export default function Receipt({ commande, business, onClose }) {
   const fmt = (n) => fmtBase(n, business?.devise);
