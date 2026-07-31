@@ -591,6 +591,22 @@ lu et j'accepte les CGU et la Politique de Confidentialité », avec liens)
 conditionne l'activation du bouton « Créer mon compte » — désactivé tant
 qu'elle n'est pas cochée (`app/login/page.js`).
 
+## Aide / Support
+
+Page `/aide` (`app/(app)/aide/page.js`), accessible à tout commerçant —
+entrée de sidebar entre Paramètres et Administration. Reste volontairement
+simple : pas de formulaire de ticket, seulement deux moyens de contact.
+
+- **WhatsApp** : réutilise `wave_telephone` (`parametres_globaux`), déjà
+  configuré dans l'espace Administration pour les paiements — aucun champ
+  de contact séparé à maintenir. Le numéro est normalisé et le lien
+  `wa.me` pré-rempli construits par `toWhatsAppNumber`
+  (`lib/format.js`, extrait de `components/Receipt.js` où vivait la même
+  logique pour le bouton d'envoi de confirmation de commande, maintenant
+  partagée entre les deux). Si aucun numéro n'est configuré, le bouton est
+  remplacé par une note invitant à utiliser l'e-mail à la place.
+- **E-mail** : adresse fixe `contact@doka.ci`, bouton `mailto:` en repli.
+
 ## Structure
 
 ```
@@ -608,6 +624,7 @@ app/
   (app)/clients/           clients
   (app)/catalogue/         catalogue partageable (WhatsApp / impression)
   (app)/parametres/        boutique, thème, zones de livraison, notifications
+  (app)/aide/              support (WhatsApp / e-mail)
   (app)/admin/             espace Administration (visible si is_admin, portée limitée à l'abonnement)
   api/notify-admin-payment/   route serveur : e-mail Resend à la soumission d'un justificatif
 components/
