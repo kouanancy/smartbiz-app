@@ -480,7 +480,14 @@ export default function ArticlesPage() {
                         <span className="sb-mono">
                           {theorique} {uniteLabel(a.unite)}
                         </span>
-                        {theorique <= 0 && <span className="sb-badge sb-badge-coral">{t("common.badgeTotalementCommande")}</span>}
+                        {/* Comme dans Nouvelle commande : un stock théorique ≤ 0
+                            ne signifie "totalement commandé" que s'il y a
+                            réellement des commandes en attente derrière — sinon
+                            c'est juste un stock réel à 0 (déjà signalé par le
+                            badge "Rupture" de la colonne suivante). */}
+                        {theorique <= 0 && (enAttenteParArticle[a.id] || 0) > 0 && (
+                          <span className="sb-badge sb-badge-coral">{t("common.badgeTotalementCommande")}</span>
+                        )}
                       </div>
                     </td>
                     <td>
