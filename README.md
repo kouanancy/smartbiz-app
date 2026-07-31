@@ -14,7 +14,7 @@ Supabase et les identifiants internes du code gardent le nom historique
 
 - Next.js 16 (App Router, JavaScript)
 - `@supabase/supabase-js` (auth + base de données Postgres)
-- `recharts` (graphique du tableau de bord)
+- `recharts` (graphiques du tableau de bord et de la trésorerie)
 - `lucide-react` (icônes)
 
 ## Démarrage
@@ -57,7 +57,12 @@ Doka (marque de la plateforme) » plus bas ; nécessite
 `supabase-paiements-manuels-migration.sql`), et enfin
 `supabase-businesses-owner-unique-migration.sql` (fusionne les doublons
 `businesses` déjà existants puis ajoute une contrainte unique sur
-`owner_id` — voir « Fonctionnement du compte / abonnement » plus bas).
+`owner_id` — voir « Fonctionnement du compte / abonnement » plus bas), et
+enfin `supabase-admin-scope-abonnement-migration.sql` (retire l'accès
+direct de l'administratrice à la table `businesses` et le remplace par
+trois fonctions limitées aux colonnes d'abonnement — voir « Espace
+Administration » plus bas ; nécessite
+`supabase-businesses-admin-migration.sql`).
 
 ## Variables d'environnement
 
@@ -200,6 +205,30 @@ déjà totalement commandé... ») — l'article reste sélectionnable tant que 
 stock réel le permet, l'avertissement sert seulement à prévenir un
 sur-engagement avant de valider.
 
+## Trésorerie
+
+Page dédiée (`/tresorerie`, `app/(app)/tresorerie/page.js`), accessible à
+tout commerçant (pas réservée aux admins), pour suivre l'évolution du CA
+et de la marge réelle dans le temps — le Dashboard ne montre que le mois
+en cours. Ne compte que les commandes au statut `livree`, comme partout
+ailleurs dans l'app (Dashboard, Catalogue, marge réelle des Articles) —
+jamais les commandes en attente ou annulées.
+
+Trois blocs, alimentés par une seule requête (les commandes livrées des 12
+derniers mois glissants) :
+
+- **Totaux cumulés** (CA total, marge totale) sur la période sélectionnée.
+- **Graphique** combinant CA et marge (deux barres groupées, via
+  `ComposedChart` de `recharts`) avec un sélecteur Mois / Trimestre /
+  Semestre / Année. « Mois » détaille par semaine (même découpage que
+  l'évolution du Dashboard) ; les trois autres découpent par mois et
+  reprennent simplement les N derniers mois d'un même tableau de 12 mois
+  calculé une fois — Trimestre = les 3 derniers, Semestre = les 6
+  derniers, Année = les 12.
+- **Tableau récapitulatif** des 12 derniers mois (CA, marge), du plus
+  récent au plus ancien — indépendant de la période choisie pour le
+  graphique.
+
 ## Unité de mesure
 
 `articles.unite` (`'unite' | 'metre' | 'kilo'`, `'unite'` par défaut) se
@@ -307,33 +336,61 @@ que si `business.is_admin` est vrai (`components/Sidebar.js`) ; la page
 elle-même redirige tout compte non-admin vers `/dashboard`
 (`app/(app)/admin/page.js`).
 
+**Portée volontairement limitée aux données d'abonnement.** L'espace
+Administration ne donne accès qu'aux informations nécessaires à la gestion
+des abonnements (nom de la boutique, e-mail, statut, date d'expiration,
+droits admin, justificatifs de paiement) — jamais au contenu métier d'un
+commerçant (clients, articles/stock, commandes, CA, marge). Cette
+restriction est appliquée en base, pas seulement dans l'interface : la
+policy RLS qui donnait auparavant à un admin un accès complet (`for all`,
+donc à toutes les colonnes) à la table `businesses` a été retirée par
+`supabase-admin-scope-abonnement-migration.sql`, remplacée par trois
+fonctions `security definer` (`admin_list_businesses`,
+`admin_mark_subscription_paid`, `admin_set_is_admin`) qui ne
+lisent/écrivent que les colonnes listées ci-dessus, et qui vérifient
+elles-mêmes `is_admin_user()` avant d'agir. Un compte non-admin qui
+interrogerait directement `businesses` (requête REST, SQL...) ne voit
+toujours que sa propre boutique ; un compte admin n'a lui-même aucun
+chemin pour lire ou modifier une colonne hors de ce périmètre, y compris
+via une requête directe — les autres tables (`clients`, `articles`,
+`commandes`, `reappros`...) n'ont jamais eu de policy admin et restent
+strictement scopées à leur propriétaire.
+
 Les lignes dont l'abonnement (`actif` ou `essai`) expire dans les 7 jours
 à venir sont mises en évidence (fond ambre, badge « Expire bientôt ») et
-triées en premier. Deux actions par ligne :
+triées en premier — sauf la propre ligne de l'admin connecté, qui n'
+affiche jamais sa date d'expiration ni ce badge (son accès est permanent,
+voir plus bas). Actions par ligne :
 
-- **Marquer comme payé** : `subscription_status → 'actif'` et
-  `subscription_expires_at →` aujourd'hui + 1 mois, quel que soit le
-  statut ou la date précédente — le pendant manuel de ce que fera le
-  webhook CinetPay plus tard. Si un justificatif est en attente pour ce
-  commerçant, il passe aussi à `reussi`. Un lien « Voir » (nouvel onglet)
-  ouvre le justificatif à contrôler avant de cliquer, et un bouton
-  « Rejeter » (visible seulement s'il y a un justificatif en attente)
-  ouvre une modale demandant une raison, affichée au commerçant — voir
-  « Paiement manuel vérifié » plus bas.
-- **Donner/Retirer les droits admin** : bascule `is_admin`. Désactivé sur
-  sa propre ligne pour éviter de se retirer ses propres droits par erreur
-  (il faut alors passer par un autre compte admin, ou l'éditeur SQL
-  Supabase).
+- **Marquer comme payé** (masqué sur les lignes déjà admin, dont
+  l'abonnement n'a pas d'effet sur l'accès) : `subscription_status →
+  'actif'` et `subscription_expires_at →` aujourd'hui + 1 mois, quel que
+  soit le statut ou la date précédente — le pendant manuel de ce que fera
+  le webhook CinetPay plus tard, via `admin_mark_subscription_paid`. Si un
+  justificatif est en attente pour ce commerçant, il passe aussi à
+  `reussi`. Une vignette cliquable ouvre un aperçu du justificatif à
+  contrôler avant de cliquer, et un bouton « Rejeter » (visible seulement
+  s'il y a un justificatif en attente) ouvre une modale demandant une
+  raison, affichée au commerçant — voir « Paiement manuel vérifié » plus
+  bas.
+- **Donner/Retirer les droits admin** (`admin_set_is_admin`) : toujours
+  actif, y compris sur sa propre ligne.
 
-**Accès multi-comptes** : comme `businesses` n'a par défaut qu'une policy
-RLS restreignant chaque commerçant à sa propre ligne
-(`owner_id = auth.uid()`), l'espace Administration a besoin d'une policy
-supplémentaire pour voir/modifier toutes les lignes. Une sous-requête RLS
-classique sur `businesses` à l'intérieur de sa propre policy provoquerait
-une récursion RLS ; la migration contourne ça avec une fonction
-`is_admin_user()` en `security definer` (qui lit `is_admin` avec les
-privilèges de son propriétaire, donc sans re-déclencher le RLS), utilisée
-comme condition de la policy admin.
+**Compte admin = accès permanent à l'application.** `subscription_status`
+et `subscription_expires_at` n'ont aucun effet sur un compte
+`is_admin = true` : `verifierExpirationAbonnement`
+(`lib/AuthProvider.js`) ne bascule jamais son statut, et la condition de
+blocage dans `app/(app)/layout.js` ignore son statut — donc aussi bien à
+la connexion qu'à toute revérification pendant la navigation. La sidebar
+n'affiche d'ailleurs jamais de badge d'abonnement (essai/expiration) pour
+un compte admin.
+
+**Paiement Wave et logo Doka** : la configuration globale de la
+plateforme (QR code/numéro/prix Wave, logo Doka et ses icônes PWA) vit
+entièrement ici, dans deux cartes dédiées en haut de la page — jamais dans
+les Paramètres d'un commerçant, qui n'y ont ni accès visuel ni, pour le
+Wave, de policy RLS le permettant (`parametres_globaux` reste modifiable
+uniquement par un administrateur).
 
 `businesses.email` (dupliqué depuis `auth.users`, schéma protégé non
 accessible depuis le client) est renseigné à l'inscription
@@ -343,7 +400,9 @@ par la migration elle-même.
 Nécessite `supabase-businesses-admin-migration.sql` (voir Démarrage), qui
 attribue aussi les droits admin au compte `koua.nancy@gmail.com` — si ce
 compte ne s'est pas encore inscrit au moment où tu exécutes la migration,
-relance-la après sa première connexion.
+relance-la après sa première connexion — puis
+`supabase-admin-scope-abonnement-migration.sql` pour restreindre l'accès
+aux seules données d'abonnement.
 
 ## Paiement manuel vérifié
 
@@ -488,11 +547,12 @@ app/
   (app)/dashboard/         tableau de bord
   (app)/nouvelle/          nouvelle commande
   (app)/commandes/         historique des commandes
+  (app)/tresorerie/        évolution du CA et de la marge dans le temps
   (app)/articles/          stock / articles / catégories / réappro
   (app)/clients/           clients
   (app)/catalogue/         catalogue partageable (WhatsApp / impression)
   (app)/parametres/        boutique, thème, zones de livraison, notifications
-  (app)/admin/             espace Administration (visible si is_admin)
+  (app)/admin/             espace Administration (visible si is_admin, portée limitée à l'abonnement)
   api/notify-admin-payment/   route serveur : e-mail Resend à la soumission d'un justificatif
 components/
   Sidebar.js, PendingSubscription.js, Receipt.js, ImageUploadField.js,
