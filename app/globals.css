@@ -1272,6 +1272,37 @@ a {
   color: #a6a29d;
   margin-top: 18px;
 }
+.sb-auth-legal-links {
+  text-align: center;
+  font-size: 11px;
+  color: #a6a29d;
+  margin-top: 8px;
+}
+.sb-auth-legal-links a {
+  color: #a6a29d;
+  text-decoration: underline;
+}
+.sb-auth-legal-links a:hover {
+  color: var(--ink);
+}
+.sb-auth-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #6e6b68;
+  margin-bottom: 14px;
+  cursor: pointer;
+}
+.sb-auth-consent input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.sb-auth-consent a {
+  color: #c7601a;
+  font-weight: 600;
+}
 
 .sb-pending-screen {
   min-height: 100vh;
@@ -1300,4 +1331,96 @@ a {
   align-items: center;
   justify-content: center;
   margin: 0 auto 16px;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Pages légales (CGU, Confidentialité, Mentions légales) — accessibles */
+/*  sans connexion (pied de page de /login) et depuis Paramètres.        */
+/* ------------------------------------------------------------------ */
+
+.sb-legal-screen {
+  min-height: 100vh;
+  background: #f2f1ef;
+  padding: 32px 20px 60px;
+}
+.sb-legal-card {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #e1dedc;
+  border-radius: 14px;
+  padding: 32px 36px 40px;
+}
+.sb-legal-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  color: #6e6b68;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 22px;
+}
+.sb-legal-back:hover {
+  color: var(--ink);
+}
+.sb-legal-content {
+  font-family: "Inter", sans-serif;
+  color: #2e2c2b;
+  font-size: 14px;
+  line-height: 1.65;
+}
+.sb-legal-content h1 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.sb-legal-content h1 + p em {
+  color: #8a8682;
+  font-style: normal;
+  font-size: 12.5px;
+}
+.sb-legal-content h2 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  margin: 30px 0 10px;
+  padding-top: 16px;
+  border-top: 1px solid #e4e2d8;
+}
+.sb-legal-content h2:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+.sb-legal-content h3 {
+  font-size: 14.5px;
+  font-weight: 700;
+  margin: 18px 0 6px;
+}
+.sb-legal-content p {
+  margin: 0 0 12px;
+}
+.sb-legal-content ul {
+  margin: 0 0 14px;
+  padding-left: 20px;
+}
+.sb-legal-content li {
+  margin-bottom: 5px;
+}
+.sb-legal-content strong {
+  color: var(--ink);
+}
+.sb-legal-content a {
+  color: var(--accent-deep, #c7601a);
+}
+.sb-legal-content hr {
+  border: none;
+  border-top: 1px solid #e4e2d8;
+  margin: 20px 0;
 }

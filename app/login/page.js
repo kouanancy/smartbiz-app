@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [platformLogo, setPlatformLogo] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
     if (session) router.replace("/dashboard");
@@ -165,11 +167,31 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
+          {mode === "signup" && (
+            <label className="sb-auth-consent">
+              <input
+                type="checkbox"
+                required
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+              />
+              <span>
+                J&apos;ai lu et j&apos;accepte les{" "}
+                <Link href="/cgu" target="_blank">
+                  CGU
+                </Link>{" "}
+                et la{" "}
+                <Link href="/confidentialite" target="_blank">
+                  Politique de Confidentialité
+                </Link>
+              </span>
+            </label>
+          )}
           <button
             className="sb-btn sb-btn-emerald"
             style={{ width: "100%", justifyContent: "center" }}
             type="submit"
-            disabled={loading}
+            disabled={loading || (mode === "signup" && !acceptedTerms)}
           >
             {loading ? "Un instant…" : mode === "signup" ? "Créer mon compte" : "Se connecter"}
           </button>
@@ -179,6 +201,13 @@ export default function LoginPage() {
           {mode === "signup"
             ? "Un compte gratuit à créer, l'accès complet s'active après paiement de l'abonnement."
             : "Propulsé par Doka"}
+        </p>
+        <p className="sb-auth-legal-links">
+          <Link href="/cgu" target="_blank">
+            CGU
+          </Link>{" "}
+          · <Link href="/confidentialite" target="_blank">Confidentialité</Link>{" "}
+          · <Link href="/mentions-legales" target="_blank">Mentions légales</Link>
         </p>
       </div>
     </div>

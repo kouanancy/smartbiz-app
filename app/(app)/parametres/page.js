@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Palette, Plus, Truck, X } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, FileText, Palette, Plus, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase } from "@/lib/format";
@@ -314,13 +315,30 @@ export default function ParametresPage() {
         )}
       </div>
 
-      <div className="sb-card">
+      <div className="sb-card" style={{ marginBottom: 16 }}>
         <div className="sb-section-title">{t("parametres.abonnementTitle")}</div>
         <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>
           {t("parametres.statutActuelLabel")}
           <strong>{t(`common.subscriptionStatus.${business?.subscription_status}`)}</strong>
         </p>
         {business?.id && <PaiementAbonnement business={business} />}
+      </div>
+
+      <div className="sb-card">
+        <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <FileText size={15} /> {t("parametres.legalTitle")}
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+          <Link href="/cgu" target="_blank" className="sb-btn sb-btn-ghost">
+            {t("parametres.legalCgu")}
+          </Link>
+          <Link href="/confidentialite" target="_blank" className="sb-btn sb-btn-ghost">
+            {t("parametres.legalConfidentialite")}
+          </Link>
+          <Link href="/mentions-legales" target="_blank" className="sb-btn sb-btn-ghost">
+            {t("parametres.legalMentions")}
+          </Link>
+        </div>
       </div>
     </div>
   );

@@ -16,6 +16,7 @@ Supabase et les identifiants internes du code gardent le nom historique
 - `@supabase/supabase-js` (auth + base de données Postgres)
 - `recharts` (graphiques du tableau de bord et de la trésorerie)
 - `lucide-react` (icônes)
+- `react-markdown` (rendu des pages légales — CGU, Confidentialité, Mentions légales)
 
 ## Démarrage
 
@@ -552,6 +553,44 @@ fois ouvert). Au-dessus de 860px, aucun changement : la sidebar reste
 affichée en permanence comme avant, le bouton hamburger et le panneau
 restent masqués (`display: none` hors media query).
 
+## Pages légales (CGU, Confidentialité, Mentions légales)
+
+Trois pages publiques (`/cgu`, `/confidentialite`, `/mentions-legales`),
+accessibles sans connexion — donc situées hors du groupe `(app)` (comme
+`/login`), pas de gate d'abonnement. Chacune lit son fichier Markdown
+source à la racine du dépôt (`doka-cgu.md`,
+`doka-politique-confidentialite.md`, `doka-mentions-legales.md` — via
+`fs.readFileSync` dans un Server Component, ces fichiers sont donc la
+source de vérité : les éditer suffit, la page reprend le contenu au
+prochain build) et le rend avec `react-markdown`
+(`components/LegalDocument.js`). Deux ajustements au rendu :
+
+- Les liens internes entre fichiers `.md` (ex. dans les mentions légales,
+  un lien vers `doka-politique-confidentialite.md`) sont réécrits vers la
+  route de l'app correspondante (`/confidentialite`) plutôt que de pointer
+  vers un fichier `.md` inexistant en tant que route.
+- Les blockquotes (`>`) ne sont jamais rendues : dans ces fichiers, elles
+  servent à des notes internes adressées à l'éditrice du contenu (ex. « Note
+  pour toi : tant que l'entreprise n'est pas immatriculée... » dans les
+  mentions légales), jamais à du contenu destiné aux utilisateurs.
+
+**⚠️ Contenu à finaliser avant mise en production** : les trois fichiers
+sources contiennent des espaces réservés non complétés (`[à compléter]`,
+adresse, numéro RCCM, e-mail de contact...), visibles tels quels sur les
+pages tant qu'ils ne sont pas remplacés dans les fichiers `.md`.
+
+**Accès** : liens en pied de page de `/login` (les trois, ouverts dans un
+nouvel onglet pour ne pas perdre la saisie du formulaire en cours) et
+carte dédiée dans Paramètres (`parametres.legalTitle`) pour un commerçant
+déjà connecté. Un bouton « Retour » (`components/LegalBackLink.js`,
+`router.back()`) permet de revenir à l'endroit d'origine, que ce soit
+avant ou après connexion.
+
+**Consentement à l'inscription** : une case à cocher obligatoire (« J'ai
+lu et j'accepte les CGU et la Politique de Confidentialité », avec liens)
+conditionne l'activation du bouton « Créer mon compte » — désactivé tant
+qu'elle n'est pas cochée (`app/login/page.js`).
+
 ## Structure
 
 ```
@@ -559,6 +598,7 @@ app/
   layout.js               root layout (police, AuthProvider)
   page.js                 redirection selon l'état de connexion
   login/page.js            inscription / connexion
+  cgu/, confidentialite/, mentions-legales/   pages légales publiques
   (app)/layout.js          shell protégé : auth + gate d'abonnement + sidebar
   (app)/dashboard/         tableau de bord
   (app)/nouvelle/          nouvelle commande
