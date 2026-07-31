@@ -17,6 +17,7 @@ Supabase et les identifiants internes du code gardent le nom historique
 - `recharts` (graphiques du tableau de bord et de la trésorerie)
 - `lucide-react` (icônes)
 - `react-markdown` (rendu des pages légales — CGU, Confidentialité, Mentions légales)
+- `xlsx` (SheetJS Community Edition — génération des exports .xlsx)
 
 ## Démarrage
 
@@ -273,6 +274,35 @@ impression) ne se redimensionne pas de façon fiable une fois affiché pour
 l'impression (limitation connue de `ResponsiveContainer` avec les media
 queries d'impression) — le tableau reste de toute façon l'essentiel pour
 un usage comptable.
+
+## Export Excel
+
+En complément de l'impression PDF, un bouton « Exporter en Excel »
+(`lib/exportExcel.js`, basé sur `xlsx` / SheetJS Community Edition) permet
+de télécharger un fichier `.xlsx` directement depuis le navigateur, sans
+aller-retour serveur, sur quatre modules :
+
+- **Stock / Articles** (`/articles`) : nom, catégorie, prix d'achat, frais
+  annexes, prix de vente, marge réelle, stock, unité — respecte le filtre
+  par catégorie et la recherche actifs à l'écran.
+- **Clients** (`/clients`) : nom, téléphone, adresse, e-mail, nombre de
+  commandes, total des achats — respecte la recherche et le filtre
+  « afficher les désactivés ».
+- **Commandes** (`/commandes`) : numéro, date, client, articles (liste
+  condensée comme à l'écran), CA, marge réelle, statut — respecte le
+  filtre en attente / livrée.
+- **Trésorerie** (`/tresorerie`) : le même tableau récapitulatif des 12
+  derniers mois (mois, CA, marge) que l'export PDF, à côté du bouton
+  « Imprimer / PDF ».
+
+Chaque export réutilise le tableau déjà filtré affiché à l'écran (aucune
+requête supplémentaire) et exporte les montants en valeurs numériques
+brutes (pas de mise en forme monétaire), pour rester exploitables dans un
+tableur. `lib/exportExcel.js` n'utilise que le chemin d'écriture de `xlsx`
+(`json_to_sheet` / `writeFile`) sur des données locales de confiance — les
+failles connues de la bibliothèque (pollution de prototype, ReDoS)
+concernent uniquement l'analyse de fichiers importés (`XLSX.read`), un
+chemin que cette app n'utilise jamais.
 
 ## Unité de mesure
 
