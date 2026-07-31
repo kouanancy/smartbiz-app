@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Menu,
   X,
+  Wallet,
 } from "lucide-react";
 import { t as tBase } from "@/lib/i18n";
 
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", icon: LayoutDashboard, key: "dashboard" },
   { href: "/nouvelle", icon: ShoppingCart, key: "nouvelle" },
   { href: "/commandes", icon: ClipboardList, key: "commandes" },
+  { href: "/tresorerie", icon: Wallet, key: "tresorerie" },
   { href: "/articles", icon: Package, key: "articles" },
   { href: "/clients", icon: Users, key: "clients" },
   { href: "/catalogue", icon: LayoutGrid, key: "catalogue" },

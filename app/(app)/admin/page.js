@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 import LogoPlatformUpload from "@/components/LogoPlatformUpload";
+import ImageUploadField from "@/components/ImageUploadField";
 
 const STATUT_BADGE_CLASS = {
   essai: "sb-badge-amber",
@@ -35,8 +36,12 @@ export default function AdminPage() {
   const [rejetId, setRejetId] = useState(null);
   const [raisonRejet, setRaisonRejet] = useState("");
   const [previewPaiement, setPreviewPaiement] = useState(null);
-  const [platformLogo, setPlatformLogo] = useState(null);
   const [logoMsg, setLogoMsg] = useState("");
+  const [parametresGlobaux, setParametresGlobaux] = useState(null);
+  const [waveQrDraft, setWaveQrDraft] = useState("");
+  const [waveTelDraft, setWaveTelDraft] = useState("");
+  const [prixDraft, setPrixDraft] = useState("");
+  const [waveMsg, setWaveMsg] = useState("");
 
   useEffect(() => {
     if (business && !business.is_admin) router.replace("/dashboard");
@@ -48,9 +53,9 @@ export default function AdminPage() {
     async function load() {
       setLoading(true);
       const [businessesRes, paiementsRes, parametresRes] = await Promise.all([
-        supabase.from("businesses").select("id, owner_id, name, email, subscription_status, subscription_expires_at, is_admin"),
+        supabase.rpc("admin_list_businesses"),
         supabase.from("paiements_abonnement").select("*").eq("statut", "en_attente").order("created_at", { ascending: true }),
-        supabase.from("parametres_globaux").select("id, logo_url, icon_192_url, icon_512_url, icon_apple_180_url").maybeSingle(),
+        supabase.from("parametres_globaux").select("*").maybeSingle(),
       ]);
       if (!active) return;
       setBusinesses(
@@ -61,7 +66,13 @@ export default function AdminPage() {
         })
       );
       setPaiementsEnAttente(paiementsRes.data || []);
-      setPlatformLogo(parametresRes.data || null);
+      const parametres = parametresRes.data || null;
+      setParametresGlobaux(parametres);
+      if (parametres) {
+        setWaveQrDraft(parametres.wave_qr_url || "");
+        setWaveTelDraft(parametres.wave_telephone || "");
+        setPrixDraft(String(parametres.abonnement_prix ?? ""));
+      }
       setLoading(false);
     }
     load();
@@ -78,10 +89,7 @@ export default function AdminPage() {
     const nouvelleExpiration = new Date();
     nouvelleExpiration.setMonth(nouvelleExpiration.getMonth() + 1);
     const { data, error } = await supabase
-      .from("businesses")
-      .update({ subscription_status: "actif", subscription_expires_at: nouvelleExpiration.toISOString() })
-      .eq("id", b.id)
-      .select()
+      .rpc("admin_mark_subscription_paid", { p_business_id: b.id, p_expires_at: nouvelleExpiration.toISOString() })
       .single();
     if (error) {
       setMsg(t("admin.paidError", { message: error.message }));
@@ -119,18 +127,43 @@ export default function AdminPage() {
   }
 
   async function enregistrerLogoPlatform(urls) {
-    if (!platformLogo?.id) return;
-    const { data, error } = await supabase.from("parametres_globaux").update(urls).eq("id", platformLogo.id).select().single();
+    if (!parametresGlobaux?.id) return;
+    const { data, error } = await supabase.from("parametres_globaux").update(urls).eq("id", parametresGlobaux.id).select().single();
     if (error) {
       setLogoMsg(t("admin.logoSaveError", { message: error.message }));
       return;
     }
-    setPlatformLogo(data);
+    setParametresGlobaux(data);
     setLogoMsg(t("admin.logoSaveSuccess"));
   }
 
+  async function enregistrerParametresGlobaux() {
+    if (!parametresGlobaux) return;
+    const prix = Number(prixDraft);
+    if (Number.isNaN(prix) || prix < 0) {
+      setWaveMsg(t("admin.waveMontantInvalide"));
+      return;
+    }
+    const { data, error } = await supabase
+      .from("parametres_globaux")
+      .update({
+        wave_qr_url: waveQrDraft.trim() || null,
+        wave_telephone: waveTelDraft.trim() || null,
+        abonnement_prix: prix,
+      })
+      .eq("id", parametresGlobaux.id)
+      .select()
+      .single();
+    if (error) {
+      setWaveMsg(t("common.error", { message: error.message }));
+      return;
+    }
+    setParametresGlobaux(data);
+    setWaveMsg(t("admin.waveSavedMsg"));
+  }
+
   async function toggleAdmin(b) {
-    const { data, error } = await supabase.from("businesses").update({ is_admin: !b.is_admin }).eq("id", b.id).select().single();
+    const { data, error } = await supabase.rpc("admin_set_is_admin", { p_business_id: b.id, p_is_admin: !b.is_admin }).single();
     if (error) {
       setMsg(t("admin.adminToggleError", { message: error.message }));
       return;
@@ -161,7 +194,7 @@ export default function AdminPage() {
         <LogoPlatformUpload
           label={t("admin.logoLabel")}
           businessId={business.id}
-          value={platformLogo?.logo_url || ""}
+          value={parametresGlobaux?.logo_url || ""}
           onChange={enregistrerLogoPlatform}
         />
         {logoMsg && (
@@ -169,6 +202,58 @@ export default function AdminPage() {
             {logoMsg}
           </div>
         )}
+      </div>
+
+      <div className="sb-card" style={{ marginBottom: 16, maxWidth: 480 }}>
+        <div className="sb-section-title">{t("admin.waveTitle")}</div>
+        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("admin.waveSub")}</p>
+        {waveMsg && (
+          <div className="sb-badge sb-badge-emerald" style={{ marginBottom: 12, fontSize: 12.5, padding: "6px 10px" }}>
+            {waveMsg}
+          </div>
+        )}
+        <div style={{ marginBottom: 14 }}>
+          <ImageUploadField
+            label={t("admin.waveQrLabel")}
+            businessId={business.id}
+            folder="wave-qr"
+            value={waveQrDraft}
+            onChange={(url) => {
+              setWaveQrDraft(url);
+              setWaveMsg("");
+            }}
+          />
+        </div>
+        <div className="sb-form-grid">
+          <div className="sb-field">
+            <label>{t("admin.waveTelLabel")}</label>
+            <input
+              className="sb-input"
+              placeholder={t("admin.waveTelPlaceholder")}
+              value={waveTelDraft}
+              onChange={(e) => {
+                setWaveTelDraft(e.target.value);
+                setWaveMsg("");
+              }}
+            />
+          </div>
+          <div className="sb-field">
+            <label>{t("admin.wavePrixLabel")}</label>
+            <input
+              className="sb-input"
+              type="number"
+              placeholder={t("admin.wavePrixPlaceholder")}
+              value={prixDraft}
+              onChange={(e) => {
+                setPrixDraft(e.target.value);
+                setWaveMsg("");
+              }}
+            />
+          </div>
+        </div>
+        <button className="sb-btn sb-btn-primary" style={{ marginTop: 12 }} onClick={enregistrerParametresGlobaux}>
+          {t("parametres.enregistrer")}
+        </button>
       </div>
 
       {businesses.length === 0 ? (
