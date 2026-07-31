@@ -203,11 +203,32 @@ cet article dans les commandes encore `en_attente`. Un article dont le stock
 théorique tombe à 0 (ou moins, si plusieurs commandes en attente dépassent
 ensemble le stock réel) affiche un badge « Totalement commandé ».
 
+Le stock ne doit jamais être négatif : le champ « Stock initial » du
+formulaire de création a `min={0}` (le clic sur la flèche de décrément d'un
+`<input type="number">` vide sans `min` fait descendre à -1, pas à 0 —
+c'était la cause d'un article créé à stock 0 s'affichant en -1) et
+l'enregistrement clampe la valeur via `Math.max(0, ...)`, comme le fait
+déjà l'édition d'un article existant.
+
 Dans **Nouvelle commande**, sélectionner un article dont le stock théorique
-est ≤ 0 affiche un avertissement à cet endroit précis (« Cet article est
-déjà totalement commandé... ») — l'article reste sélectionnable tant que le
-stock réel le permet, l'avertissement sert seulement à prévenir un
-sur-engagement avant de valider.
+est ≤ 0 affiche un avertissement à cet endroit précis — mais le stock
+théorique peut tomber à 0 pour deux raisons bien différentes, distinguées
+via `enAttenteParArticle[id]` : des commandes en attente qui couvrent tout
+le stock réel (« Cet article est déjà totalement commandé... »), ou un
+article qui n'a tout simplement aucun stock réel sans jamais avoir été
+commandé — ex. un article tout juste créé à 0 (« Cet article n'a
+actuellement aucun stock disponible. »). L'article reste sélectionnable
+dans le champ dédié tant que le stock réel le permet ; le sélecteur
+lui-même (`components/ArticleSelect.js`) désactive les articles à stock
+réel ≤ 0, indépendamment de ce message.
+
+**Sélecteur d'article avec miniature** : `components/ArticleSelect.js`
+remplace le `<select>` natif utilisé jusque-là dans Nouvelle commande — un
+`<option>` HTML ne peut pas contenir d'image (limitation universelle des
+navigateurs), donc un panneau personnalisé (bouton + liste positionnée en
+absolu, fermeture au clic extérieur) affiche la photo de chaque article en
+miniature à côté de son nom/prix/stock, avec le même pictogramme de repli
+que `ImageUploadField` pour les articles sans photo.
 
 ## Trésorerie
 
