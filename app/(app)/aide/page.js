@@ -42,13 +42,13 @@ export default function AidePage() {
         <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <MessageCircle size={15} /> {t("aide.whatsappTitle")}
         </div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("aide.whatsappSub")}</p>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("aide.whatsappSub")}</p>
         {numeroWhatsApp ? (
           <button className="sb-btn" style={{ background: "#25D366", color: "#fff" }} onClick={contacterWhatsApp}>
             <MessageCircle size={14} /> {t("aide.whatsappBtn")}
           </button>
         ) : (
-          <p style={{ fontSize: 12.5, color: "#8A8682" }}>{t("aide.whatsappUnavailable")}</p>
+          <p style={{ fontSize: 12.5, color: "var(--text-faint)" }}>{t("aide.whatsappUnavailable")}</p>
         )}
       </div>
 
@@ -56,7 +56,7 @@ export default function AidePage() {
         <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Mail size={15} /> {t("aide.emailTitle")}
         </div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("aide.emailSub")}</p>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("aide.emailSub")}</p>
         <p className="sb-mono" style={{ fontSize: 13, marginBottom: 12 }}>
           {SUPPORT_EMAIL}
         </p>

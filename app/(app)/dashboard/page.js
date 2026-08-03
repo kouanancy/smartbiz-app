@@ -124,13 +124,13 @@ export default function DashboardPage() {
         </div>
         <div className="sb-card">
           <div className="sb-stat-label">{t("dashboard.marge")}</div>
-          <div className="sb-stat-value" style={{ color: "#0E8F6E" }}>
+          <div className="sb-stat-value" style={{ color: "var(--emerald)" }}>
             {fmt(margeDuMois)}
           </div>
         </div>
         <div className="sb-card">
           <div className="sb-stat-label">{t("dashboard.clients")}</div>
-          <div className="sb-stat-value" style={{ color: "#2E2C2B" }}>
+          <div className="sb-stat-value" style={{ color: "var(--ink)" }}>
             {nbClients}
           </div>
         </div>
@@ -159,10 +159,13 @@ export default function DashboardPage() {
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={evolution}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E4E2D8" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#6B6A63" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#6B6A63" }} axisLine={false} tickLine={false} width={40} />
-            <Tooltip formatter={(v) => fmt(v)} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #E4E2D8" }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--muted)" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--muted)" }} axisLine={false} tickLine={false} width={40} />
+            <Tooltip
+              formatter={(v) => fmt(v)}
+              contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink)" }}
+            />
             <Bar dataKey="ca" fill={accent} radius={[5, 5, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -172,7 +175,7 @@ export default function DashboardPage() {
         <div className="sb-card">
           <div className="sb-section-title">{t("dashboard.dernieresCommandes")}</div>
           {dernieresCommandes.length === 0 ? (
-            <p style={{ fontSize: 13, color: "#6B6A63" }}>{t("dashboard.aucuneCommande")}</p>
+            <p style={{ fontSize: 13, color: "var(--muted)" }}>{t("dashboard.aucuneCommande")}</p>
           ) : (
             <div className="sb-table-scroll">
               <table className="sb-table">
@@ -189,7 +192,7 @@ export default function DashboardPage() {
                     <tr key={c.id}>
                       <td className="sb-mono">{c.numero}</td>
                       <td>{c.clients?.nom ?? "—"}</td>
-                      <td style={{ color: "#6B6A63" }}>{new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
+                      <td style={{ color: "var(--muted)" }}>{new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
                       <td className="sb-mono">{fmt(c.ca)}</td>
                     </tr>
                   ))}
@@ -204,10 +207,10 @@ export default function DashboardPage() {
 
         <div className="sb-card">
           <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <AlertTriangle size={16} color="#C9862B" /> {t("dashboard.presqueRupture")}
+            <AlertTriangle size={16} color="var(--amber)" /> {t("dashboard.presqueRupture")}
           </div>
           {rupturesTriees.length === 0 ? (
-            <p style={{ fontSize: 13, color: "#6B6A63" }}>{t("dashboard.aucuneAlerte")}</p>
+            <p style={{ fontSize: 13, color: "var(--muted)" }}>{t("dashboard.aucuneAlerte")}</p>
           ) : (
             <div className="sb-ticker">
               <div

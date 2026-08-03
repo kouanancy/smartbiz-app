@@ -401,13 +401,13 @@ export default function CommandesPage() {
                     <td className="sb-mono">{c.numero}</td>
                     <td>{new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
                     <td>{c.clients?.nom ?? "—"}</td>
-                    <td style={{ color: "#6B6A63", fontSize: 12.5 }}>
+                    <td style={{ color: "var(--muted)", fontSize: 12.5 }}>
                       {c.commande_lignes
                         .map((l) => `${l.articles?.nom ?? "—"} ×${l.quantite} ${uniteLabel(l.articles?.unite)}`)
                         .join(", ")}
                     </td>
                     <td className="sb-mono">{fmt(c.ca)}</td>
-                    <td className="sb-mono" style={{ color: "#0E8F6E" }}>{fmt(c.marge)}</td>
+                    <td className="sb-mono" style={{ color: "var(--emerald)" }}>{fmt(c.marge)}</td>
                     <td>
                       <span className={`sb-badge ${STATUT_BADGE_CLASS[c.statut] || "sb-badge-amber"}`}>
                         {t(`common.commandeStatut.${c.statut}`) || c.statut}
@@ -432,7 +432,7 @@ export default function CommandesPage() {
                             </button>
                             <button
                               className="sb-btn sb-btn-ghost"
-                              style={{ padding: "4px 8px", color: "#C24E37" }}
+                              style={{ padding: "4px 8px", color: "var(--coral)" }}
                               onClick={() => annulerCommande(c)}
                             >
                               <Ban size={12} /> {t("commandes.annuler")}
@@ -456,14 +456,14 @@ export default function CommandesPage() {
         <div className="sb-modal-overlay" onClick={() => setEditingId(null)}>
           <div
             className="sb-card"
-            style={{ width: 520, maxWidth: "95vw", maxHeight: "88vh", overflowY: "auto", background: "#fff" }}
+            style={{ width: 520, maxWidth: "95vw", maxHeight: "88vh", overflowY: "auto", background: "var(--card)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
               <div className="sb-section-title" style={{ margin: 0 }}>
                 {t("commandes.editModalTitle", { numero: commandes.find((c) => c.id === editingId)?.numero })}
               </div>
-              <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
+              <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
                 <X size={16} />
               </button>
             </div>
@@ -516,7 +516,7 @@ export default function CommandesPage() {
             </div>
 
             {editLignes.length === 0 ? (
-              <p style={{ fontSize: 13, color: "#6B6A63", marginBottom: 16 }}>{t("commandes.aucunArticle")}</p>
+              <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>{t("commandes.aucunArticle")}</p>
             ) : (
               <div className="sb-table-scroll" style={{ marginBottom: 16 }}>
                 <table className="sb-table">
@@ -627,11 +627,11 @@ export default function CommandesPage() {
               </div>
               <div>
                 <span>{t("commandes.margeEstimee")}</span>
-                <strong style={{ color: editTotalMarge >= 0 ? "#0E8F6E" : "#C24E37" }}>{fmt(editTotalMarge)}</strong>
+                <strong style={{ color: editTotalMarge >= 0 ? "var(--emerald)" : "var(--coral)" }}>{fmt(editTotalMarge)}</strong>
               </div>
             </div>
 
-            {editError && <p style={{ fontSize: 12, color: "#C24E37", margin: "0 0 12px" }}>{editError}</p>}
+            {editError && <p style={{ fontSize: 12, color: "var(--coral)", margin: "0 0 12px" }}>{editError}</p>}
 
             <button
               className="sb-btn sb-btn-emerald"

@@ -325,7 +325,7 @@ export default function AdminPage() {
             <div className="sb-section-title" style={{ margin: 0 }}>
               {t("admin.revenus.title")}
             </div>
-            <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "4px 0 0" }}>{t("admin.revenus.subtitle")}</p>
+            <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "4px 0 0" }}>{t("admin.revenus.subtitle")}</p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button className="sb-btn sb-btn-ghost" onClick={exporterRevenusExcel}>
@@ -346,7 +346,7 @@ export default function AdminPage() {
           </div>
           <div className="sb-card">
             <div className="sb-stat-label">{t("admin.revenus.revenuMois")}</div>
-            <div className="sb-stat-value" style={{ color: "#0E8F6E" }}>
+            <div className="sb-stat-value" style={{ color: "var(--emerald)" }}>
               {fmt(revenuMoisCourant)}
             </div>
           </div>
@@ -378,14 +378,17 @@ export default function AdminPage() {
         </div>
 
         {aucuneDonneeRevenu ? (
-          <p style={{ fontSize: 13, color: "#6B6A63" }}>{t("admin.revenus.aucuneDonnee")}</p>
+          <p style={{ fontSize: 13, color: "var(--muted)" }}>{t("admin.revenus.aucuneDonnee")}</p>
         ) : (
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={chartDataRevenus}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E4E2D8" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#6B6A63" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#6B6A63" }} axisLine={false} tickLine={false} width={44} />
-              <Tooltip formatter={(v) => fmt(v)} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #E4E2D8" }} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--muted)" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--muted)" }} axisLine={false} tickLine={false} width={44} />
+              <Tooltip
+                formatter={(v) => fmt(v)}
+                contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink)" }}
+              />
               <Bar dataKey="montant" name="montant" fill={accent} radius={[5, 5, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -410,7 +413,7 @@ export default function AdminPage() {
             <tbody>
               {paiementsTries.length === 0 ? (
                 <tr>
-                  <td colSpan={3} style={{ color: "#6B6A63" }}>
+                  <td colSpan={3} style={{ color: "var(--muted)" }}>
                     {t("admin.revenus.aucunPaiement")}
                   </td>
                 </tr>
@@ -432,7 +435,7 @@ export default function AdminPage() {
         <div className="sb-section-title" style={{ margin: "0 0 4px" }}>
           {t("admin.logoTitle")}
         </div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("admin.logoSub")}</p>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("admin.logoSub")}</p>
         <LogoPlatformUpload
           label={t("admin.logoLabel")}
           businessId={business.id}
@@ -448,7 +451,7 @@ export default function AdminPage() {
 
       <div className="sb-card" style={{ marginBottom: 16, maxWidth: 480 }}>
         <div className="sb-section-title">{t("admin.waveTitle")}</div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("admin.waveSub")}</p>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("admin.waveSub")}</p>
         {waveMsg && (
           <div className="sb-badge sb-badge-emerald" style={{ marginBottom: 12, fontSize: 12.5, padding: "6px 10px" }}>
             {waveMsg}
@@ -500,7 +503,7 @@ export default function AdminPage() {
 
       <div className="sb-card" style={{ marginBottom: 16, maxWidth: 480 }}>
         <div className="sb-section-title">{t("admin.supportTitle")}</div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("admin.supportSub")}</p>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("admin.supportSub")}</p>
         {supportMsg && (
           <div className="sb-badge sb-badge-emerald" style={{ marginBottom: 12, fontSize: 12.5, padding: "6px 10px" }}>
             {supportMsg}
@@ -529,7 +532,7 @@ export default function AdminPage() {
       </div>
 
       {businesses.length === 0 ? (
-        <p style={{ fontSize: 13, color: "#6B6A63" }}>{t("admin.aucunCommercant")}</p>
+        <p style={{ fontSize: 13, color: "var(--muted)" }}>{t("admin.aucunCommercant")}</p>
       ) : (
         <div className="sb-card">
           <div className="sb-table-scroll">
@@ -553,9 +556,9 @@ export default function AdminPage() {
                   // listés, jamais comme information personnelle le concernant.
                   const estMoi = b.owner_id === business.owner_id;
                   return (
-                    <tr key={b.id} style={expireBientot(b) && !estMoi ? { background: "#FBF1E6" } : undefined}>
+                    <tr key={b.id} style={expireBientot(b) && !estMoi ? { background: "var(--amber-bg)" } : undefined}>
                       <td>{b.name || t("common.defaultBusinessName")}</td>
-                      <td style={{ color: "#6B6A63" }}>{b.email || "—"}</td>
+                      <td style={{ color: "var(--muted)" }}>{b.email || "—"}</td>
                       <td>
                         <span className={`sb-badge ${STATUT_BADGE_CLASS[b.subscription_status] || "sb-badge-amber"}`}>
                           {t(`common.subscriptionStatus.${b.subscription_status}`)}
@@ -563,7 +566,7 @@ export default function AdminPage() {
                       </td>
                       <td>
                         {estMoi ? (
-                          <span style={{ color: "#A6A29D" }}>{t("admin.aucuneExpiration")}</span>
+                          <span style={{ color: "var(--text-faint)" }}>{t("admin.aucuneExpiration")}</span>
                         ) : (
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <span>
@@ -586,7 +589,7 @@ export default function AdminPage() {
                             <img src={paiement.justificatif_url} alt="" />
                           </div>
                         ) : (
-                          <span style={{ color: "#A6A29D", fontSize: 12.5 }}>—</span>
+                          <span style={{ color: "var(--text-faint)", fontSize: 12.5 }}>—</span>
                         )}
                       </td>
                       <td>
@@ -599,7 +602,7 @@ export default function AdminPage() {
                           {paiement && (
                             <button
                               className="sb-btn sb-btn-ghost"
-                              style={{ padding: "4px 8px", color: "#C24E37" }}
+                              style={{ padding: "4px 8px", color: "var(--coral)" }}
                               onClick={() => {
                                 setRejetId(paiement.id);
                                 setRaisonRejet("");
@@ -625,11 +628,11 @@ export default function AdminPage() {
 
       {rejetId && (
         <div className="sb-modal-overlay" onClick={() => setRejetId(null)}>
-          <div className="sb-card" style={{ width: 360, background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+          <div className="sb-card" style={{ width: 360, background: "var(--card)" }} onClick={(e) => e.stopPropagation()}>
             <div className="sb-section-title" style={{ margin: "0 0 4px" }}>
               {t("admin.rejeterModalTitle")}
             </div>
-            <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("admin.rejeterModalSub")}</p>
+            <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("admin.rejeterModalSub")}</p>
             <div className="sb-field">
               <label>{t("admin.raisonRejetLabel")}</label>
               <textarea
@@ -647,7 +650,7 @@ export default function AdminPage() {
               </button>
               <button
                 className="sb-btn"
-                style={{ flex: 1, justifyContent: "center", background: "#C24E37", color: "#fff" }}
+                style={{ flex: 1, justifyContent: "center", background: "var(--coral)", color: "#fff" }}
                 onClick={confirmerRejet}
                 disabled={!raisonRejet.trim()}
               >
@@ -660,19 +663,19 @@ export default function AdminPage() {
 
       {previewPaiement && (
         <div className="sb-modal-overlay" onClick={() => setPreviewPaiement(null)}>
-          <div className="sb-card" style={{ width: 420, maxWidth: "92vw", background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+          <div className="sb-card" style={{ width: 420, maxWidth: "92vw", background: "var(--card)" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
               <div className="sb-section-title" style={{ margin: 0 }}>
                 {t("admin.justificatifModalTitle")}
               </div>
               <button
                 onClick={() => setPreviewPaiement(null)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}
               >
                 <X size={16} />
               </button>
             </div>
-            <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 10px" }}>
+            <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 10px" }}>
               {t("paiement.colMontant")} : <strong>{fmt(previewPaiement.montant)}</strong> —{" "}
               {new Date(previewPaiement.created_at).toLocaleDateString(dateLocale(business?.langue))}
             </p>

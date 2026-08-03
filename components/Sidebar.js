@@ -18,8 +18,14 @@ import {
   X,
   Wallet,
   LifeBuoy,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
 import { t as tBase } from "@/lib/i18n";
+import { MODES_AFFICHAGE } from "@/lib/constants";
+
+const MODE_ICON = { clair: Sun, sombre: Moon, auto: Monitor };
 
 const NAV_ITEMS = [
   { href: "/dashboard", icon: LayoutDashboard, key: "dashboard" },
@@ -35,13 +41,23 @@ const NAV_ITEMS = [
 
 const ADMIN_NAV_ITEM = { href: "/admin", icon: ShieldCheck, key: "admin" };
 
-export default function Sidebar({ business, onSignOut }) {
+export default function Sidebar({ business, onSignOut, onChangeMode }) {
   const pathname = usePathname();
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const businessName = business?.name;
   const logo = business?.logo_url;
   const [menuOpen, setMenuOpen] = useState(false);
   const [lastPathname, setLastPathname] = useState(pathname);
+  const modeAffichage = business?.mode_affichage || "clair";
+  const ModeIcon = MODE_ICON[modeAffichage] || Sun;
+  const modeLabel = t(`parametres.mode${modeAffichage === "clair" ? "Clair" : modeAffichage === "sombre" ? "Sombre" : "Auto"}`);
+
+  // Accès rapide : un clic fait défiler clair → sombre → automatique →
+  // clair, sans passer par Paramètres.
+  function cyclerModeAffichage() {
+    const i = MODES_AFFICHAGE.indexOf(modeAffichage);
+    onChangeMode?.(MODES_AFFICHAGE[(i + 1) % MODES_AFFICHAGE.length]);
+  }
 
   // Referme le menu mobile à chaque changement de page (ajustement pendant
   // le rendu plutôt que dans un effect, pour éviter un rendu en cascade —
@@ -97,6 +113,15 @@ export default function Sidebar({ business, onSignOut }) {
             onClick={() => setMenuOpen(false)}
           />
         ))}
+        <button
+          className="sb-nav-item"
+          onClick={cyclerModeAffichage}
+          type="button"
+          title={t("sidebar.modeAffichageLabel", { mode: modeLabel })}
+        >
+          <ModeIcon size={16} />
+          {modeLabel}
+        </button>
         <button className="sb-nav-item" onClick={onSignOut} type="button">
           <LogOut size={16} />
           {t("sidebar.logout")}

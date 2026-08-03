@@ -107,7 +107,7 @@ export default function PaiementAbonnement({ business }) {
       )}
 
       <div className="sb-paiement-info">
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 8px" }}>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 8px" }}>
           {t("paiement.montantAPayer")} <strong style={{ color: "var(--ink)" }}>{fmt(parametres?.abonnement_prix)}</strong>
         </p>
         {parametres?.wave_qr_url ? (
@@ -117,7 +117,7 @@ export default function PaiementAbonnement({ business }) {
             {t("paiement.payerViaTelephone")} <strong className="sb-mono">{parametres.wave_telephone}</strong>
           </p>
         ) : (
-          <p style={{ fontSize: 12.5, color: "#6E6B68" }}>{t("paiement.aucunMoyenConfigure")}</p>
+          <p style={{ fontSize: 12.5, color: "var(--muted)" }}>{t("paiement.aucunMoyenConfigure")}</p>
         )}
       </div>
 

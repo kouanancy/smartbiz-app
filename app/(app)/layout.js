@@ -3,15 +3,24 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthProvider";
+import { supabase } from "@/lib/supabaseClient";
 import { THEMES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import Sidebar from "@/components/Sidebar";
 import PendingSubscription from "@/components/PendingSubscription";
 
 export default function AppLayout({ children }) {
-  const { session, business, signOut } = useAuth();
+  const { session, business, setBusiness, signOut } = useAuth();
   const router = useRouter();
   const t = (key) => tBase(business?.langue, key);
+
+  // Accès rapide au mode d'affichage depuis la sidebar — même mutation que
+  // le sélecteur complet des Paramètres, exposée ici pour ne pas avoir à
+  // naviguer jusqu'à Paramètres juste pour ce réglage.
+  async function changerModeAffichage(mode) {
+    const { data, error } = await supabase.from("businesses").update({ mode_affichage: mode }).eq("id", business.id).select().single();
+    if (!error && data) setBusiness(data);
+  }
 
   useEffect(() => {
     if (session === null) router.replace("/login");
@@ -62,7 +71,7 @@ export default function AppLayout({ children }) {
 
   return (
     <div className="sb-root">
-      <Sidebar business={business} onSignOut={signOut} />
+      <Sidebar business={business} onSignOut={signOut} onChangeMode={changerModeAffichage} />
       <main className="sb-main">{children}</main>
     </div>
   );
