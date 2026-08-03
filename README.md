@@ -239,6 +239,23 @@ absolu, fermeture au clic extérieur) affiche la photo de chaque article en
 miniature à côté de son nom/prix/stock, avec le même pictogramme de repli
 que `ImageUploadField` pour les articles sans photo.
 
+## Fiche article
+
+Cliquer sur une ligne du tableau Stock (ou sur sa miniature) ouvre une
+fiche détaillée en modale : photo en grand format, nom, catégorie, prix
+d'achat, frais annexes, prix de vente, marge réelle, stock réel et stock
+théorique, seuil d'alerte et unité. Deux boutons d'accès rapide
+(« Réappro. », « Modifier ») ouvrent directement la modale correspondante
+pour cet article précis — sans repasser par le tableau — exactement comme
+un clic sur les mêmes boutons depuis la ligne elle-même
+(`ouvrirReappro`/`ouvrirEdition`, `app/(app)/articles/page.js`).
+
+La cellule d'actions de la ligne (Réappro. / Modifier / Supprimer) arrête
+la propagation de son `onClick` (`e.stopPropagation()`) pour que ces trois
+boutons gardent leur action habituelle sans jamais déclencher l'ouverture
+de la fiche par la même occasion — seul le reste de la ligne (photo, nom,
+prix, stock...) ouvre la fiche.
+
 ## Trésorerie
 
 Page dédiée (`/tresorerie`, `app/(app)/tresorerie/page.js`), accessible à

@@ -206,6 +206,12 @@ a {
 .sb-table tr:last-child td {
   border-bottom: none;
 }
+.sb-row-clickable {
+  cursor: pointer;
+}
+.sb-row-clickable:hover {
+  background: var(--paper);
+}
 .sb-badge {
   display: inline-flex;
   align-items: center;
