@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, FileSpreadsheet, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { CheckCircle2, FileSpreadsheet, Image as ImageIcon, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
@@ -26,6 +26,19 @@ const emptyForm = {
 const FILTRE_TOUTES = "toutes";
 const FILTRE_SANS_CATEGORIE = "sans-categorie";
 
+// Une paire label/valeur de la fiche article — évite de répéter la même
+// structure pour chacun des 8 champs affichés dans la modale de détail.
+function DetailField({ label, value, valueColor }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "#8A8682", marginBottom: 4 }}>{label}</div>
+      <div className="sb-mono" style={{ fontSize: 14, fontWeight: 600, color: valueColor || "var(--ink)" }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 export default function ArticlesPage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
@@ -49,6 +62,7 @@ export default function ArticlesPage() {
   const [rechercheDebounced, setRechercheDebounced] = useState("");
   const [reapproId, setReapproId] = useState(null);
   const [reapproForm, setReapproForm] = useState({ quantite: "", prix_achat: "", frais_annexes: "" });
+  const [detailId, setDetailId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(emptyForm);
   const [editError, setEditError] = useState("");
@@ -568,7 +582,7 @@ export default function ArticlesPage() {
                 const margeReelle = a.prix_vente - a.prix_achat - (a.frais_annexes || 0);
                 const theorique = stockTheorique(a);
                 return (
-                  <tr key={a.id}>
+                  <tr key={a.id} className="sb-row-clickable" onClick={() => setDetailId(a.id)}>
                     <td>
                       {a.image_url ? (
                         <div className="sb-thumb-upload">
@@ -611,7 +625,7 @@ export default function ArticlesPage() {
                         <span className="sb-badge sb-badge-emerald">{t("common.badgeOk")}</span>
                       )}
                     </td>
-                    <td>
+                    <td onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirReappro(a)}>
                           <RefreshCw size={12} /> {t("articles.reappro")}
@@ -721,6 +735,97 @@ export default function ArticlesPage() {
           </div>
         </div>
       )}
+
+      {detailId &&
+        (() => {
+          const art = articles.find((a) => a.id === detailId);
+          if (!art) return null;
+          const margeReelle = art.prix_vente - art.prix_achat - (art.frais_annexes || 0);
+          const theorique = stockTheorique(art);
+          return (
+            <div className="sb-modal-overlay" onClick={() => setDetailId(null)}>
+              <div
+                className="sb-card"
+                style={{ width: 400, maxWidth: "92vw", background: "#fff", maxHeight: "90vh", overflowY: "auto" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                  <div className="sb-section-title" style={{ margin: 0 }}>
+                    {t("articles.detailModalTitle")}
+                  </div>
+                  <button onClick={() => setDetailId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
+                    <X size={16} />
+                  </button>
+                </div>
+
+                {art.image_url ? (
+                  <div style={{ width: "100%", aspectRatio: "1", borderRadius: 12, overflow: "hidden", marginBottom: 14, background: "var(--paper)" }}>
+                    <img src={art.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      width: "100%",
+                      aspectRatio: "1",
+                      borderRadius: 12,
+                      marginBottom: 14,
+                      background: "var(--paper)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#A6A29D",
+                    }}
+                  >
+                    <ImageIcon size={40} />
+                  </div>
+                )}
+
+                <div className="sb-section-title" style={{ fontSize: 16, margin: "0 0 2px" }}>
+                  {art.nom}
+                </div>
+                <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 16px" }}>{categorieName(art.categorie_id)}</p>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
+                  <DetailField label={t("articles.colAchat")} value={fmt(art.prix_achat)} />
+                  <DetailField label={t("articles.colFraisAnnexes")} value={fmt(art.frais_annexes || 0)} />
+                  <DetailField label={t("articles.colVente")} value={fmt(art.prix_vente)} />
+                  <DetailField
+                    label={t("articles.colMargeReelle")}
+                    value={fmt(margeReelle)}
+                    valueColor={margeReelle >= 0 ? "#0E8F6E" : "#C24E37"}
+                  />
+                  <DetailField label={t("articles.colStock")} value={`${art.stock} ${uniteLabel(art.unite)}`} />
+                  <DetailField label={t("articles.colStockTheorique")} value={`${theorique} ${uniteLabel(art.unite)}`} />
+                  <DetailField label={t("articles.seuilLabel")} value={`${art.seuil} ${uniteLabel(art.unite)}`} />
+                  <DetailField label={t("articles.uniteLabel")} value={uniteLabel(art.unite)} />
+                </div>
+
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    className="sb-btn sb-btn-ghost"
+                    style={{ flex: 1, justifyContent: "center" }}
+                    onClick={() => {
+                      setDetailId(null);
+                      ouvrirReappro(art);
+                    }}
+                  >
+                    <RefreshCw size={14} /> {t("articles.reappro")}
+                  </button>
+                  <button
+                    className="sb-btn sb-btn-primary"
+                    style={{ flex: 1, justifyContent: "center" }}
+                    onClick={() => {
+                      setDetailId(null);
+                      ouvrirEdition(art);
+                    }}
+                  >
+                    <Pencil size={14} /> {t("articles.modifier")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
       {reapproId &&
         (() => {
