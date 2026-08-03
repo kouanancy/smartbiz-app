@@ -151,7 +151,7 @@ export default function CataloguePage() {
       </div>
 
       {filtres.length === 0 ? (
-        <p style={{ fontSize: 13, color: "#6B6A63", marginTop: 16 }}>{t("catalogue.aucunArticle")}</p>
+        <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 16 }}>{t("catalogue.aucunArticle")}</p>
       ) : (
         <div className="sb-catalogue-grid">
           {filtres.map((a) => (
@@ -174,7 +174,7 @@ export default function CataloguePage() {
         </div>
       )}
 
-      <p className="sb-no-print" style={{ fontSize: 11, color: "#8A8682", marginTop: 16 }}>
+      <p className="sb-no-print" style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 16 }}>
         {t("catalogue.instagramNote")}
       </p>
     </div>

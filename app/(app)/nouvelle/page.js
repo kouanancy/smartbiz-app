@@ -317,7 +317,7 @@ export default function NouvelleCommandePage() {
 
         {mode === "existant" ? (
           clients.length === 0 ? (
-            <p style={{ fontSize: 13, color: "#6B6A63" }}>{t("nouvelle.aucuneCliente")}</p>
+            <p style={{ fontSize: 13, color: "var(--muted)" }}>{t("nouvelle.aucuneCliente")}</p>
           ) : (
             <>
               <div className="sb-field">
@@ -389,9 +389,9 @@ export default function NouvelleCommandePage() {
                   setNouveauTel(e.target.value);
                   if (erreurTel) setErreurTel(false);
                 }}
-                style={erreurTel ? { borderColor: "#C24E37" } : undefined}
+                style={erreurTel ? { borderColor: "var(--coral)" } : undefined}
               />
-              <p style={{ fontSize: 11, color: erreurTel ? "#C24E37" : "#6E6B68", margin: "5px 2px 0" }}>
+              <p style={{ fontSize: 11, color: erreurTel ? "var(--coral)" : "var(--muted)", margin: "5px 2px 0" }}>
                 {erreurTel ? t("nouvelle.telephoneRequiredError") : t("nouvelle.telephoneHint")}
               </p>
             </div>
@@ -409,7 +409,7 @@ export default function NouvelleCommandePage() {
       <div className="sb-card" style={{ marginBottom: 16 }}>
         <div className="sb-section-title">{t("nouvelle.step2")}</div>
         {articles.length === 0 ? (
-          <p style={{ fontSize: 13, color: "#6B6A63" }}>
+          <p style={{ fontSize: 13, color: "var(--muted)" }}>
             {t("nouvelle.aucunArticlePrefix")} <Link href="/articles">{t("sidebar.nav.articles")}</Link>.
           </p>
         ) : (
@@ -458,8 +458,8 @@ export default function NouvelleCommandePage() {
                     style={{
                       color:
                         articleSelectionne.prix_vente - articleSelectionne.prix_achat - (articleSelectionne.frais_annexes || 0) >= 0
-                          ? "#0E8F6E"
-                          : "#C24E37",
+                          ? "var(--emerald)"
+                          : "var(--coral)",
                     }}
                   >
                     {fmt(articleSelectionne.prix_vente - articleSelectionne.prix_achat - (articleSelectionne.frais_annexes || 0))}
@@ -486,7 +486,7 @@ export default function NouvelleCommandePage() {
             )}
 
             {lignes.length === 0 ? (
-              <p style={{ fontSize: 13, color: "#6B6A63", marginTop: 12 }}>{t("nouvelle.aucunArticleAjoute")}</p>
+              <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 12 }}>{t("nouvelle.aucunArticleAjoute")}</p>
             ) : (
               <div className="sb-table-scroll" style={{ marginTop: 14 }}>
                 <table className="sb-table">
@@ -510,7 +510,7 @@ export default function NouvelleCommandePage() {
                           <td>{art.nom}</td>
                           <td className="sb-mono">{fmt(art.prix_vente)}</td>
                           <td className="sb-mono">{fmt(art.prix_achat)}</td>
-                          <td className="sb-mono" style={{ color: margeUnitaire >= 0 ? "#0E8F6E" : "#C24E37" }}>
+                          <td className="sb-mono" style={{ color: margeUnitaire >= 0 ? "var(--emerald)" : "var(--coral)" }}>
                             {fmt(margeUnitaire)}
                           </td>
                           <td className="sb-mono">
@@ -562,11 +562,11 @@ export default function NouvelleCommandePage() {
             </select>
           </div>
         ) : zones.length === 0 ? (
-          <p style={{ fontSize: 12.5, color: "#6E6B68", margin: 0 }}>
+          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0 }}>
             {t("nouvelle.aucuneZonePrefix")} <Link href="/parametres">{t("sidebar.nav.parametres")}</Link>.
           </p>
         ) : (
-          <p style={{ fontSize: 12.5, color: "#6E6B68", margin: 0 }}>{t("nouvelle.aucunFraisLivraison")}</p>
+          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: 0 }}>{t("nouvelle.aucunFraisLivraison")}</p>
         )}
       </div>
 
@@ -617,7 +617,7 @@ export default function NouvelleCommandePage() {
           </div>
           <div>
             <span>{t("nouvelle.margeEstimee")}</span>
-            <strong style={{ color: totalMargeReelle >= 0 ? "#0E8F6E" : "#C24E37" }}>{fmt(totalMargeReelle)}</strong>
+            <strong style={{ color: totalMargeReelle >= 0 ? "var(--emerald)" : "var(--coral)" }}>{fmt(totalMargeReelle)}</strong>
           </div>
         </div>
         <button className="sb-btn sb-btn-emerald" style={{ width: "100%", justifyContent: "center", marginTop: 14 }} disabled={!peutValider} onClick={valider}>

@@ -9,7 +9,7 @@ export default function Pagination({ page, totalPages, onChange, label }) {
   if (totalPages <= 1) return null;
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-      <span style={{ fontSize: 12.5, color: "#6E6B68" }}>{label}</span>
+      <span style={{ fontSize: 12.5, color: "var(--muted)" }}>{label}</span>
       <div style={{ display: "flex", gap: 8 }}>
         <button
           type="button"

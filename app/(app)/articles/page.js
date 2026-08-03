@@ -31,7 +31,7 @@ const FILTRE_SANS_CATEGORIE = "sans-categorie";
 function DetailField({ label, value, valueColor }) {
   return (
     <div>
-      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "#8A8682", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>{label}</div>
       <div className="sb-mono" style={{ fontSize: 14, fontWeight: 600, color: valueColor || "var(--ink)" }}>
         {value}
       </div>
@@ -409,7 +409,7 @@ export default function ArticlesPage() {
       {showCatManager && (
         <div className="sb-card" style={{ marginBottom: 16 }}>
           <div className="sb-section-title">{t("articles.catManagerTitle")}</div>
-          <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("articles.catManagerSub")}</p>
+          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("articles.catManagerSub")}</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
             {categories.map((c) => (
               <span key={c.id} className="sb-badge sb-badge-emerald" style={{ padding: "5px 10px", fontSize: 12 }}>
@@ -432,7 +432,7 @@ export default function ArticlesPage() {
               <Plus size={14} /> {t("articles.addBtn")}
             </button>
           </div>
-          {catMsg && <p style={{ fontSize: 12, color: "#C24E37", margin: "8px 2px 0" }}>{catMsg}</p>}
+          {catMsg && <p style={{ fontSize: 12, color: "var(--coral)", margin: "8px 2px 0" }}>{catMsg}</p>}
         </div>
       )}
 
@@ -534,7 +534,7 @@ export default function ArticlesPage() {
       )}
 
       <div style={{ position: "relative", marginBottom: 14, maxWidth: 280 }}>
-        <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "#6B6A63" }} />
+        <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "var(--muted)" }} />
         <input
           className="sb-input"
           style={{ paddingLeft: 30 }}
@@ -591,11 +591,11 @@ export default function ArticlesPage() {
                       ) : null}
                     </td>
                     <td>{a.nom}</td>
-                    <td style={{ color: "#6B6A63" }}>{categorieName(a.categorie_id)}</td>
+                    <td style={{ color: "var(--muted)" }}>{categorieName(a.categorie_id)}</td>
                     <td className="sb-mono">{fmt(a.prix_achat)}</td>
                     <td className="sb-mono">{fmt(a.frais_annexes || 0)}</td>
                     <td className="sb-mono">{fmt(a.prix_vente)}</td>
-                    <td className="sb-mono" style={{ color: margeReelle >= 0 ? "#0E8F6E" : "#C24E37" }}>
+                    <td className="sb-mono" style={{ color: margeReelle >= 0 ? "var(--emerald)" : "var(--coral)" }}>
                       {fmt(margeReelle)}
                     </td>
                     <td className="sb-mono">
@@ -635,7 +635,7 @@ export default function ArticlesPage() {
                         </button>
                         <button
                           className="sb-btn sb-btn-ghost"
-                          style={{ padding: "4px 8px", color: "#C24E37" }}
+                          style={{ padding: "4px 8px", color: "var(--coral)" }}
                           onClick={() => supprimerArticle(a)}
                         >
                           <Trash2 size={12} /> {t("articles.supprimer")}
@@ -653,7 +653,7 @@ export default function ArticlesPage() {
 
       <div className="sb-card">
         <div className="sb-section-title">{t("articles.margeReelleTitle")}</div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("articles.margeReelleSub")}</p>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("articles.margeReelleSub")}</p>
         <div className="sb-table-scroll">
           <table className="sb-table">
             <thead>
@@ -674,7 +674,7 @@ export default function ArticlesPage() {
                   <tr key={a.id}>
                     <td>{a.nom}</td>
                     <td className="sb-mono">{fmt(coutReel)}</td>
-                    <td className="sb-mono" style={{ color: margeUnitaire >= 0 ? "#0E8F6E" : "#C24E37" }}>
+                    <td className="sb-mono" style={{ color: margeUnitaire >= 0 ? "var(--emerald)" : "var(--coral)" }}>
                       {fmt(margeUnitaire)}
                     </td>
                     <td className="sb-mono">
@@ -693,7 +693,7 @@ export default function ArticlesPage() {
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
-                <td className="sb-mono" style={{ fontWeight: 700, borderTop: "1px solid var(--line)", color: "var(--accent-deep)" }}>
+                <td className="sb-mono" style={{ fontWeight: 700, borderTop: "1px solid var(--line)", color: "var(--accent-text)" }}>
                   {fmt(margeTotaleFiltre)}
                 </td>
               </tr>
@@ -705,7 +705,7 @@ export default function ArticlesPage() {
       {reappros.length > 0 && (
         <div className="sb-card" style={{ marginTop: 20 }}>
           <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <RefreshCw size={15} color="var(--accent-deep)" /> {t("articles.historiqueReappro")}
+            <RefreshCw size={15} color="var(--accent-text)" /> {t("articles.historiqueReappro")}
           </div>
           <div className="sb-table-scroll">
             <table className="sb-table">
@@ -746,14 +746,14 @@ export default function ArticlesPage() {
             <div className="sb-modal-overlay" onClick={() => setDetailId(null)}>
               <div
                 className="sb-card"
-                style={{ width: 400, maxWidth: "92vw", background: "#fff", maxHeight: "90vh", overflowY: "auto" }}
+                style={{ width: 400, maxWidth: "92vw", background: "var(--card)", maxHeight: "90vh", overflowY: "auto" }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                   <div className="sb-section-title" style={{ margin: 0 }}>
                     {t("articles.detailModalTitle")}
                   </div>
-                  <button onClick={() => setDetailId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
+                  <button onClick={() => setDetailId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
                     <X size={16} />
                   </button>
                 </div>
@@ -773,7 +773,7 @@ export default function ArticlesPage() {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      color: "#A6A29D",
+                      color: "var(--text-faint)",
                     }}
                   >
                     <ImageIcon size={40} />
@@ -783,7 +783,7 @@ export default function ArticlesPage() {
                 <div className="sb-section-title" style={{ fontSize: 16, margin: "0 0 2px" }}>
                   {art.nom}
                 </div>
-                <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 16px" }}>{categorieName(art.categorie_id)}</p>
+                <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 16px" }}>{categorieName(art.categorie_id)}</p>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
                   <DetailField label={t("articles.colAchat")} value={fmt(art.prix_achat)} />
@@ -792,7 +792,7 @@ export default function ArticlesPage() {
                   <DetailField
                     label={t("articles.colMargeReelle")}
                     value={fmt(margeReelle)}
-                    valueColor={margeReelle >= 0 ? "#0E8F6E" : "#C24E37"}
+                    valueColor={margeReelle >= 0 ? "var(--emerald)" : "var(--coral)"}
                   />
                   <DetailField label={t("articles.colStock")} value={`${art.stock} ${uniteLabel(art.unite)}`} />
                   <DetailField label={t("articles.colStockTheorique")} value={`${theorique} ${uniteLabel(art.unite)}`} />
@@ -832,16 +832,16 @@ export default function ArticlesPage() {
           const art = articles.find((a) => a.id === reapproId);
           return (
             <div className="sb-modal-overlay" onClick={() => setReapproId(null)}>
-              <div className="sb-card" style={{ width: 340, background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+              <div className="sb-card" style={{ width: 340, background: "var(--card)" }} onClick={(e) => e.stopPropagation()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                   <div className="sb-section-title" style={{ margin: 0 }}>
                     {t("articles.reapproModalTitle")}
                   </div>
-                  <button onClick={() => setReapproId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
+                  <button onClick={() => setReapproId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
                     <X size={16} />
                   </button>
                 </div>
-                <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 14px" }}>{art?.nom}</p>
+                <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 14px" }}>{art?.nom}</p>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <div className="sb-field">
@@ -875,7 +875,7 @@ export default function ArticlesPage() {
                       onChange={(e) => setReapproForm({ ...reapproForm, frais_annexes: e.target.value })}
                     />
                   </div>
-                  <p style={{ fontSize: 11, color: "#6E6B68", margin: 0 }}>{t("articles.reapproNote")}</p>
+                  <p style={{ fontSize: 11, color: "var(--muted)", margin: 0 }}>{t("articles.reapproNote")}</p>
                   <button className="sb-btn sb-btn-emerald" style={{ justifyContent: "center" }} onClick={validerReappro} disabled={!reapproForm.quantite}>
                     <CheckCircle2 size={14} /> {t("articles.confirmerReappro")}
                   </button>
@@ -893,14 +893,14 @@ export default function ArticlesPage() {
             <div className="sb-modal-overlay" onClick={() => setEditingId(null)}>
               <div
                 className="sb-card"
-                style={{ width: 380, background: "#fff", maxHeight: "90vh", overflowY: "auto" }}
+                style={{ width: 380, background: "var(--card)", maxHeight: "90vh", overflowY: "auto" }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                   <div className="sb-section-title" style={{ margin: 0 }}>
                     {t("articles.editModalTitle")}
                   </div>
-                  <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
+                  <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
                     <X size={16} />
                   </button>
                 </div>
@@ -988,7 +988,7 @@ export default function ArticlesPage() {
                       value={editForm.stock}
                       onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
                     />
-                    <p style={{ fontSize: 11, color: "#6E6B68", margin: 0 }}>{t("articles.stockActuelNote")}</p>
+                    <p style={{ fontSize: 11, color: "var(--muted)", margin: 0 }}>{t("articles.stockActuelNote")}</p>
                   </div>
                   <ImageUploadField
                     label={t("articles.photoLabel")}
@@ -996,7 +996,7 @@ export default function ArticlesPage() {
                     value={editForm.image_url}
                     onChange={(url) => setEditForm((f) => ({ ...f, image_url: url }))}
                   />
-                  {editError && <p style={{ fontSize: 12, color: "#C24E37", margin: 0 }}>{editError}</p>}
+                  {editError && <p style={{ fontSize: 12, color: "var(--coral)", margin: 0 }}>{editError}</p>}
                   <button className="sb-btn sb-btn-emerald" type="submit" style={{ justifyContent: "center" }}>
                     <CheckCircle2 size={14} /> {t("articles.saveEdits")}
                   </button>

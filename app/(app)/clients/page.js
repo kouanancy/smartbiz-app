@@ -330,9 +330,9 @@ export default function ClientsPage() {
                 setForm({ ...form, telephone: e.target.value });
                 if (erreurTel) setErreurTel(false);
               }}
-              style={erreurTel ? { borderColor: "#C24E37" } : undefined}
+              style={erreurTel ? { borderColor: "var(--coral)" } : undefined}
             />
-            <p style={{ fontSize: 11, color: erreurTel ? "#C24E37" : "#6E6B68", margin: "5px 2px 0" }}>
+            <p style={{ fontSize: 11, color: erreurTel ? "var(--coral)" : "var(--muted)", margin: "5px 2px 0" }}>
               {erreurTel ? t("clients.telephoneRequiredError") : t("clients.telephoneHint")}
             </p>
           </div>
@@ -344,7 +344,7 @@ export default function ClientsPage() {
 
       <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 14 }}>
         <div style={{ position: "relative", maxWidth: 280, flex: 1, minWidth: 220 }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "#6B6A63" }} />
+          <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "var(--muted)" }} />
           <input
             className="sb-input"
             style={{ paddingLeft: 30 }}
@@ -353,7 +353,7 @@ export default function ClientsPage() {
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#6E6B68", cursor: "pointer" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)", cursor: "pointer" }}>
           <input
             type="checkbox"
             checked={showDesactives}
@@ -388,9 +388,9 @@ export default function ClientsPage() {
                 return (
                   <tr key={c.id}>
                     <td>{c.nom}</td>
-                    <td style={{ color: "#6B6A63" }}>{c.telephone}</td>
-                    <td style={{ color: "#6B6A63" }}>{c.adresse || "—"}</td>
-                    <td style={{ color: "#6B6A63" }}>{c.email || "—"}</td>
+                    <td style={{ color: "var(--muted)" }}>{c.telephone}</td>
+                    <td style={{ color: "var(--muted)" }}>{c.adresse || "—"}</td>
+                    <td style={{ color: "var(--muted)" }}>{c.email || "—"}</td>
                     <td className="sb-mono">{s.count}</td>
                     <td className="sb-mono">{fmt(s.total)}</td>
                     <td>
@@ -412,7 +412,7 @@ export default function ClientsPage() {
                         ) : s.count === 0 ? (
                           <button
                             className="sb-btn sb-btn-ghost"
-                            style={{ padding: "4px 8px", color: "#C24E37" }}
+                            style={{ padding: "4px 8px", color: "var(--coral)" }}
                             onClick={() => supprimerClient(c)}
                           >
                             <Trash2 size={12} /> {t("clients.supprimer")}
@@ -435,12 +435,12 @@ export default function ClientsPage() {
 
       {editingId && (
         <div className="sb-modal-overlay" onClick={() => setEditingId(null)}>
-          <div className="sb-card" style={{ width: 380, background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+          <div className="sb-card" style={{ width: 380, background: "var(--card)" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
               <div className="sb-section-title" style={{ margin: 0 }}>
                 {t("clients.editModalTitle")}
               </div>
-              <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6A63" }}>
+              <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
                 <X size={16} />
               </button>
             </div>
@@ -484,13 +484,13 @@ export default function ClientsPage() {
                     setEditForm({ ...editForm, telephone: e.target.value });
                     if (editErreurTel) setEditErreurTel(false);
                   }}
-                  style={editErreurTel ? { borderColor: "#C24E37" } : undefined}
+                  style={editErreurTel ? { borderColor: "var(--coral)" } : undefined}
                 />
-                <p style={{ fontSize: 11, color: editErreurTel ? "#C24E37" : "#6E6B68", margin: "5px 2px 0" }}>
+                <p style={{ fontSize: 11, color: editErreurTel ? "var(--coral)" : "var(--muted)", margin: "5px 2px 0" }}>
                   {editErreurTel ? t("clients.telephoneRequiredError") : t("clients.telephoneHint")}
                 </p>
               </div>
-              {editError && <p style={{ fontSize: 12, color: "#C24E37", margin: 0 }}>{editError}</p>}
+              {editError && <p style={{ fontSize: 12, color: "var(--coral)", margin: 0 }}>{editError}</p>}
               <button className="sb-btn sb-btn-emerald" type="submit" style={{ justifyContent: "center" }}>
                 <CheckCircle2 size={14} /> {t("clients.saveEdits")}
               </button>

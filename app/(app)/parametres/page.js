@@ -6,7 +6,7 @@ import { CheckCircle2, FileText, Palette, Plus, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase } from "@/lib/format";
-import { THEMES } from "@/lib/constants";
+import { THEMES, MODES_AFFICHAGE } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import ImageUploadField from "@/components/ImageUploadField";
 import PaiementAbonnement from "@/components/PaiementAbonnement";
@@ -56,6 +56,10 @@ export default function ParametresPage() {
 
   async function enregistrerTheme(key) {
     await updateBusiness({ theme_key: key });
+  }
+
+  async function enregistrerModeAffichage(mode) {
+    await updateBusiness({ mode_affichage: mode });
   }
 
   async function enregistrerDevise(d) {
@@ -135,7 +139,7 @@ export default function ParametresPage() {
             />
           ) : (
             <div className="sb-logo-preview">
-              <Palette size={20} color="#A6A29D" />
+              <Palette size={20} color="var(--text-faint)" />
             </div>
           )}
         </div>
@@ -160,14 +164,14 @@ export default function ParametresPage() {
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
         <div className="sb-section-title">{t("parametres.themeTitle")}</div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("parametres.themeSub")}</p>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.themeSub")}</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
           {Object.entries(THEMES).map(([key, theme]) => (
             <button
               key={key}
               onClick={() => enregistrerTheme(key)}
               className="sb-theme-swatch"
-              style={{ background: theme.accent, borderColor: themeKey === key ? "#2E2C2B" : "transparent" }}
+              style={{ background: theme.accent, borderColor: themeKey === key ? "var(--ink)" : "transparent" }}
               title={t(`common.themes.${key}`)}
               type="button"
             >
@@ -178,8 +182,24 @@ export default function ParametresPage() {
       </div>
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
+        <div className="sb-section-title">{t("parametres.modeAffichageTitle")}</div>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.modeAffichageSub")}</p>
+        <div className="sb-toggle-group" style={{ display: "inline-flex" }}>
+          {MODES_AFFICHAGE.map((mode) => (
+            <button
+              key={mode}
+              className={`sb-toggle-item${(business?.mode_affichage || "clair") === mode ? " active" : ""}`}
+              onClick={() => enregistrerModeAffichage(mode)}
+            >
+              {t(`parametres.mode${mode === "clair" ? "Clair" : mode === "sombre" ? "Sombre" : "Auto"}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="sb-card" style={{ marginBottom: 16 }}>
         <div className="sb-section-title">{t("parametres.deviseTitle")}</div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("parametres.deviseSub")}</p>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.deviseSub")}</p>
         <div className="sb-toggle-group" style={{ display: "inline-flex" }}>
           {[
             { key: "FCFA", label: "FCFA" },
@@ -199,7 +219,7 @@ export default function ParametresPage() {
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
         <div className="sb-section-title">{t("parametres.langueTitle")}</div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("parametres.langueSub")}</p>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.langueSub")}</p>
         <div className="sb-toggle-group" style={{ display: "inline-flex" }}>
           {[
             { key: "fr", label: t("parametres.langueFr") },
@@ -220,7 +240,7 @@ export default function ParametresPage() {
         <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Truck size={15} /> {t("parametres.zonesTitle")}
         </div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("parametres.zonesSub")}</p>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.zonesSub")}</p>
         {zones.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
             {zones.map((z) => (
@@ -255,12 +275,12 @@ export default function ParametresPage() {
             <Plus size={14} /> {t("parametres.ajouter")}
           </button>
         </div>
-        {zoneMsg && <p style={{ fontSize: 12, color: "#C24E37", margin: "8px 2px 0" }}>{zoneMsg}</p>}
+        {zoneMsg && <p style={{ fontSize: 12, color: "var(--coral)", margin: "8px 2px 0" }}>{zoneMsg}</p>}
       </div>
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
         <div className="sb-section-title">{t("parametres.notificationsTitle")}</div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>{t("parametres.notificationsSub")}</p>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.notificationsSub")}</p>
 
         {notifMsg && (
           <div className="sb-badge sb-badge-emerald" style={{ marginBottom: 12, fontSize: 12.5, padding: "6px 10px" }}>
@@ -268,7 +288,7 @@ export default function ParametresPage() {
           </div>
         )}
 
-        <label style={{ fontSize: 12, color: "#6E6B68", display: "block", marginBottom: 6 }}>{t("parametres.emailLabel")}</label>
+        <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 }}>{t("parametres.emailLabel")}</label>
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
           <input
             className="sb-input"
@@ -291,7 +311,7 @@ export default function ParametresPage() {
             {t("parametres.confirmationEmailLabel")}
           </label>
 
-          <label style={{ fontSize: 12, color: "#6E6B68", display: "block", marginBottom: 6 }}>{t("parametres.rapportStockLabel")}</label>
+          <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 }}>{t("parametres.rapportStockLabel")}</label>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
               { key: "aucun", label: t("parametres.rapportAucun") },
@@ -301,7 +321,6 @@ export default function ParametresPage() {
               <button
                 key={opt.key}
                 className={`sb-toggle-item${rapportStock === opt.key ? " active" : ""}`}
-                style={{ background: rapportStock === opt.key ? "#fff" : "#EEECEA" }}
                 onClick={() => changerRapportStock(opt.key)}
               >
                 {opt.label}
@@ -311,13 +330,13 @@ export default function ParametresPage() {
         </div>
 
         {!business?.notif_email && (
-          <p style={{ fontSize: 11, color: "#8A8682", margin: "12px 2px 0" }}>{t("parametres.emailRequiredNote")}</p>
+          <p style={{ fontSize: 11, color: "var(--text-faint)", margin: "12px 2px 0" }}>{t("parametres.emailRequiredNote")}</p>
         )}
       </div>
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
         <div className="sb-section-title">{t("parametres.abonnementTitle")}</div>
-        <p style={{ fontSize: 12.5, color: "#6E6B68", margin: "0 0 12px" }}>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>
           {t("parametres.statutActuelLabel")}
           <strong>{t(`common.subscriptionStatus.${business?.subscription_status}`)}</strong>
         </p>

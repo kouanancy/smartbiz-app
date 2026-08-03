@@ -39,7 +39,7 @@ export default function PendingSubscription({ business }) {
             status: t(`common.subscriptionStatus.${status}`),
           })}
         </p>
-        <p style={{ fontSize: 13, color: "#6e6b68", margin: "12px 0 22px" }}>
+        <p style={{ fontSize: 13, color: "var(--muted)", margin: "12px 0 22px" }}>
           {isExpired ? t("pending.textExpired") : t("pending.textDefault")}
         </p>
         {montrerPaiement && (

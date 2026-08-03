@@ -120,10 +120,10 @@ export default function ImageUploadField({ label, businessId, folder, value, onC
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: "none" }} />
         </div>
       </div>
-      <p style={{ fontSize: 11, color: "#8A8682", margin: 0 }}>
+      <p style={{ fontSize: 11, color: "var(--text-faint)", margin: 0 }}>
         Clique dans la zone puis colle une image (Ctrl+V), ou choisis un fichier — facultatif.
       </p>
-      {error && <p style={{ fontSize: 11, color: "#C24E37", margin: 0 }}>{error}</p>}
+      {error && <p style={{ fontSize: 11, color: "var(--coral)", margin: 0 }}>{error}</p>}
     </div>
   );
 }

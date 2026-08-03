@@ -36,14 +36,59 @@ a {
   --ink-soft: #4a4745;
   --paper: #f2f1ef;
   --card: #ffffff;
+  --card-soft: #f8f7f5;
   --emerald: #0e8f6e;
   --amber: #c9862b;
   --coral: #c24e37;
+  --emerald-bg: #e1f3ec;
+  --amber-bg: #fbf0df;
+  --coral-bg: #fbe7e1;
   --line: #e1dedc;
   --muted: #6e6b68;
+  --text-faint: #8a8682;
   --accent: #e07a29;
   --accent-soft: #f3b278;
   --accent-deep: #c7601a;
+  --accent-text: var(--accent-deep);
+  --toggle-bg: #eeecea;
+  --toggle-color: #726e6c;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Mode sombre — activé via data-theme="dark" sur <html>, posé par     */
+/*  lib/AuthProvider.js selon businesses.mode_affichage (clair / sombre /*/
+/*  auto, ce dernier suivant prefers-color-scheme). La couleur d'accent */
+/*  (--accent/--accent-soft/--accent-deep) n'est volontairement PAS      */
+/*  redéfinie ici : elle reste celle choisie par le commerçant dans les */
+/*  deux modes (voir Paramètres → Thème de couleur). Les mises en page  */
+/*  d'impression (@media print plus bas) restent volontairement sur     */
+/*  fond clair quel que soit le mode d'affichage — personne n'imprime   */
+/*  un rapport sur fond noir.                                           */
+/* ------------------------------------------------------------------ */
+:root[data-theme="dark"] {
+  --ink: #f2f0ed;
+  --ink-soft: #d5d1cc;
+  --paper: #181716;
+  --card: #232220;
+  --card-soft: #2b2926;
+  --emerald: #3ecf9a;
+  --amber: #e3ab5c;
+  --coral: #e5836b;
+  --emerald-bg: rgba(62, 207, 154, 0.16);
+  --amber-bg: rgba(227, 171, 92, 0.16);
+  --coral-bg: rgba(229, 131, 107, 0.18);
+  --line: #3a3835;
+  --muted: #a6a29c;
+  --text-faint: #8f8b85;
+  /* --accent-deep (theme.deep) est calibré pour du texte sur fond blanc —
+     sur cinq des six couleurs de THEMES, son contraste tombe sous 3:1 sur
+     une carte sombre. --accent-text bascule donc sur theme.soft (déjà posé
+     par la même couleur choisie par le commerçant), qui reste ≥ 8:1 sur
+     fond sombre pour les six couleurs — utilisé partout où l'accent sert
+     de texte (pas de fond de bouton) plutôt que --accent-deep directement. */
+  --accent-text: var(--accent-soft);
+  --toggle-bg: #141311;
+  --toggle-color: #b7b2ac;
 }
 
 .sb-root {
@@ -222,15 +267,15 @@ a {
   border-radius: 20px;
 }
 .sb-badge-amber {
-  background: #fbf0df;
+  background: var(--amber-bg);
   color: var(--amber);
 }
 .sb-badge-coral {
-  background: #fbe7e1;
+  background: var(--coral-bg);
   color: var(--coral);
 }
 .sb-badge-emerald {
-  background: #e1f3ec;
+  background: var(--emerald-bg);
   color: var(--emerald);
 }
 .sb-btn {
@@ -272,7 +317,7 @@ a {
   border-radius: 7px;
   padding: 8px 10px;
   width: 100%;
-  background: #fff;
+  background: var(--card);
 }
 .sb-input:focus {
   outline: 2px solid var(--emerald);
@@ -297,7 +342,7 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #fbf8f5;
+  background: var(--card-soft);
   outline: none;
 }
 .sb-image-upload:focus-within {
@@ -309,7 +354,7 @@ a {
   border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
-  background: #fff;
+  background: var(--card);
   border: 1px solid var(--line);
 }
 .sb-image-upload-preview img {
@@ -325,9 +370,9 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f2f1ef;
+  background: var(--paper);
   border: 1px dashed var(--line);
-  color: #a6a29d;
+  color: var(--text-faint);
 }
 .sb-image-upload-actions {
   display: flex;
@@ -367,7 +412,7 @@ a {
 .sb-toggle-group {
   display: flex;
   gap: 2px;
-  background: #eeecea;
+  background: var(--toggle-bg);
   border-radius: 8px;
   padding: 3px;
 }
@@ -380,11 +425,11 @@ a {
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
-  color: #726e6c;
+  color: var(--toggle-color);
 }
 .sb-toggle-item.active {
-  background: #fff;
-  color: var(--accent-deep);
+  background: var(--card);
+  color: var(--accent-text);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 .sb-ticker {
@@ -392,7 +437,7 @@ a {
   overflow: hidden;
   position: relative;
   border-radius: 8px;
-  background: #fbf8f5;
+  background: var(--card-soft);
   border: 1px solid var(--line);
   mask-image: linear-gradient(180deg, transparent, #000 8%, #000 92%, transparent);
 }
@@ -550,7 +595,7 @@ a {
   width: 56px;
   height: 56px;
   border-radius: 10px;
-  background: #f2f1ef;
+  background: var(--paper);
   border: 1px dashed var(--line);
   display: flex;
   align-items: center;
@@ -608,7 +653,7 @@ a {
   gap: 18px;
   margin-top: 12px;
   padding: 10px 12px;
-  background: #f8f7f5;
+  background: var(--card-soft);
   border-radius: 8px;
   border: 1px solid var(--line);
 }
@@ -622,11 +667,11 @@ a {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #8a8682;
+  color: var(--text-faint);
 }
 .sb-paiement-info {
   padding: 14px;
-  background: #f8f7f5;
+  background: var(--card-soft);
   border-radius: 10px;
   border: 1px solid var(--line);
 }
@@ -636,7 +681,7 @@ a {
   gap: 18px;
   margin-top: 12px;
   padding: 10px 12px;
-  background: #f8f7f5;
+  background: var(--card-soft);
   border-radius: 8px;
   border: 1px solid var(--line);
 }
@@ -650,7 +695,7 @@ a {
   font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #8a8682;
+  color: var(--text-faint);
 }
 .sb-preview-prix strong {
   font-family: "IBM Plex Mono", monospace;
@@ -667,7 +712,7 @@ a {
   font-size: 13px;
 }
 .sb-resume-commande span {
-  color: #6e6b68;
+  color: var(--muted);
 }
 .sb-resume-commande strong {
   font-family: "IBM Plex Mono", monospace;
@@ -698,7 +743,7 @@ a {
   width: 72px;
   height: 72px;
   border-radius: 20px;
-  background: #f8f7f5;
+  background: var(--card-soft);
   border: 1px solid var(--line);
   display: flex;
   align-items: center;
@@ -715,7 +760,7 @@ a {
   font-family: "Space Grotesk", sans-serif;
   font-weight: 700;
   font-size: 26px;
-  color: var(--accent-deep);
+  color: var(--accent-text);
 }
 .sb-catalogue-banner-name {
   font-family: "Space Grotesk", sans-serif;
@@ -777,7 +822,7 @@ a {
   font-family: "IBM Plex Mono", monospace;
   font-weight: 700;
   font-size: 14px;
-  color: var(--accent-deep);
+  color: var(--accent-text);
 }
 .sb-catalogue-unite {
   font-family: "Inter", sans-serif;
@@ -796,7 +841,7 @@ a {
   width: 36px;
   height: 36px;
   border-radius: 7px;
-  background: #f2f1ef;
+  background: var(--paper);
   border: 1px dashed var(--line);
   display: flex;
   align-items: center;
@@ -824,7 +869,7 @@ a {
   text-align: left;
 }
 .sb-article-select-placeholder {
-  color: #8a8682;
+  color: var(--text-faint);
   flex: 1;
 }
 .sb-article-select-label {
@@ -835,14 +880,14 @@ a {
 }
 .sb-article-select-chevron {
   flex-shrink: 0;
-  color: #8a8682;
+  color: var(--text-faint);
 }
 .sb-article-select-thumb {
   width: 26px;
   height: 26px;
   border-radius: 6px;
-  background: #f2f1ef;
-  color: #a6a29d;
+  background: var(--paper);
+  color: var(--text-faint);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -860,7 +905,7 @@ a {
   left: 0;
   right: 0;
   z-index: 20;
-  background: #fff;
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 9px;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
@@ -883,7 +928,7 @@ a {
   cursor: pointer;
 }
 .sb-article-select-item:hover:not(:disabled) {
-  background: #f2f1ef;
+  background: var(--card-soft);
 }
 .sb-article-select-item.active {
   background: var(--accent-soft);
@@ -1356,8 +1401,8 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f2f1ef;
-  color: #6e6b68;
+  background: var(--paper);
+  color: var(--muted);
   font-family: "Inter", sans-serif;
   font-size: 13.5px;
 }
@@ -1367,16 +1412,16 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f2f1ef;
+  background: var(--paper);
   font-family: "Inter", sans-serif;
-  color: #2e2c2b;
+  color: var(--ink);
   padding: 20px;
 }
 .sb-auth-card {
   width: 100%;
   max-width: 380px;
-  background: #fff;
-  border: 1px solid #e1dedc;
+  background: var(--card);
+  border: 1px solid var(--line);
   border-radius: 14px;
   padding: 30px 28px;
 }
@@ -1387,17 +1432,17 @@ a {
   margin-bottom: 4px;
 }
 .sb-auth-brand span {
-  color: #e07a29;
+  color: var(--accent);
 }
 .sb-auth-sub {
   font-size: 13px;
-  color: #6e6b68;
+  color: var(--muted);
   margin-bottom: 20px;
 }
 .sb-auth-tabs {
   display: flex;
   gap: 2px;
-  background: #eeecea;
+  background: var(--toggle-bg);
   border-radius: 8px;
   padding: 3px;
   margin-bottom: 18px;
@@ -1412,11 +1457,11 @@ a {
   padding: 8px 10px;
   border-radius: 6px;
   cursor: pointer;
-  color: #726e6c;
+  color: var(--toggle-color);
 }
 .sb-auth-tab.active {
-  background: #fff;
-  color: #c7601a;
+  background: var(--card);
+  color: var(--accent-text);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 .sb-auth-field {
@@ -1428,7 +1473,7 @@ a {
 .sb-auth-field label {
   font-size: 11.5px;
   font-weight: 600;
-  color: #6e6b68;
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -1446,7 +1491,7 @@ a {
   transform: translateY(-50%);
   border: none;
   background: transparent;
-  color: #8a8682;
+  color: var(--text-faint);
   cursor: pointer;
   padding: 6px;
   display: flex;
@@ -1456,19 +1501,19 @@ a {
 }
 .sb-auth-password-toggle:hover {
   color: var(--ink);
-  background: #f2f1ef;
+  background: var(--paper);
 }
 .sb-auth-error {
-  background: #fbe7e1;
-  color: #c24e37;
+  background: var(--coral-bg);
+  color: var(--coral);
   font-size: 12.5px;
   padding: 9px 12px;
   border-radius: 8px;
   margin-bottom: 14px;
 }
 .sb-auth-info {
-  background: #e1f3ec;
-  color: #0e8f6e;
+  background: var(--emerald-bg);
+  color: var(--emerald);
   font-size: 12.5px;
   padding: 9px 12px;
   border-radius: 8px;
@@ -1477,17 +1522,17 @@ a {
 .sb-auth-footer {
   text-align: center;
   font-size: 11px;
-  color: #a6a29d;
+  color: var(--text-faint);
   margin-top: 18px;
 }
 .sb-auth-legal-links {
   text-align: center;
   font-size: 11px;
-  color: #a6a29d;
+  color: var(--text-faint);
   margin-top: 8px;
 }
 .sb-auth-legal-links a {
-  color: #a6a29d;
+  color: var(--text-faint);
   text-decoration: underline;
 }
 .sb-auth-legal-links a:hover {
@@ -1499,7 +1544,7 @@ a {
   gap: 8px;
   font-size: 12px;
   line-height: 1.4;
-  color: #6e6b68;
+  color: var(--muted);
   margin-bottom: 14px;
   cursor: pointer;
 }
@@ -1508,7 +1553,7 @@ a {
   flex-shrink: 0;
 }
 .sb-auth-consent a {
-  color: #c7601a;
+  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -1517,14 +1562,14 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f2f1ef;
+  background: var(--paper);
   padding: 20px;
 }
 .sb-pending-card {
   width: 100%;
   max-width: 480px;
-  background: #fff;
-  border: 1px solid #e1dedc;
+  background: var(--card);
+  border: 1px solid var(--line);
   border-radius: 14px;
   padding: 32px 30px;
   text-align: center;
@@ -1533,8 +1578,8 @@ a {
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: #fbf0df;
-  color: #c9862b;
+  background: var(--amber-bg);
+  color: var(--amber);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1548,15 +1593,15 @@ a {
 
 .sb-legal-screen {
   min-height: 100vh;
-  background: #f2f1ef;
+  background: var(--paper);
   padding: 32px 20px 60px;
 }
 .sb-legal-card {
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  background: #fff;
-  border: 1px solid #e1dedc;
+  background: var(--card);
+  border: 1px solid var(--line);
   border-radius: 14px;
   padding: 32px 36px 40px;
 }
@@ -1566,7 +1611,7 @@ a {
   gap: 6px;
   border: none;
   background: none;
-  color: #6e6b68;
+  color: var(--muted);
   font-family: "Inter", sans-serif;
   font-size: 13px;
   font-weight: 600;
@@ -1579,7 +1624,7 @@ a {
 }
 .sb-legal-content {
   font-family: "Inter", sans-serif;
-  color: #2e2c2b;
+  color: var(--ink);
   font-size: 14px;
   line-height: 1.65;
 }
@@ -1590,7 +1635,7 @@ a {
   margin: 0 0 6px;
 }
 .sb-legal-content h1 + p em {
-  color: #8a8682;
+  color: var(--text-faint);
   font-style: normal;
   font-size: 12.5px;
 }
@@ -1600,7 +1645,7 @@ a {
   font-weight: 700;
   margin: 30px 0 10px;
   padding-top: 16px;
-  border-top: 1px solid #e4e2d8;
+  border-top: 1px solid var(--line);
 }
 .sb-legal-content h2:first-of-type {
   border-top: none;
@@ -1625,10 +1670,10 @@ a {
   color: var(--ink);
 }
 .sb-legal-content a {
-  color: var(--accent-deep, #c7601a);
+  color: var(--accent-text, #c7601a);
 }
 .sb-legal-content hr {
   border: none;
-  border-top: 1px solid #e4e2d8;
+  border-top: 1px solid var(--line);
   margin: 20px 0;
 }

@@ -180,7 +180,7 @@ export default function TresoreriePage() {
           </div>
           <div className="sb-card">
             <div className="sb-stat-label">{t("tresorerie.margeTotale")}</div>
-            <div className="sb-stat-value" style={{ color: "#0E8F6E" }}>
+            <div className="sb-stat-value" style={{ color: "var(--emerald)" }}>
               {fmt(totaux.marge)}
             </div>
           </div>
@@ -206,20 +206,23 @@ export default function TresoreriePage() {
             </div>
           </div>
           {aucuneDonnee ? (
-            <p style={{ fontSize: 13, color: "#6B6A63" }}>{t("tresorerie.aucuneDonnee")}</p>
+            <p style={{ fontSize: 13, color: "var(--muted)" }}>{t("tresorerie.aucuneDonnee")}</p>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <ComposedChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E4E2D8" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#6B6A63" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#6B6A63" }} axisLine={false} tickLine={false} width={44} />
-                <Tooltip formatter={(v) => fmt(v)} contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #E4E2D8" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--muted)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--muted)" }} axisLine={false} tickLine={false} width={44} />
+                <Tooltip
+                  formatter={(v) => fmt(v)}
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink)" }}
+                />
                 <Legend
                   wrapperStyle={{ fontSize: 12 }}
                   formatter={(v) => (v === "ca" ? t("tresorerie.legendCa") : t("tresorerie.legendMarge"))}
                 />
                 <Bar dataKey="ca" name="ca" fill={accent} radius={[5, 5, 0, 0]} />
-                <Bar dataKey="marge" name="marge" fill="#0E8F6E" radius={[5, 5, 0, 0]} />
+                <Bar dataKey="marge" name="marge" fill="var(--emerald)" radius={[5, 5, 0, 0]} />
               </ComposedChart>
             </ResponsiveContainer>
           )}

@@ -71,7 +71,9 @@ sur `parametres_globaux` — voir « Aide / Support » plus bas ; nécessite
 `supabase-revenus-admin-migration.sql` (colonne `valide_at` sur
 `paiements_abonnement`, avec rétro-remplissage pour les paiements déjà
 validés — voir « Revenus Doka » plus bas ; nécessite
-`supabase-paiements-manuels-migration.sql`).
+`supabase-paiements-manuels-migration.sql`), et enfin
+`supabase-mode-affichage-migration.sql` (colonne `mode_affichage` sur
+`businesses`, `clair` par défaut — voir « Mode sombre » plus bas).
 
 ## Variables d'environnement
 
@@ -411,6 +413,65 @@ Confirmée/Annulée/En attente, Actif/Désactivé, et les boutons emerald de
 succès) restent volontairement indépendantes du thème — elles portent un
 sens (danger/avertissement/succès) qui ne doit pas varier avec la couleur de
 marque choisie par le commerçant.
+
+## Mode sombre
+
+Indépendant de la couleur d'accent ci-dessus. Trois réglages
+(`businesses.mode_affichage` : `clair` / `sombre` / `auto`, `clair` par
+défaut pour tout nouveau compte) — sélecteur complet dans Paramètres, et
+accès rapide dans la sidebar (icône qui fait défiler les trois options
+sans quitter la page). `auto` suit `prefers-color-scheme` du système et se
+met à jour en direct si l'utilisateur change de réglage pendant que l'app
+est ouverte.
+
+**Résolution centralisée dans `lib/AuthProvider.js`** plutôt que dans
+`(app)/layout.js` (à la différence de la couleur d'accent) : un graphique
+Recharts (Dashboard, Trésorerie, Revenus Doka) a besoin de connaître le
+mode effectif en JavaScript, pas seulement en CSS, donc `effectiveTheme`
+('light' | 'dark') est calculé une fois et exposé par `useAuth()` à toute
+l'application. Le calcul est un dérivé pur du rendu (pas de `setState`
+dans le corps d'un effect) ; seul le mode `auto` a besoin d'un état
+(`systemPrefersDark`, initialisé directement depuis `matchMedia` pendant
+le rendu), mis à jour par un effect qui ne fait qu'écouter l'évènement
+`change` — jamais d'appel à `setState` synchrone dans son corps. Un
+second effect, séparé, pose `data-theme` sur `<html>` à partir
+d'`effectiveTheme`.
+
+**`app/globals.css`** définit deux jeux de variables sémantiques —
+`:root` (clair, valeurs historiques inchangées) et `:root[data-theme="dark"]`
+(fonds/textes recalibrés) : `--ink`, `--paper`, `--card`, `--card-soft`,
+`--line`, `--muted`, `--text-faint`, `--emerald`/`--amber`/`--coral` (+
+leurs variantes `-bg` pour les badges), `--toggle-bg`/`--toggle-color`. La
+couleur d'accent (`--accent`/`--accent-deep`/`--accent-soft`) n'est
+volontairement **pas** redéfinie ici : elle reste celle choisie par le
+commerçant dans les deux modes, comme demandé. Seule exception :
+`--accent-text`, une variable dédiée au texte sur fond neutre (pas un fond
+de bouton) — `theme.deep` est calibré pour du texte sur fond blanc, et
+tombe sous 3:1 de contraste sur une carte sombre pour cinq des six
+couleurs de `THEMES` ; `--accent-text` bascule donc sur `theme.soft` en
+mode sombre (déjà posé par la même couleur choisie par le commerçant), qui
+reste ≥ 8:1 sur fond sombre pour les six couleurs. Vérifié par calcul de
+contraste WCAG sur toutes les paires texte/fond du système de variables
+(texte principal ≥ 13:1, textes secondaires ≥ 4.7:1, couleurs de statut
+≥ 5.9:1) et par capture d'écran comparative clair/sombre.
+
+**Couvre toute l'application**, pas seulement les nouveaux écrans : les
+~120 couleurs jusque-là écrites en dur dans les styles JSX (`color:
+"#6E6B68"`, `background: "#fff"`...) ont été remplacées par ces variables
+dans les 15 fichiers concernés (toutes les pages de `(app)/`, plus
+`ImageUploadField`, `LogoPlatformUpload`, `Pagination`,
+`PaiementAbonnement`, `PendingSubscription`), y compris les écrans de
+connexion/légaux/abonnement en attente qui partagent le même système de
+variables. Les couleurs des graphiques Recharts passées en props JS
+(grille, tooltip) suivent aussi ces variables — `fill`/`stroke` en SVG
+résolvent `var()` comme n'importe quelle propriété CSS.
+
+**Volontairement laissés en clair, quel que soit le mode d'affichage** :
+les mises en page d'impression (Trésorerie, Revenus Doka, Catalogue, reçu)
+— personne n'imprime un rapport sur fond noir — et `components/Receipt.js`
+dans son ensemble (aperçu à l'écran inclus), traité comme un document
+prévu pour l'impression/le partage WhatsApp plutôt que comme un écran de
+navigation, donc cohérent quel que soit le thème de l'app.
 
 ## Langue
 
