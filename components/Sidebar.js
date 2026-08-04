@@ -92,15 +92,26 @@ export default function Sidebar({ business, onSignOut, onChangeMode }) {
           </div>
         )}
       </div>
-      <button
-        type="button"
-        className="sb-menu-toggle"
-        onClick={() => setMenuOpen((v) => !v)}
-        aria-label={menuOpen ? t("sidebar.fermerMenu") : t("sidebar.ouvrirMenu")}
-        aria-expanded={menuOpen}
-      >
-        {menuOpen ? <X size={20} /> : <Menu size={20} />}
-      </button>
+      <div className="sb-mobile-actions">
+        <button
+          type="button"
+          className="sb-menu-toggle"
+          onClick={cyclerModeAffichage}
+          aria-label={t("sidebar.modeAffichageLabel", { mode: modeLabel })}
+          title={t("sidebar.modeAffichageLabel", { mode: modeLabel })}
+        >
+          <ModeIcon size={20} />
+        </button>
+        <button
+          type="button"
+          className="sb-menu-toggle"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label={menuOpen ? t("sidebar.fermerMenu") : t("sidebar.ouvrirMenu")}
+          aria-expanded={menuOpen}
+        >
+          {menuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </div>
       {menuOpen && <div className="sb-nav-backdrop" onClick={() => setMenuOpen(false)} />}
       <nav className={`sb-nav${menuOpen ? " sb-nav-open" : ""}`}>
         {navItems.map((item) => (
@@ -113,15 +124,6 @@ export default function Sidebar({ business, onSignOut, onChangeMode }) {
             onClick={() => setMenuOpen(false)}
           />
         ))}
-        <button
-          className="sb-nav-item"
-          onClick={cyclerModeAffichage}
-          type="button"
-          title={t("sidebar.modeAffichageLabel", { mode: modeLabel })}
-        >
-          <ModeIcon size={16} />
-          {modeLabel}
-        </button>
         <button className="sb-nav-item" onClick={onSignOut} type="button">
           <LogOut size={16} />
           {t("sidebar.logout")}

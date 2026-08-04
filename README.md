@@ -418,11 +418,23 @@ marque choisie par le commerçant.
 
 Indépendant de la couleur d'accent ci-dessus. Trois réglages
 (`businesses.mode_affichage` : `clair` / `sombre` / `auto`, `clair` par
-défaut pour tout nouveau compte) — sélecteur complet dans Paramètres, et
-accès rapide dans la sidebar (icône qui fait défiler les trois options
-sans quitter la page). `auto` suit `prefers-color-scheme` du système et se
-met à jour en direct si l'utilisateur change de réglage pendant que l'app
-est ouverte.
+défaut pour tout nouveau compte). `auto` suit `prefers-color-scheme` du
+système et se met à jour en direct si l'utilisateur change de réglage
+pendant que l'app est ouverte.
+
+**Deux points d'accès, adaptés à chaque taille d'écran** (`components/Sidebar.js`) :
+sur ordinateur, la sidebar occupe une largeur fixe et n'a pas la place pour
+un sélecteur à trois options sans surcharger l'espace du nom de la
+boutique — le réglage complet vit donc uniquement dans Paramètres, juste
+en dessous de « Thème de couleur », avec le même style `sb-toggle-group`
+que Devise/Langue. Sur mobile, où la sidebar devient une barre horizontale
+en haut de l'écran, une icône seule (soleil/lune/moniteur selon le mode
+actuel) apparaît juste à côté du bouton menu ☰ — un clic fait défiler
+clair → sombre → automatique → clair, sans texte ni menu déroulant à cet
+endroit. Les deux boutons partagent la classe `.sb-mobile-actions`
+(`display: none` par défaut, visible uniquement sous 860px via la même
+media query que le bouton ☰), donc invisible sur desktop où le réglage
+complet dans Paramètres suffit.
 
 **Résolution centralisée dans `lib/AuthProvider.js`** plutôt que dans
 `(app)/layout.js` (à la différence de la couleur d'accent) : un graphique

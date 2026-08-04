@@ -189,6 +189,12 @@ a {
 .sb-menu-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
 }
+/* Regroupe le bouton menu ☰ et l'icône de mode d'affichage sur la même
+   ligne, en haut de l'écran, uniquement sur mobile (voir Sidebar.js) —
+   sur ordinateur le réglage complet vit dans Paramètres, pas ici. */
+.sb-mobile-actions {
+  display: none;
+}
 .sb-nav-backdrop {
   display: none;
 }
@@ -503,7 +509,11 @@ a {
   }
   .sb-menu-toggle {
     display: inline-flex;
-    margin-right: 12px;
+  }
+  .sb-mobile-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
   /* Panneau coulissant : superposé au contenu (position: fixed le sort du
      flux, donc l'ordre dans le DOM n'affecte plus la barre brand/bouton),
