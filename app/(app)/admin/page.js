@@ -212,6 +212,9 @@ export default function AdminPage() {
       setWaveMsg(t("admin.waveMontantInvalide"));
       return;
     }
+    // wave_telephone reste une chaîne de caractères (jamais Number(...)) :
+    // un numéro local commence par 0, et convertir en nombre le
+    // supprimerait silencieusement (ex. "0700000000" → 700000000).
     const { data, error } = await supabase
       .from("parametres_globaux")
       .update({
@@ -232,6 +235,8 @@ export default function AdminPage() {
 
   async function enregistrerSupport() {
     if (!parametresGlobaux) return;
+    // Même remarque que wave_telephone : chaîne de caractères, jamais
+    // Number(...), pour ne jamais perdre le 0 initial d'un numéro local.
     const { data, error } = await supabase
       .from("parametres_globaux")
       .update({ support_telephone: supportTelDraft.trim() || null })
@@ -474,6 +479,7 @@ export default function AdminPage() {
             <label>{t("admin.waveTelLabel")}</label>
             <input
               className="sb-input"
+              type="tel"
               placeholder={t("admin.waveTelPlaceholder")}
               value={waveTelDraft}
               onChange={(e) => {
@@ -518,6 +524,7 @@ export default function AdminPage() {
           <label>{t("admin.supportTelLabel")}</label>
           <input
             className="sb-input"
+            type="tel"
             placeholder={t("admin.supportTelPlaceholder")}
             value={supportTelDraft}
             onChange={(e) => {
