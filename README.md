@@ -73,7 +73,11 @@ sur `parametres_globaux` — voir « Aide / Support » plus bas ; nécessite
 validés — voir « Revenus Doka » plus bas ; nécessite
 `supabase-paiements-manuels-migration.sql`), et enfin
 `supabase-mode-affichage-migration.sql` (colonne `mode_affichage` sur
-`businesses`, `clair` par défaut — voir « Mode sombre » plus bas).
+`businesses`, `clair` par défaut — voir « Mode sombre » plus bas), et
+enfin `supabase-telephone-text-migration.sql` (garantit explicitement que
+`wave_telephone`/`support_telephone` sont bien de type `text` — voir
+« Aide / Support » plus bas ; nécessite
+`supabase-support-telephone-migration.sql`).
 
 ## Variables d'environnement
 
@@ -835,6 +839,19 @@ simple : pas de formulaire de ticket, seulement deux moyens de contact.
   configuré, le bouton est remplacé par une note invitant à utiliser
   l'e-mail à la place plutôt que de retomber silencieusement sur le
   numéro Wave.
+
+  **Toujours du texte, jamais un nombre** : un numéro local commence par
+  0 (ex. `0700000000`), un chiffre qu'une conversion en nombre supprime
+  silencieusement. `wave_telephone`/`support_telephone` sont des colonnes
+  `text` (garanti explicitement par
+  `supabase-telephone-text-migration.sql`), les champs de saisie dans
+  Administration sont des `<input type="tel">` (jamais `type="number"`),
+  et l'enregistrement ne fait qu'un `.trim()` — jamais `Number(...)`.
+  `toWhatsAppNumber` convertit aussi son entrée via `String(tel ?? "")`
+  avant de retirer les caractères non numériques, par sécurité si une
+  valeur non textuelle lui parvenait malgré tout ; le seul chiffre qu'elle
+  retire intentionnellement est le 0 initial, remplacé par l'indicatif
+  pays 225.
 - **E-mail** : adresse fixe `contact@doka.ci`, bouton `mailto:` en repli.
 
 ## Structure
