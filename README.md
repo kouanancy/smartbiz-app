@@ -849,9 +849,11 @@ simple : pas de formulaire de ticket, seulement deux moyens de contact.
   et l'enregistrement ne fait qu'un `.trim()` — jamais `Number(...)`.
   `toWhatsAppNumber` convertit aussi son entrée via `String(tel ?? "")`
   avant de retirer les caractères non numériques, par sécurité si une
-  valeur non textuelle lui parvenait malgré tout ; le seul chiffre qu'elle
-  retire intentionnellement est le 0 initial, remplacé par l'indicatif
-  pays 225.
+  valeur non textuelle lui parvenait malgré tout. Depuis la réforme de
+  numérotation ivoirienne à 10 chiffres (2021), le 0 initial fait partie
+  du numéro et n'est jamais retiré : la fonction se contente de préfixer
+  l'indicatif pays 225 devant les chiffres complets (ex. `0710685710` →
+  `2250710685710`).
 - **E-mail** : adresse fixe `contact@doka.ci`, bouton `mailto:` en repli.
 
 ## Structure
