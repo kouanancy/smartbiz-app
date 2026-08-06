@@ -77,7 +77,12 @@ validés — voir « Revenus Doka » plus bas ; nécessite
 enfin `supabase-telephone-text-migration.sql` (garantit explicitement que
 `wave_telephone`/`support_telephone` sont bien de type `text` — voir
 « Aide / Support » plus bas ; nécessite
-`supabase-support-telephone-migration.sql`).
+`supabase-support-telephone-migration.sql`), et enfin
+`supabase-notifications-migration.sql` (nouvelle table `notifications`,
+RLS, déclencheur sur `paiements_abonnement` et fonction de génération des
+rappels d'expiration — voir « Centre de notifications » plus bas ;
+nécessite `supabase-businesses-admin-migration.sql` et
+`supabase-paiements-manuels-migration.sql`).
 
 ## Variables d'environnement
 
@@ -86,6 +91,10 @@ API** dans Supabase. La clé publique (`sb_publishable_...` ou l'ancienne clé
 `anon`) est faite pour être exposée côté client — la sécurité est assurée par
 les règles RLS définies dans `smartbiz-schema.sql`, pas par le secret de la
 clé.
+
+`SUPABASE_SERVICE_ROLE_KEY` et `CRON_SECRET` sont requises uniquement pour
+le rappel d'expiration planifié (voir « Centre de notifications » plus
+bas) — sans elles, le reste de l'application fonctionne normalement.
 
 `.env.local` n'est jamais commité (voir `.gitignore`).
 
@@ -715,6 +724,65 @@ carte dédiée dans Paramètres (visible si `business.is_admin`) réutilisant
 
 Nécessite `supabase-paiements-manuels-migration.sql` (voir Démarrage), à
 exécuter après `supabase-businesses-admin-migration.sql`.
+
+## Centre de notifications
+
+Une cloche (badge = nombre de notifications non lues) ouvre un panneau
+listant les notifications de la boutique connectée, les plus récentes en
+premier — placée dans la sidebar sur ordinateur (à côté du nom de la
+boutique) et à côté du menu ☰ sur mobile. `lib/NotificationsProvider.js`
+(même structure que `AuthProvider`) centralise l'état (liste, compteur non
+lues, marquage individuel ou global) ; `components/NotificationBell.js` est
+la partie visuelle, montée deux fois dans `Sidebar.js` (une seule visible à
+la fois selon la largeur d'écran, l'autre masquée en CSS) pour partager le
+même état sans dupliquer les requêtes.
+
+**Deux types de notifications**, générées uniquement côté base (jamais
+insérées depuis le client — voir RLS plus bas) :
+
+- **`abonnement_expire`** (commerçant) : dès que `subscription_expires_at`
+  passe sous 3 jours. Générée par la fonction SQL
+  `generer_notifications_expiration()`, appelée une fois par jour par
+  `app/api/cron/expiration-reminders` (Vercel Cron, voir `vercel.json`,
+  06:00 UTC). Une colonne `dedupe_key` (`abonnement_expire:<business_id>:<date
+  d'expiration>`) avec un index unique garantit qu'une échéance donnée ne
+  génère jamais qu'une seule notification, même si la tâche tourne
+  plusieurs fois le même jour ou que le commerçant se reconnecte entre-temps
+  — contrairement à une vérification faite à chaque connexion (comme
+  `verifierExpirationAbonnement`), qui aurait dupliqué la notification à
+  chaque rechargement. **En plus** de la notification en base, un e-mail de
+  rappel est envoyé via Resend (même mécanisme que `notify-admin-payment`)
+  — les deux canaux coexistent, et l'e-mail n'est envoyé que pour les
+  boutiques réellement notifiées cette fois-ci (donc, comme la notification,
+  une seule fois par échéance).
+- **`paiement_a_verifier`** (administratrice) : créée immédiatement par un
+  déclencheur SQL (`trg_notifier_admins_nouveau_justificatif`) dès qu'une
+  ligne `paiements_abonnement` est insérée avec `statut = 'en_attente'` —
+  donc à chaque envoi de justificatif (voir « Paiement manuel vérifié »
+  ci-dessus), sans rien changer côté `PaiementAbonnement.js`. Une
+  notification est créée pour chaque boutique `is_admin = true`.
+
+**Sécurité RLS** : la table `notifications` n'a de policy que pour
+`select` et `update`, toutes deux limitées à
+`business_id in (select id from businesses where owner_id = auth.uid())` —
+un commerçant ne voit et ne peut marquer comme lues que ses propres
+notifications, l'administratrice les siennes (dont ses
+`paiement_a_verifier`). Aucune policy `insert`/`delete` pour le rôle
+`authenticated` : toute création passe par les fonctions/déclencheurs
+`SECURITY DEFINER` ci-dessus (comme les fonctions `admin_*` de « Espace
+Administration »), jamais directement depuis le client.
+`generer_notifications_expiration()` n'est accordée à aucun rôle client
+(ni `authenticated` ni `anon`) — seule la route cron, avec la clé
+`service_role`, peut l'appeler.
+
+Nécessite `supabase-notifications-migration.sql` (voir Démarrage), à
+exécuter après `supabase-businesses-admin-migration.sql` et
+`supabase-paiements-manuels-migration.sql`. Le rappel d'expiration
+planifié nécessite en plus `SUPABASE_SERVICE_ROLE_KEY` et `CRON_SECRET`
+(voir `.env.local.example`) — sans elles, la route cron refuse de
+s'exécuter (500) plutôt que de tourner sans protection ou sans les droits
+nécessaires ; le reste du centre de notifications (cloche, panneau,
+notification de justificatif) fonctionne normalement sans elles.
 
 ## Logo Doka (marque de la plateforme)
 

@@ -189,6 +189,139 @@ a {
 .sb-menu-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
 }
+/* Comme .sb-menu-toggle mais toujours affiché (pas seulement sur mobile) —
+   utilisé par le bouton de mode d'affichage mobile et par la cloche de
+   notifications, qui elle doit rester visible sur ordinateur aussi. */
+.sb-icon-btn {
+  background: transparent;
+  border: none;
+  color: #edebe8;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sb-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.sb-notif-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.sb-notif-toggle {
+  position: relative;
+}
+.sb-notif-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 20px;
+  background: var(--coral);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sb-notif-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  max-width: 86vw;
+  max-height: 420px;
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+  z-index: 90;
+  color: var(--ink);
+}
+.sb-notif-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.sb-notif-marktoutes {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+.sb-notif-empty {
+  padding: 22px 14px;
+  font-size: 12.5px;
+  color: var(--muted);
+  text-align: center;
+  margin: 0;
+}
+.sb-notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sb-notif-item {
+  border-bottom: 1px dashed var(--line);
+}
+.sb-notif-item:last-child {
+  border-bottom: none;
+}
+.sb-notif-item-unread {
+  background: var(--amber-bg);
+}
+.sb-notif-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--ink);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.sb-notif-message {
+  margin: 0 0 3px;
+  line-height: 1.4;
+}
+.sb-notif-date {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+/* Cloche desktop : dans la sidebar (voir .sb-brand-row), à côté du nom de
+   la boutique — masquée sur mobile, où une deuxième instance vit dans
+   .sb-mobile-actions à côté du ☰ (voir Sidebar.js et la media query
+   ci-dessous). Les deux partagent le même état via NotificationsProvider,
+   une seule des deux est jamais visible à la fois. */
+.sb-notif-desktop {
+  display: inline-flex;
+}
+.sb-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 /* Regroupe le bouton menu ☰ et l'icône de mode d'affichage sur la même
    ligne, en haut de l'écran, uniquement sur mobile (voir Sidebar.js) —
    sur ordinateur le réglage complet vit dans Paramètres, pas ici. */
@@ -514,6 +647,12 @@ a {
     display: flex;
     align-items: center;
     gap: 4px;
+  }
+  .sb-notif-desktop {
+    display: none;
+  }
+  .sb-notif-panel {
+    right: -8px;
   }
   /* Panneau coulissant : superposé au contenu (position: fixed le sort du
      flux, donc l'ordre dans le DOM n'affecte plus la barre brand/bouton),
