@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthProvider";
+import { NotificationsProvider } from "@/lib/NotificationsProvider";
 import { supabase } from "@/lib/supabaseClient";
 import { THEMES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
@@ -70,9 +71,11 @@ export default function AppLayout({ children }) {
   }
 
   return (
-    <div className="sb-root">
-      <Sidebar business={business} onSignOut={signOut} onChangeMode={changerModeAffichage} />
-      <main className="sb-main">{children}</main>
-    </div>
+    <NotificationsProvider businessId={business.id}>
+      <div className="sb-root">
+        <Sidebar business={business} onSignOut={signOut} onChangeMode={changerModeAffichage} />
+        <main className="sb-main">{children}</main>
+      </div>
+    </NotificationsProvider>
   );
 }

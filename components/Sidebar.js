@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { t as tBase } from "@/lib/i18n";
 import { MODES_AFFICHAGE } from "@/lib/constants";
+import NotificationBell from "@/components/NotificationBell";
 
 const MODE_ICON = { clair: Sun, sombre: Moon, auto: Monitor };
 
@@ -76,16 +77,21 @@ export default function Sidebar({ business, onSignOut, onChangeMode }) {
   return (
     <aside className="sb-sidebar">
       <div className="sb-brand">
-        {logo ? (
-          <div className="sb-brand-logo">
-            <img src={logo} alt={businessName || t("common.defaultBusinessName")} />
-            <span>{businessName || t("common.defaultBusinessName")}</span>
+        <div className="sb-brand-row">
+          <div className="sb-brand-title">
+            {logo ? (
+              <div className="sb-brand-logo">
+                <img src={logo} alt={businessName || t("common.defaultBusinessName")} />
+                <span>{businessName || t("common.defaultBusinessName")}</span>
+              </div>
+            ) : businessName ? (
+              <span>{businessName}</span>
+            ) : (
+              <span>Doka</span>
+            )}
           </div>
-        ) : businessName ? (
-          <span>{businessName}</span>
-        ) : (
-          <span>Doka</span>
-        )}
+          <NotificationBell business={business} className="sb-notif-desktop" />
+        </div>
         {joursRestants !== null && (
           <div className="sb-trial-badge">
             <Clock size={11} /> {t("sidebar.essaiJoursRestants", { n: joursRestants })}
@@ -93,9 +99,10 @@ export default function Sidebar({ business, onSignOut, onChangeMode }) {
         )}
       </div>
       <div className="sb-mobile-actions">
+        <NotificationBell business={business} />
         <button
           type="button"
-          className="sb-menu-toggle"
+          className="sb-icon-btn"
           onClick={cyclerModeAffichage}
           aria-label={t("sidebar.modeAffichageLabel", { mode: modeLabel })}
           title={t("sidebar.modeAffichageLabel", { mode: modeLabel })}
