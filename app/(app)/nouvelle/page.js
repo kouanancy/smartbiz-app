@@ -424,6 +424,7 @@ export default function NouvelleCommandePage() {
                   onChange={setArticleSel}
                   isDisabled={(a) => a.stock <= 0}
                   placeholder={t("nouvelle.selectArticle")}
+                  emptyLabel={t("common.aucunResultatArticle")}
                   getLabel={(a) => `${a.nom} — ${fmt(a.prix_vente)} ${t("nouvelle.stockSuffix", { n: a.stock, unite: uniteLabel(a.unite) })}`}
                 />
               </div>

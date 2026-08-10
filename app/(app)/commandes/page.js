@@ -10,6 +10,7 @@ import { t as tBase } from "@/lib/i18n";
 import { exportToExcel, dateFichier } from "@/lib/exportExcel";
 import Receipt from "@/components/Receipt";
 import Pagination from "@/components/Pagination";
+import ArticleSelect from "@/components/ArticleSelect";
 
 const STATUT_BADGE_CLASS = {
   en_attente: "sb-badge-amber",
@@ -486,15 +487,15 @@ export default function CommandesPage() {
             <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
               <div className="sb-field" style={{ flex: 2, minWidth: 160 }}>
                 <label>{t("commandes.articleLabel")}</label>
-                <select className="sb-input" value={editArticleSel} onChange={(e) => setEditArticleSel(e.target.value)}>
-                  <option value="">{t("commandes.selectArticle")}</option>
-                  {articles.map((a) => (
-                    <option key={a.id} value={a.id} disabled={stockDispoEdition(a.id) < 1}>
-                      {a.nom} — {fmt(a.prix_vente)}{" "}
-                      {t("commandes.dispoSuffix", { n: stockDispoEdition(a.id), unite: uniteLabel(a.unite) })}
-                    </option>
-                  ))}
-                </select>
+                <ArticleSelect
+                  articles={articles}
+                  value={editArticleSel}
+                  onChange={setEditArticleSel}
+                  isDisabled={(a) => stockDispoEdition(a.id) < 1}
+                  placeholder={t("commandes.selectArticle")}
+                  emptyLabel={t("common.aucunResultatArticle")}
+                  getLabel={(a) => `${a.nom} — ${fmt(a.prix_vente)} ${t("commandes.dispoSuffix", { n: stockDispoEdition(a.id), unite: uniteLabel(a.unite) })}`}
+                />
               </div>
               <div className="sb-field" style={{ flex: 0.5, minWidth: 70 }}>
                 <label>{t("commandes.quantiteLabel")}</label>
