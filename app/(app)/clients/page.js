@@ -9,6 +9,7 @@ import { t as tBase } from "@/lib/i18n";
 import { PAGE_SIZE } from "@/lib/constants";
 import { exportToExcel, dateFichier } from "@/lib/exportExcel";
 import Pagination from "@/components/Pagination";
+import ClearableInput from "@/components/ClearableInput";
 
 const normalizeTel = (tel) => (tel || "").replace(/\D/g, "");
 
@@ -294,11 +295,11 @@ export default function ClientsPage() {
         <form onSubmit={submit} className="sb-card sb-form-grid" style={{ marginBottom: 18 }}>
           <div className="sb-field" style={{ gridColumn: "1 / 3" }}>
             <label>{t("clients.nomLabel")}</label>
-            <input
-              className="sb-input"
+            <ClearableInput
               placeholder={t("clients.nomPlaceholder")}
               value={form.nom}
               onChange={(e) => setForm({ ...form, nom: e.target.value })}
+              clearLabel={t("common.clearField")}
             />
           </div>
           <div className="sb-field" style={{ gridColumn: "1 / 3" }}>
@@ -343,16 +344,14 @@ export default function ClientsPage() {
       )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 14 }}>
-        <div style={{ position: "relative", maxWidth: 280, flex: 1, minWidth: 220 }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "var(--muted)" }} />
-          <input
-            className="sb-input"
-            style={{ paddingLeft: 30 }}
-            placeholder={t("clients.searchPlaceholder")}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
+        <ClearableInput
+          wrapStyle={{ maxWidth: 280, flex: 1, minWidth: 220 }}
+          leftIcon={<Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "var(--muted)" }} />}
+          placeholder={t("clients.searchPlaceholder")}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          clearLabel={t("common.clearField")}
+        />
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)", cursor: "pointer" }}>
           <input
             type="checkbox"
@@ -448,11 +447,11 @@ export default function ClientsPage() {
             <form onSubmit={validerEdition} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
               <div className="sb-field">
                 <label>{t("clients.nomLabel")}</label>
-                <input
-                  className="sb-input"
+                <ClearableInput
                   placeholder={t("clients.nomPlaceholder")}
                   value={editForm.nom}
                   onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
+                  clearLabel={t("common.clearField")}
                 />
               </div>
               <div className="sb-field">

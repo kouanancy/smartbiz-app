@@ -50,14 +50,18 @@ export default function Sidebar({ business, onSignOut, onChangeMode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [lastPathname, setLastPathname] = useState(pathname);
   const modeAffichage = business?.mode_affichage || "clair";
-  const ModeIcon = MODE_ICON[modeAffichage] || Sun;
+  const prochainModeAffichage = MODES_AFFICHAGE[(MODES_AFFICHAGE.indexOf(modeAffichage) + 1) % MODES_AFFICHAGE.length];
+  // L'icône représente le mode vers lequel le clic va basculer (pas le mode
+  // actuel) : une lune en mode clair invite à passer au sombre, un soleil
+  // en mode sombre invite à repasser au clair — plus intuitif qu'une icône
+  // qui ne ferait que confirmer l'état déjà visible à l'écran.
+  const ModeIcon = MODE_ICON[prochainModeAffichage] || Sun;
   const modeLabel = t(`parametres.mode${modeAffichage === "clair" ? "Clair" : modeAffichage === "sombre" ? "Sombre" : "Auto"}`);
 
   // Accès rapide : un clic fait défiler clair → sombre → automatique →
   // clair, sans passer par Paramètres.
   function cyclerModeAffichage() {
-    const i = MODES_AFFICHAGE.indexOf(modeAffichage);
-    onChangeMode?.(MODES_AFFICHAGE[(i + 1) % MODES_AFFICHAGE.length]);
+    onChangeMode?.(prochainModeAffichage);
   }
 
   // Referme le menu mobile à chaque changement de page (ajustement pendant

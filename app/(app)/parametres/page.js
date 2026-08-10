@@ -6,7 +6,7 @@ import { CheckCircle2, FileText, Palette, Plus, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase } from "@/lib/format";
-import { THEMES, MODES_AFFICHAGE } from "@/lib/constants";
+import { THEMES, MODES_AFFICHAGE, JOURS_SEMAINE } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import ImageUploadField from "@/components/ImageUploadField";
 import PaiementAbonnement from "@/components/PaiementAbonnement";
@@ -20,6 +20,8 @@ export default function ParametresPage() {
   const [emailDraft, setEmailDraft] = useState(business?.notif_email || "");
   const [confirmationEmail, setConfirmationEmail] = useState(business?.confirmation_email || false);
   const [rapportStock, setRapportStock] = useState(business?.rapport_stock || "aucun");
+  const [rapportStockHeure, setRapportStockHeure] = useState(business?.rapport_stock_heure ?? 8);
+  const [rapportStockJour, setRapportStockJour] = useState(business?.rapport_stock_jour_semaine ?? 1);
   const [savedMsg, setSavedMsg] = useState("");
   const [notifMsg, setNotifMsg] = useState("");
 
@@ -83,6 +85,16 @@ export default function ParametresPage() {
   async function changerRapportStock(key) {
     setRapportStock(key);
     await updateBusiness({ rapport_stock: key });
+  }
+
+  async function changerRapportStockHeure(h) {
+    setRapportStockHeure(h);
+    await updateBusiness({ rapport_stock_heure: h });
+  }
+
+  async function changerRapportStockJour(j) {
+    setRapportStockJour(j);
+    await updateBusiness({ rapport_stock_jour_semaine: j });
   }
 
   async function ajouterZone() {
@@ -327,6 +339,47 @@ export default function ParametresPage() {
               </button>
             ))}
           </div>
+
+          {(rapportStock === "journalier" || rapportStock === "hebdomadaire") && (
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 12 }}>
+              {rapportStock === "hebdomadaire" && (
+                <div>
+                  <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 }}>
+                    {t("parametres.rapportJourLabel")}
+                  </label>
+                  <select
+                    className="sb-input"
+                    style={{ maxWidth: 160 }}
+                    value={rapportStockJour}
+                    onChange={(e) => changerRapportStockJour(Number(e.target.value))}
+                  >
+                    {JOURS_SEMAINE.map((jour, i) => (
+                      <option key={jour} value={i}>
+                        {t(`parametres.jours.${jour}`)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 }}>
+                  {t("parametres.rapportHeureLabel")}
+                </label>
+                <select
+                  className="sb-input"
+                  style={{ maxWidth: 160 }}
+                  value={rapportStockHeure}
+                  onChange={(e) => changerRapportStockHeure(Number(e.target.value))}
+                >
+                  {Array.from({ length: 24 }, (_, h) => (
+                    <option key={h} value={h}>
+                      {String(h).padStart(2, "0")}h
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         {!business?.notif_email && (

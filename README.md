@@ -82,7 +82,10 @@ enfin `supabase-telephone-text-migration.sql` (garantit explicitement que
 RLS, déclencheur sur `paiements_abonnement` et fonction de génération des
 rappels d'expiration — voir « Centre de notifications » plus bas ;
 nécessite `supabase-businesses-admin-migration.sql` et
-`supabase-paiements-manuels-migration.sql`).
+`supabase-paiements-manuels-migration.sql`), et enfin
+`supabase-rapport-stock-horaire-migration.sql` (colonnes d'horaire sur
+`businesses` et fonction de sélection des boutiques dues — voir « Rapport
+de stock automatique » plus bas).
 
 ## Variables d'environnement
 
@@ -783,6 +786,40 @@ planifié nécessite en plus `SUPABASE_SERVICE_ROLE_KEY` et `CRON_SECRET`
 s'exécuter (500) plutôt que de tourner sans protection ou sans les droits
 nécessaires ; le reste du centre de notifications (cloche, panneau,
 notification de justificatif) fonctionne normalement sans elles.
+
+## Rapport de stock automatique
+
+Dans Paramètres, le commerçant choisit « Aucun », « Journalier » ou
+« Hebdomadaire » (`businesses.rapport_stock`, existant). Selon le choix, un
+sélecteur d'heure apparaît (journalier) ou un sélecteur de jour + heure
+(hebdomadaire) — `businesses.rapport_stock_heure` (0-23) et
+`businesses.rapport_stock_jour_semaine` (0 = dimanche .. 6 = samedi, même
+convention que `Date.getDay()`), enregistrés immédiatement au changement
+comme le reste des réglages de cette page. **Toujours en heure d'Abidjan**
+(UTC toute l'année, pas de changement d'heure) — pas de fuseau par
+boutique à gérer.
+
+**Tâche planifiée** : `app/api/cron/stock-reports` tourne toutes les
+heures (`vercel.json`), appelle `boutiques_dues_rapport_stock()` (SQL) qui
+sélectionne — et marque atomiquement comme envoyées, dans le même
+`UPDATE ... RETURNING` — les boutiques dont l'heure (et le jour, pour
+l'hebdomadaire) choisis correspondent à maintenant et qui n'ont pas encore
+reçu de rapport aujourd'hui (`rapport_stock_dernier_envoi`). Pour chacune,
+la route interroge `articles` et envoie par Resend la liste de celles sous
+leur seuil d'alerte (`stock <= seuil`), ou un message « aucun article en
+alerte » sinon. Mêmes clés que le rappel d'expiration
+(`SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `RESEND_API_KEY`) — sans
+`RESEND_API_KEY`, la route est ignorée (le rapport n'existe que par
+e-mail, contrairement au rappel d'expiration qui a la notification en base
+comme filet).
+
+**Plan Vercel** : contrairement au rappel d'expiration (quotidien), cette
+tâche tourne toutes les heures — le plan Hobby de Vercel limite les Cron
+Jobs à une exécution par jour maximum, ce qui empêcherait cette fréquence.
+Nécessite donc au minimum le plan Pro.
+
+Nécessite `supabase-rapport-stock-horaire-migration.sql` (voir Démarrage),
+à exécuter après `smartbiz-schema.sql`.
 
 ## Logo Doka (marque de la plateforme)
 

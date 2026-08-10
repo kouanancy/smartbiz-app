@@ -316,6 +316,16 @@ a {
 .sb-notif-desktop {
   display: inline-flex;
 }
+/* La sidebar ne fait que 210px : ancrer le panneau par la droite (comme
+   pour l'instance mobile, voir .sb-notif-panel) le ferait déborder à
+   gauche de l'écran puisqu'il est bien plus large que la sidebar elle-même.
+   Ancré par la gauche à la place, il s'étend vers la droite dans le
+   contenu principal, qui a toujours la place voulue sur les largeurs
+   d'écran où cette instance est visible (voir @media plus bas). */
+.sb-notif-desktop .sb-notif-panel {
+  left: 0;
+  right: auto;
+}
 .sb-brand-row {
   display: flex;
   align-items: center;
@@ -461,6 +471,28 @@ a {
 .sb-input:focus {
   outline: 2px solid var(--emerald);
   outline-offset: 1px;
+}
+.sb-clearable-wrap {
+  position: relative;
+}
+.sb-clearable-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sb-clearable-btn:hover {
+  background: var(--paper);
+  color: var(--ink);
 }
 .sb-field {
   display: flex;
@@ -650,9 +682,6 @@ a {
   }
   .sb-notif-desktop {
     display: none;
-  }
-  .sb-notif-panel {
-    right: -8px;
   }
   /* Panneau coulissant : superposé au contenu (position: fixed le sort du
      flux, donc l'ordre dans le DOM n'affecte plus la barre brand/bouton),
