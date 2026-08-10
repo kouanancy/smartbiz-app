@@ -89,7 +89,11 @@ de stock automatique » plus bas), et enfin
 `supabase-rapport-stock-heure-fixe-migration.sql` (adapte cette fonction
 au déclenchement quotidien à heure fixe du plan Vercel Hobby — voir
 « Rapport de stock automatique » plus bas ; nécessite
-`supabase-rapport-stock-horaire-migration.sql`).
+`supabase-rapport-stock-horaire-migration.sql`), et enfin
+`supabase-rapport-stock-retrait-heure-migration.sql` (retire la colonne
+`rapport_stock_heure`, devenue inutile — voir « Rapport de stock
+automatique » plus bas ; nécessite
+`supabase-rapport-stock-heure-fixe-migration.sql`).
 
 ## Variables d'environnement
 
@@ -794,14 +798,13 @@ notification de justificatif) fonctionne normalement sans elles.
 ## Rapport de stock automatique
 
 Dans Paramètres, le commerçant choisit « Aucun », « Journalier » ou
-« Hebdomadaire » (`businesses.rapport_stock`, existant). Selon le choix, un
-sélecteur d'heure apparaît (journalier) ou un sélecteur de jour + heure
-(hebdomadaire) — `businesses.rapport_stock_heure` (0-23) et
+« Hebdomadaire » (`businesses.rapport_stock`, existant). Pour
+« Hebdomadaire » seulement, un sélecteur de jour apparaît —
 `businesses.rapport_stock_jour_semaine` (0 = dimanche .. 6 = samedi, même
-convention que `Date.getDay()`), enregistrés immédiatement au changement
-comme le reste des réglages de cette page. **Toujours en heure d'Abidjan**
-(UTC toute l'année, pas de changement d'heure) — pas de fuseau par
-boutique à gérer.
+convention que `Date.getDay()`), enregistré immédiatement au changement
+comme le reste des réglages de cette page. **Pas de choix d'heure** :
+volontairement retiré (voir plus bas) — le rapport part toujours à 7h,
+heure d'Abidjan (UTC toute l'année, pas de fuseau par boutique à gérer).
 
 **Tâche planifiée** : `app/api/cron/stock-reports` tourne une fois par
 jour à 7h (`vercel.json`) — le plan Vercel actuellement utilisé (Hobby)
@@ -819,21 +822,21 @@ de celles sous leur seuil d'alerte (`stock <= seuil`), ou un message
 e-mail, contrairement au rappel d'expiration qui a la notification en base
 comme filet).
 
-**Heure choisie vs heure réelle d'envoi** : `rapport_stock_heure` reste
-enregistrée normalement — champ toujours visible et modifiable dans
-Paramètres, sans aucun avertissement affiché au commerçant — mais n'est
-pas (encore) comparée à l'heure d'exécution de la tâche, puisque celle-ci
-ne tourne qu'une fois par jour, à 7h fixe pour toutes les boutiques : le
-plan Hobby ne permet pas de vérifier une heure choisie individuellement
-plusieurs fois par jour. Le jour choisi pour l'hebdomadaire, lui, est
-pleinement respecté (une comparaison par jour suffit). Si le plan Vercel
-passe un jour à Pro, `app/api/cron/stock-reports` peut retourner à une
-fréquence horaire (comme avant cette migration) et
-`boutiques_dues_rapport_stock()` réintégrer la condition sur l'heure —
-voir l'historique de `supabase-rapport-stock-heure-fixe-migration.sql`.
+**Pas de choix d'heure côté commerçant** : un champ d'heure a existé
+brièvement puis a été retiré — laisser choisir une heure qu'on ne peut pas
+respecter (plan Hobby : une seule exécution par jour, à heure fixe pour
+toutes les boutiques) induisait en erreur plutôt que d'aider.
+`businesses.rapport_stock_heure` a été retiré de la base
+(`supabase-rapport-stock-retrait-heure-migration.sql`), plus seulement
+laissé inutilisé. Seul `rapport_stock_jour_semaine` subsiste, pour le jour
+du rapport hebdomadaire — le déclenchement reste quotidien à 7h fixe pour
+tout le monde. Si le plan Vercel passe un jour à Pro, `app/api/cron/stock-reports`
+peut retourner à une fréquence horaire et un choix d'heure par boutique
+être réintroduit à ce moment-là.
 
-Nécessite `supabase-rapport-stock-horaire-migration.sql` (voir Démarrage),
-à exécuter après `smartbiz-schema.sql`.
+Nécessite, dans l'ordre, `supabase-rapport-stock-horaire-migration.sql`,
+`supabase-rapport-stock-heure-fixe-migration.sql` puis
+`supabase-rapport-stock-retrait-heure-migration.sql` (voir Démarrage).
 
 ## Logo Doka (marque de la plateforme)
 
