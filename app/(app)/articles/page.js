@@ -10,6 +10,7 @@ import { UNITES, PAGE_SIZE } from "@/lib/constants";
 import { exportToExcel, dateFichier } from "@/lib/exportExcel";
 import ImageUploadField from "@/components/ImageUploadField";
 import Pagination from "@/components/Pagination";
+import ClearableInput from "@/components/ClearableInput";
 
 const emptyForm = {
   nom: "",
@@ -421,11 +422,11 @@ export default function ArticlesPage() {
           <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
             <div className="sb-field" style={{ flex: 1 }}>
               <label>{t("articles.newCategoryLabel")}</label>
-              <input
-                className="sb-input"
+              <ClearableInput
                 placeholder={t("articles.newCategoryPlaceholder")}
                 value={newCat}
                 onChange={(e) => setNewCat(e.target.value)}
+                clearLabel={t("common.clearField")}
               />
             </div>
             <button className="sb-btn sb-btn-primary" onClick={addCategory}>
@@ -440,11 +441,11 @@ export default function ArticlesPage() {
         <form onSubmit={submit} className="sb-card sb-form-grid" style={{ marginBottom: 18 }}>
           <div className="sb-field" style={{ gridColumn: "1 / 3" }}>
             <label>{t("articles.nomLabel")}</label>
-            <input
-              className="sb-input"
+            <ClearableInput
               placeholder={t("articles.nomPlaceholder")}
               value={form.nom}
               onChange={(e) => setForm({ ...form, nom: e.target.value })}
+              clearLabel={t("common.clearField")}
             />
           </div>
           <div className="sb-field">
@@ -533,16 +534,14 @@ export default function ArticlesPage() {
         </form>
       )}
 
-      <div style={{ position: "relative", marginBottom: 14, maxWidth: 280 }}>
-        <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "var(--muted)" }} />
-        <input
-          className="sb-input"
-          style={{ paddingLeft: 30 }}
-          placeholder={t("articles.searchPlaceholder")}
-          value={recherche}
-          onChange={(e) => setRecherche(e.target.value)}
-        />
-      </div>
+      <ClearableInput
+        wrapStyle={{ marginBottom: 14, maxWidth: 280 }}
+        leftIcon={<Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "var(--muted)" }} />}
+        placeholder={t("articles.searchPlaceholder")}
+        value={recherche}
+        onChange={(e) => setRecherche(e.target.value)}
+        clearLabel={t("common.clearField")}
+      />
 
       <div className="sb-toggle-group" style={{ marginBottom: 14, flexWrap: "wrap", display: "inline-flex" }}>
         {filtresCategorie.map((opt) => (
@@ -908,11 +907,11 @@ export default function ArticlesPage() {
                 <form onSubmit={validerEdition} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
                   <div className="sb-field">
                     <label>{t("articles.nomLabel")}</label>
-                    <input
-                      className="sb-input"
+                    <ClearableInput
                       placeholder={t("articles.nomPlaceholder")}
                       value={editForm.nom}
                       onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
+                      clearLabel={t("common.clearField")}
                     />
                   </div>
                   <div className="sb-field">
