@@ -893,6 +893,20 @@ introduite par la migration ci-dessous).
 Nécessite `supabase-parametres-globaux-logo-migration.sql` (voir
 Démarrage), à exécuter après `supabase-paiements-manuels-migration.sql`.
 
+## Confirmation avant déconnexion
+
+`components/ConfirmDialog.js` (habillage `.sb-modal-overlay`/`.sb-card`,
+comme les modales Articles/Admin) s'affiche avant toute déconnexion —
+« Oui, me déconnecter » appelle `signOut()`, « Annuler » ou un clic à
+l'extérieur referme la modale sans rien faire. Un `window.confirm()`
+natif aurait suffi côté logique (déjà utilisé pour les suppressions
+Articles/Clients et l'annulation de commande), mais impose les libellés
+de boutons du navigateur — une modale maison était nécessaire pour les
+libellés demandés. Montée aux deux endroits où vit un bouton de
+déconnexion : `Sidebar.js` (même bouton pour ordinateur et mobile, la
+sidebar ne fait que se repositionner en CSS selon la largeur d'écran) et
+`PendingSubscription.js` (écran de blocage d'un compte non actif).
+
 ## Navigation mobile (menu hamburger)
 
 En dessous de 860px de large (`components/Sidebar.js`, `app/globals.css`),

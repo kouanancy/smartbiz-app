@@ -25,6 +25,7 @@ import {
 import { t as tBase } from "@/lib/i18n";
 import { MODES_AFFICHAGE } from "@/lib/constants";
 import NotificationBell from "@/components/NotificationBell";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 const MODE_ICON = { clair: Sun, sombre: Moon, auto: Monitor };
 
@@ -49,6 +50,7 @@ export default function Sidebar({ business, onSignOut, onChangeMode }) {
   const logo = business?.logo_url;
   const [menuOpen, setMenuOpen] = useState(false);
   const [lastPathname, setLastPathname] = useState(pathname);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const modeAffichage = business?.mode_affichage || "clair";
   const prochainModeAffichage = MODES_AFFICHAGE[(MODES_AFFICHAGE.indexOf(modeAffichage) + 1) % MODES_AFFICHAGE.length];
   // L'icône représente le mode vers lequel le clic va basculer (pas le mode
@@ -135,11 +137,23 @@ export default function Sidebar({ business, onSignOut, onChangeMode }) {
             onClick={() => setMenuOpen(false)}
           />
         ))}
-        <button className="sb-nav-item" onClick={onSignOut} type="button">
+        <button className="sb-nav-item" onClick={() => setConfirmLogout(true)} type="button">
           <LogOut size={16} />
           {t("sidebar.logout")}
         </button>
       </nav>
+      <ConfirmDialog
+        open={confirmLogout}
+        title={t("common.confirmLogoutTitle")}
+        message={t("common.confirmLogoutMessage")}
+        confirmLabel={t("common.confirmLogoutYes")}
+        cancelLabel={t("common.confirmLogoutCancel")}
+        onConfirm={() => {
+          setConfirmLogout(false);
+          onSignOut?.();
+        }}
+        onCancel={() => setConfirmLogout(false)}
+      />
       <div className="sb-sidebar-footer">{t("common.poweredBy")}</div>
     </aside>
   );
