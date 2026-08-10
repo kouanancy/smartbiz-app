@@ -226,6 +226,51 @@ création) → `livree` ou `annulee`.
   seconde bascule aussi les commandes déjà existantes vers `livree`
   (leur stock avait déjà été déduit sous l'ancien modèle).
 
+## Confirmation de commande : photo des articles + partage PDF WhatsApp
+
+**Photo dans le tableau imprimé** : chaque ligne de la version A4
+(`components/Receipt.js`, bloc `.sb-receipt-print`) affiche la miniature de
+l'article (`articles.image_url`) à côté de son nom, avec le même
+pictogramme de repli (`ImageIcon` de lucide-react) qu'ailleurs dans l'app
+(`ArticleSelect.js`) si l'article n'a pas de photo. `image_url` voyage
+avec chaque ligne de commande (`nouvelle/page.js` au moment de la
+création, `commandes/page.js` au moment d'un réaffichage/réimpression) —
+jamais stockée dans `commande_lignes` elle-même (qui ne fige que les
+montants), toujours relue depuis `articles` au moment d'afficher un reçu,
+donc reflète la photo actuelle de l'article, pas celle du jour de la
+commande.
+
+**Partage direct par WhatsApp (PDF joint)** : `genererPdfBlob()` capture
+`.sb-receipt-print` (déjà stylé pour l'A4) via `jsPDF.html()` — qui
+délègue le rendu à `html2canvas` en interne — et renvoie un vrai fichier
+PDF plutôt qu'une simple invite d'impression navigateur. Le bloc est
+normalement `display: none` à l'écran ; une classe
+`.sb-receipt-print-capture` (position hors écran, jamais visible) le rend
+temporairement mesurable par `html2canvas` le temps de la capture. Les
+styles visuels du reçu (`.sb-receipt-print-header`, `-table`, `-totals`...)
+sont volontairement en dehors de `@media print` — une capture déclenchée
+par clic n'est pas une impression réelle, des règles scopées à `@media
+print` ne s'appliqueraient pas à ce moment-là ; seul l'affichage
+(`display`) reste conditionnel, soit par une vraie impression, soit par
+`.sb-receipt-print-capture`.
+
+Bouton « Envoyer par WhatsApp » : sur les appareils supportant le partage
+natif de fichiers (`navigator.canShare({ files: […] })`, la quasi-totalité
+des téléphones récents), génère le PDF puis ouvre le menu de partage du
+téléphone avec le PDF déjà joint — la personne choisit WhatsApp dans ce
+menu, sans dépendre du numéro enregistré côté client (contrairement à
+l'ancien lien `wa.me`). Sur les appareils qui ne le supportent pas
+(essentiellement les navigateurs d'ordinateur), le bouton garde son
+ancien comportement (message texte pré-rempli vers `wa.me`, qui a
+toujours besoin d'un numéro de téléphone client valide) et un bouton
+séparé **Télécharger le PDF** apparaît à côté, pour joindre le fichier à
+la main dans WhatsApp Web/Desktop.
+
+Nécessite `jspdf`/`html2canvas` (ajoutés à `package.json`), chargés via un
+import dynamique dans `genererPdfBlob()` pour ne pas alourdir le chargement
+initial de l'app — ces bibliothèques ne sont récupérées qu'au moment où
+un PDF est réellement demandé.
+
 ## Stock théorique
 
 Le stock affiché sur la page Articles (`articles.stock`) est le stock réel.
