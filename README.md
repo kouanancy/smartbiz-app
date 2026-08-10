@@ -85,7 +85,11 @@ nécessite `supabase-businesses-admin-migration.sql` et
 `supabase-paiements-manuels-migration.sql`), et enfin
 `supabase-rapport-stock-horaire-migration.sql` (colonnes d'horaire sur
 `businesses` et fonction de sélection des boutiques dues — voir « Rapport
-de stock automatique » plus bas).
+de stock automatique » plus bas), et enfin
+`supabase-rapport-stock-heure-fixe-migration.sql` (adapte cette fonction
+au déclenchement quotidien à heure fixe du plan Vercel Hobby — voir
+« Rapport de stock automatique » plus bas ; nécessite
+`supabase-rapport-stock-horaire-migration.sql`).
 
 ## Variables d'environnement
 
@@ -799,24 +803,34 @@ comme le reste des réglages de cette page. **Toujours en heure d'Abidjan**
 (UTC toute l'année, pas de changement d'heure) — pas de fuseau par
 boutique à gérer.
 
-**Tâche planifiée** : `app/api/cron/stock-reports` tourne toutes les
-heures (`vercel.json`), appelle `boutiques_dues_rapport_stock()` (SQL) qui
-sélectionne — et marque atomiquement comme envoyées, dans le même
-`UPDATE ... RETURNING` — les boutiques dont l'heure (et le jour, pour
-l'hebdomadaire) choisis correspondent à maintenant et qui n'ont pas encore
-reçu de rapport aujourd'hui (`rapport_stock_dernier_envoi`). Pour chacune,
-la route interroge `articles` et envoie par Resend la liste de celles sous
-leur seuil d'alerte (`stock <= seuil`), ou un message « aucun article en
-alerte » sinon. Mêmes clés que le rappel d'expiration
+**Tâche planifiée** : `app/api/cron/stock-reports` tourne une fois par
+jour à 7h (`vercel.json`) — le plan Vercel actuellement utilisé (Hobby)
+limite les Cron Jobs à une exécution par jour, à heure fixe. Elle appelle
+`boutiques_dues_rapport_stock()` (SQL) qui sélectionne — et marque
+atomiquement comme envoyées, dans le même `UPDATE ... RETURNING` — les
+boutiques en `journalier`, plus celles en `hebdomadaire` dont le jour
+choisi (`rapport_stock_jour_semaine`) correspond à aujourd'hui, qui n'ont
+pas encore reçu de rapport aujourd'hui (`rapport_stock_dernier_envoi`).
+Pour chacune, la route interroge `articles` et envoie par Resend la liste
+de celles sous leur seuil d'alerte (`stock <= seuil`), ou un message
+« aucun article en alerte » sinon. Mêmes clés que le rappel d'expiration
 (`SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `RESEND_API_KEY`) — sans
 `RESEND_API_KEY`, la route est ignorée (le rapport n'existe que par
 e-mail, contrairement au rappel d'expiration qui a la notification en base
 comme filet).
 
-**Plan Vercel** : contrairement au rappel d'expiration (quotidien), cette
-tâche tourne toutes les heures — le plan Hobby de Vercel limite les Cron
-Jobs à une exécution par jour maximum, ce qui empêcherait cette fréquence.
-Nécessite donc au minimum le plan Pro.
+**Heure choisie vs heure réelle d'envoi** : `rapport_stock_heure` reste
+enregistrée normalement — champ toujours visible et modifiable dans
+Paramètres, sans aucun avertissement affiché au commerçant — mais n'est
+pas (encore) comparée à l'heure d'exécution de la tâche, puisque celle-ci
+ne tourne qu'une fois par jour, à 7h fixe pour toutes les boutiques : le
+plan Hobby ne permet pas de vérifier une heure choisie individuellement
+plusieurs fois par jour. Le jour choisi pour l'hebdomadaire, lui, est
+pleinement respecté (une comparaison par jour suffit). Si le plan Vercel
+passe un jour à Pro, `app/api/cron/stock-reports` peut retourner à une
+fréquence horaire (comme avant cette migration) et
+`boutiques_dues_rapport_stock()` réintégrer la condition sur l'heure —
+voir l'historique de `supabase-rapport-stock-heure-fixe-migration.sql`.
 
 Nécessite `supabase-rapport-stock-horaire-migration.sql` (voir Démarrage),
 à exécuter après `smartbiz-schema.sql`.
