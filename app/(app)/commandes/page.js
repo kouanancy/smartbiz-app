@@ -18,7 +18,7 @@ const STATUT_BADGE_CLASS = {
 };
 
 const COMMANDE_SELECT =
-  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, articles(nom, unite))";
+  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, articles(nom, unite, image_url))";
 
 export default function CommandesPage() {
   const { business } = useAuth();
@@ -134,6 +134,7 @@ export default function CommandesPage() {
       lignes: c.commande_lignes.map((l) => ({
         nom: l.articles?.nom ?? "—",
         unite: l.articles?.unite,
+        image_url: l.articles?.image_url,
         quantite: l.quantite,
         prix_vente: l.prix_vente,
         prix_achat: l.prix_achat,

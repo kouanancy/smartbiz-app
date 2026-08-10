@@ -170,6 +170,7 @@ export default function NouvelleCommandePage() {
           articleId: l.articleId,
           nom: art.nom,
           unite: art.unite,
+          image_url: art.image_url,
           quantite: l.quantite,
           prix_vente: art.prix_vente,
           prix_achat: art.prix_achat,
