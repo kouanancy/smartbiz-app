@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, FileSpreadsheet, Image as ImageIcon, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { FileSpreadsheet, Plus, RefreshCw, Search, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
@@ -27,21 +28,9 @@ const emptyForm = {
 const FILTRE_TOUTES = "toutes";
 const FILTRE_SANS_CATEGORIE = "sans-categorie";
 
-// Une paire label/valeur de la fiche article — évite de répéter la même
-// structure pour chacun des 8 champs affichés dans la modale de détail.
-function DetailField({ label, value, valueColor }) {
-  return (
-    <div>
-      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>{label}</div>
-      <div className="sb-mono" style={{ fontSize: 14, fontWeight: 600, color: valueColor || "var(--ink)" }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
 export default function ArticlesPage() {
   const { business } = useAuth();
+  const router = useRouter();
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const [articles, setArticles] = useState([]);
@@ -61,12 +50,6 @@ export default function ArticlesPage() {
   const [filtreCategorie, setFiltreCategorie] = useState(FILTRE_TOUTES);
   const [recherche, setRecherche] = useState("");
   const [rechercheDebounced, setRechercheDebounced] = useState("");
-  const [reapproId, setReapproId] = useState(null);
-  const [reapproForm, setReapproForm] = useState({ quantite: "", prix_achat: "", frais_annexes: "" });
-  const [detailId, setDetailId] = useState(null);
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState(emptyForm);
-  const [editError, setEditError] = useState("");
   const [enAttenteParArticle, setEnAttenteParArticle] = useState({});
 
   // Recherche tapée au fil de l'eau, mais requêtée après une courte pause
@@ -188,112 +171,6 @@ export default function ArticlesPage() {
   const categorieName = (id) => categories.find((c) => c.id === id)?.nom ?? t("common.sansCategorie");
   const uniteLabel = (u) => t(`common.unites.${u || "unite"}`);
   const stockTheorique = (article) => article.stock - (enAttenteParArticle[article.id] || 0);
-
-  function ouvrirReappro(article) {
-    setReapproId(article.id);
-    setReapproForm({ quantite: "", prix_achat: String(article.prix_achat), frais_annexes: String(article.frais_annexes || 0) });
-  }
-
-  async function validerReappro() {
-    const qte = Number(reapproForm.quantite);
-    if (!qte || qte < 1) return;
-    const nouveauPrixAchat = Number(reapproForm.prix_achat) || 0;
-    const nouveauxFraisAnnexes = Number(reapproForm.frais_annexes) || 0;
-    const article = articles.find((a) => a.id === reapproId);
-
-    const { data: updated, error } = await supabase
-      .from("articles")
-      .update({ stock: article.stock + qte, prix_achat: nouveauPrixAchat, frais_annexes: nouveauxFraisAnnexes })
-      .eq("id", reapproId)
-      .select()
-      .single();
-    if (error) return;
-
-    const { data: reappro } = await supabase
-      .from("reappros")
-      .insert({
-        business_id: business.id,
-        article_id: reapproId,
-        quantite: qte,
-        prix_achat: nouveauPrixAchat,
-        frais_annexes: nouveauxFraisAnnexes,
-      })
-      .select()
-      .single();
-
-    // Un réappro ne change ni le nom ni la catégorie : l'article reste à sa
-    // place sur la page actuelle, une simple mise à jour locale suffit pour
-    // le tableau — mais la marge totale (agrégat séparé) doit être
-    // recalculée puisque le stock/prix d'achat viennent de changer.
-    setArticles((prev) => prev.map((a) => (a.id === reapproId ? updated : a)));
-    if (reappro) setReappros((prev) => [{ ...reappro, articles: { nom: article.nom, unite: article.unite } }, ...prev].slice(0, 10));
-    setRefreshTick((t) => t + 1);
-    setReapproId(null);
-  }
-
-  function ouvrirEdition(article) {
-    setEditingId(article.id);
-    setEditError("");
-    setEditForm({
-      nom: article.nom,
-      categorie_id: article.categorie_id || "",
-      unite: article.unite || "unite",
-      prix_achat: String(article.prix_achat),
-      frais_annexes: String(article.frais_annexes || 0),
-      prix_vente: String(article.prix_vente),
-      stock: String(article.stock),
-      seuil: String(article.seuil),
-      image_url: article.image_url || "",
-    });
-  }
-
-  async function validerEdition(e) {
-    e.preventDefault();
-    if (!editForm.nom.trim() || !editForm.prix_vente) {
-      setEditError(t("articles.nomRequiredError"));
-      return;
-    }
-    const { error } = await supabase
-      .from("articles")
-      .update({
-        nom: editForm.nom.trim(),
-        categorie_id: editForm.categorie_id || null,
-        unite: editForm.unite || "unite",
-        prix_achat: Number(editForm.prix_achat) || 0,
-        frais_annexes: Number(editForm.frais_annexes) || 0,
-        prix_vente: Number(editForm.prix_vente) || 0,
-        stock: Math.max(0, Number(editForm.stock) || 0),
-        seuil: Number(editForm.seuil) || 3,
-        image_url: editForm.image_url.trim() || null,
-      })
-      .eq("id", editingId)
-      .select()
-      .single();
-    if (error) {
-      setEditError(error.message);
-      return;
-    }
-    // Le nom (tri) ou la catégorie (filtre) ont pu changer : on recharge la
-    // page depuis le serveur plutôt que de corriger la position localement.
-    setRefreshTick((t) => t + 1);
-    setEditingId(null);
-    setEditError("");
-  }
-
-  async function supprimerArticle(article) {
-    const confirmed = window.confirm(t("articles.confirmDelete", { nom: article.nom }));
-    if (!confirmed) return;
-    const { error } = await supabase.from("articles").delete().eq("id", article.id);
-    if (error) {
-      if (error.code === "23503") {
-        window.alert(t("articles.deleteLinkedError", { nom: article.nom }));
-      } else {
-        window.alert(t("articles.deleteGenericError", { message: error.message }));
-      }
-      return;
-    }
-    setRefreshTick((t) => t + 1);
-  }
 
   async function submit(e) {
     e.preventDefault();
@@ -573,7 +450,6 @@ export default function ArticlesPage() {
                 <th>{t("articles.colStock")}</th>
                 <th>{t("articles.colStockTheorique")}</th>
                 <th></th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -581,7 +457,7 @@ export default function ArticlesPage() {
                 const margeReelle = a.prix_vente - a.prix_achat - (a.frais_annexes || 0);
                 const theorique = stockTheorique(a);
                 return (
-                  <tr key={a.id} className="sb-row-clickable" onClick={() => setDetailId(a.id)}>
+                  <tr key={a.id} className="sb-row-clickable" onClick={() => router.push(`/articles/${a.id}`)}>
                     <td>
                       {a.image_url ? (
                         <div className="sb-thumb-upload">
@@ -623,23 +499,6 @@ export default function ArticlesPage() {
                       ) : (
                         <span className="sb-badge sb-badge-emerald">{t("common.badgeOk")}</span>
                       )}
-                    </td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirReappro(a)}>
-                          <RefreshCw size={12} /> {t("articles.reappro")}
-                        </button>
-                        <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirEdition(a)}>
-                          <Pencil size={12} /> {t("articles.modifier")}
-                        </button>
-                        <button
-                          className="sb-btn sb-btn-ghost"
-                          style={{ padding: "4px 8px", color: "var(--coral)" }}
-                          onClick={() => supprimerArticle(a)}
-                        >
-                          <Trash2 size={12} /> {t("articles.supprimer")}
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 );
@@ -734,276 +593,6 @@ export default function ArticlesPage() {
           </div>
         </div>
       )}
-
-      {detailId &&
-        (() => {
-          const art = articles.find((a) => a.id === detailId);
-          if (!art) return null;
-          const margeReelle = art.prix_vente - art.prix_achat - (art.frais_annexes || 0);
-          const theorique = stockTheorique(art);
-          return (
-            <div className="sb-modal-overlay" onClick={() => setDetailId(null)}>
-              <div
-                className="sb-card"
-                style={{ width: 400, maxWidth: "92vw", background: "var(--card)", maxHeight: "90vh", overflowY: "auto" }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                  <div className="sb-section-title" style={{ margin: 0 }}>
-                    {t("articles.detailModalTitle")}
-                  </div>
-                  <button onClick={() => setDetailId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
-                    <X size={16} />
-                  </button>
-                </div>
-
-                {art.image_url ? (
-                  <div style={{ width: "100%", aspectRatio: "1", borderRadius: 12, overflow: "hidden", marginBottom: 14, background: "var(--paper)" }}>
-                    <img src={art.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      width: "100%",
-                      aspectRatio: "1",
-                      borderRadius: 12,
-                      marginBottom: 14,
-                      background: "var(--paper)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "var(--text-faint)",
-                    }}
-                  >
-                    <ImageIcon size={40} />
-                  </div>
-                )}
-
-                <div className="sb-section-title" style={{ fontSize: 16, margin: "0 0 2px" }}>
-                  {art.nom}
-                </div>
-                <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 16px" }}>{categorieName(art.categorie_id)}</p>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
-                  <DetailField label={t("articles.colAchat")} value={fmt(art.prix_achat)} />
-                  <DetailField label={t("articles.colFraisAnnexes")} value={fmt(art.frais_annexes || 0)} />
-                  <DetailField label={t("articles.colVente")} value={fmt(art.prix_vente)} />
-                  <DetailField
-                    label={t("articles.colMargeReelle")}
-                    value={fmt(margeReelle)}
-                    valueColor={margeReelle >= 0 ? "var(--emerald)" : "var(--coral)"}
-                  />
-                  <DetailField label={t("articles.colStock")} value={`${art.stock} ${uniteLabel(art.unite)}`} />
-                  <DetailField label={t("articles.colStockTheorique")} value={`${theorique} ${uniteLabel(art.unite)}`} />
-                  <DetailField label={t("articles.seuilLabel")} value={`${art.seuil} ${uniteLabel(art.unite)}`} />
-                  <DetailField label={t("articles.uniteLabel")} value={uniteLabel(art.unite)} />
-                </div>
-
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    className="sb-btn sb-btn-ghost"
-                    style={{ flex: 1, justifyContent: "center" }}
-                    onClick={() => {
-                      setDetailId(null);
-                      ouvrirReappro(art);
-                    }}
-                  >
-                    <RefreshCw size={14} /> {t("articles.reappro")}
-                  </button>
-                  <button
-                    className="sb-btn sb-btn-primary"
-                    style={{ flex: 1, justifyContent: "center" }}
-                    onClick={() => {
-                      setDetailId(null);
-                      ouvrirEdition(art);
-                    }}
-                  >
-                    <Pencil size={14} /> {t("articles.modifier")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-      {reapproId &&
-        (() => {
-          const art = articles.find((a) => a.id === reapproId);
-          return (
-            <div className="sb-modal-overlay" onClick={() => setReapproId(null)}>
-              <div className="sb-card" style={{ width: 340, background: "var(--card)" }} onClick={(e) => e.stopPropagation()}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                  <div className="sb-section-title" style={{ margin: 0 }}>
-                    {t("articles.reapproModalTitle")}
-                  </div>
-                  <button onClick={() => setReapproId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
-                    <X size={16} />
-                  </button>
-                </div>
-                <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 14px" }}>{art?.nom}</p>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div className="sb-field">
-                    <label>{t("articles.quantiteAjouteeLabel")}</label>
-                    <input
-                      className="sb-input"
-                      placeholder={t("articles.quantitePlaceholder")}
-                      type="number"
-                      min={1}
-                      value={reapproForm.quantite}
-                      onChange={(e) => setReapproForm({ ...reapproForm, quantite: e.target.value })}
-                    />
-                  </div>
-                  <div className="sb-field">
-                    <label>{t("articles.nouveauPrixAchatLabel")}</label>
-                    <input
-                      className="sb-input"
-                      placeholder={t("articles.prixAchatPlaceholder")}
-                      type="number"
-                      value={reapproForm.prix_achat}
-                      onChange={(e) => setReapproForm({ ...reapproForm, prix_achat: e.target.value })}
-                    />
-                  </div>
-                  <div className="sb-field">
-                    <label>{t("articles.fraisAnnexesLabel")}</label>
-                    <input
-                      className="sb-input"
-                      placeholder={t("articles.fraisAnnexesPlaceholder")}
-                      type="number"
-                      value={reapproForm.frais_annexes}
-                      onChange={(e) => setReapproForm({ ...reapproForm, frais_annexes: e.target.value })}
-                    />
-                  </div>
-                  <p style={{ fontSize: 11, color: "var(--muted)", margin: 0 }}>{t("articles.reapproNote")}</p>
-                  <button className="sb-btn sb-btn-emerald" style={{ justifyContent: "center" }} onClick={validerReappro} disabled={!reapproForm.quantite}>
-                    <CheckCircle2 size={14} /> {t("articles.confirmerReappro")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-      {editingId &&
-        (() => {
-          const art = articles.find((a) => a.id === editingId);
-          if (!art) return null;
-          return (
-            <div className="sb-modal-overlay" onClick={() => setEditingId(null)}>
-              <div
-                className="sb-card"
-                style={{ width: 380, background: "var(--card)", maxHeight: "90vh", overflowY: "auto" }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                  <div className="sb-section-title" style={{ margin: 0 }}>
-                    {t("articles.editModalTitle")}
-                  </div>
-                  <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
-                    <X size={16} />
-                  </button>
-                </div>
-
-                <form onSubmit={validerEdition} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-                  <div className="sb-field">
-                    <label>{t("articles.nomLabel")}</label>
-                    <ClearableInput
-                      placeholder={t("articles.nomPlaceholder")}
-                      value={editForm.nom}
-                      onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
-                      clearLabel={t("common.clearField")}
-                    />
-                  </div>
-                  <div className="sb-field">
-                    <label>{t("articles.categorieLabel")}</label>
-                    <select className="sb-input" value={editForm.categorie_id} onChange={(e) => setEditForm({ ...editForm, categorie_id: e.target.value })}>
-                      <option value="">{t("common.sansCategorie")}</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nom}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="sb-field">
-                    <label>{t("articles.uniteLabel")}</label>
-                    <select className="sb-input" value={editForm.unite} onChange={(e) => setEditForm({ ...editForm, unite: e.target.value })}>
-                      {UNITES.map((u) => (
-                        <option key={u} value={u}>
-                          {uniteLabel(u)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="sb-form-grid">
-                    <div className="sb-field">
-                      <label>{t("articles.prixAchatLabel")}</label>
-                      <input
-                        className="sb-input"
-                        placeholder={t("articles.prixAchatPlaceholder")}
-                        type="number"
-                        value={editForm.prix_achat}
-                        onChange={(e) => setEditForm({ ...editForm, prix_achat: e.target.value })}
-                      />
-                    </div>
-                    <div className="sb-field">
-                      <label>{t("articles.fraisAnnexesLabel")}</label>
-                      <input
-                        className="sb-input"
-                        placeholder={t("articles.fraisAnnexesPlaceholder")}
-                        type="number"
-                        value={editForm.frais_annexes}
-                        onChange={(e) => setEditForm({ ...editForm, frais_annexes: e.target.value })}
-                      />
-                    </div>
-                    <div className="sb-field">
-                      <label>{t("articles.prixVenteLabel")}</label>
-                      <input
-                        className="sb-input"
-                        placeholder={t("articles.prixVentePlaceholder")}
-                        type="number"
-                        value={editForm.prix_vente}
-                        onChange={(e) => setEditForm({ ...editForm, prix_vente: e.target.value })}
-                      />
-                    </div>
-                    <div className="sb-field">
-                      <label>{t("articles.seuilLabel")}</label>
-                      <input
-                        className="sb-input"
-                        placeholder={t("articles.seuilPlaceholder")}
-                        type="number"
-                        value={editForm.seuil}
-                        onChange={(e) => setEditForm({ ...editForm, seuil: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="sb-field">
-                    <label>{t("articles.stockActuelLabel")}</label>
-                    <input
-                      className="sb-input"
-                      placeholder={t("articles.stockActuelPlaceholder")}
-                      type="number"
-                      min={0}
-                      value={editForm.stock}
-                      onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
-                    />
-                    <p style={{ fontSize: 11, color: "var(--muted)", margin: 0 }}>{t("articles.stockActuelNote")}</p>
-                  </div>
-                  <ImageUploadField
-                    label={t("articles.photoLabel")}
-                    businessId={business.id}
-                    value={editForm.image_url}
-                    onChange={(url) => setEditForm((f) => ({ ...f, image_url: url }))}
-                  />
-                  {editError && <p style={{ fontSize: 12, color: "var(--coral)", margin: 0 }}>{editError}</p>}
-                  <button className="sb-btn sb-btn-emerald" type="submit" style={{ justifyContent: "center" }}>
-                    <CheckCircle2 size={14} /> {t("articles.saveEdits")}
-                  </button>
-                </form>
-              </div>
-            </div>
-          );
-        })()}
     </div>
   );
 }

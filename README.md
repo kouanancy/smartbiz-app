@@ -317,22 +317,43 @@ clic/tactile (choisir une suggestion). Utilisé à la fois dans Nouvelle
 commande et dans la modale d'édition d'une commande (Commandes) — même
 composant, même comportement de recherche aux deux endroits.
 
-## Fiche article
+## Pages de détail (Commandes / Articles / Clients)
 
-Cliquer sur une ligne du tableau Stock (ou sur sa miniature) ouvre une
-fiche détaillée en modale : photo en grand format, nom, catégorie, prix
-d'achat, frais annexes, prix de vente, marge réelle, stock réel et stock
-théorique, seuil d'alerte et unité. Deux boutons d'accès rapide
-(« Réappro. », « Modifier ») ouvrent directement la modale correspondante
-pour cet article précis — sans repasser par le tableau — exactement comme
-un clic sur les mêmes boutons depuis la ligne elle-même
-(`ouvrirReappro`/`ouvrirEdition`, `app/(app)/articles/page.js`).
+Plutôt que des boutons d'action collés sur chaque ligne (petits boutons
+`padding: 4px 8px`, plusieurs par ligne, difficiles à toucher sans erreur
+sur téléphone), Commandes, Stock et Clients suivent tous les trois le même
+schéma : la ligne du tableau ne garde que les informations essentielles et
+devient elle-même cliquable/tactile (`className="sb-row-clickable"`,
+`onClick` → `router.push(...)`) vers une vraie page de détail —
+`app/(app)/commandes/[id]/page.js`, `app/(app)/articles/[id]/page.js`,
+`app/(app)/clients/[id]/page.js` — pas une fenêtre modale : navigation
+complète, historique du navigateur inclus, cohérente sur ordinateur comme
+sur téléphone.
 
-La cellule d'actions de la ligne (Réappro. / Modifier / Supprimer) arrête
-la propagation de son `onClick` (`e.stopPropagation()`) pour que ces trois
-boutons gardent leur action habituelle sans jamais déclencher l'ouverture
-de la fiche par la même occasion — seul le reste de la ligne (photo, nom,
-prix, stock...) ouvre la fiche.
+Chaque page de détail affiche toutes les informations (client/articles/
+livraison/paiement pour une commande, photo/prix/stock pour un article,
+coordonnées/statistiques pour un client) et regroupe les actions dans une
+rangée bien espacée (`.sb-detail-actions`, `padding: 10px 18px` par
+bouton, `gap: 10px`) en bas de page — Livré/Modifier/Annuler/Imprimer-PDF
+pour une commande, Réappro./Modifier/Supprimer pour un article, Modifier/
+Réactiver-Désactiver/Supprimer pour un client. Un lien de retour
+(`.sb-back-link`, flèche + libellé) en haut de chaque page ramène à la
+liste. Les modales de modification/réapprovisionnement elles-mêmes
+restent des modales (pattern déjà établi, pas concerné par le problème des
+boutons collés) — seule la navigation *vers* le détail change.
+
+Les listes elles-mêmes se sont allégées en conséquence : plus de logique
+d'édition/suppression/changement de statut sur les pages liste
+(`commandes/page.js`, `articles/page.js`, `clients/page.js`), qui ne
+gardent que chargement paginé, recherche/filtres et export Excel. La liste
+Commandes a aussi perdu ses colonnes Articles et Marge réelle (déplacées
+sur la page de détail) pour ne garder que numéro/date/client/statut/CA.
+
+`app/(app)/commandes/[id]/page.js` et `app/(app)/articles/[id]/page.js`
+rechargent leurs propres listes de référence (clients/articles/zones pour
+l'édition d'une commande ; catégories pour un article) plutôt que de les
+recevoir de la page liste, dont ils sont maintenant complètement
+indépendants — chacun peut être ouvert directement par son URL.
 
 ## Trésorerie
 

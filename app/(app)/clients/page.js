@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, FileSpreadsheet, Pencil, Plus, RotateCcw, Search, Trash2, UserX, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CheckCircle2, FileSpreadsheet, Plus, Search } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase } from "@/lib/format";
@@ -15,6 +16,7 @@ const normalizeTel = (tel) => (tel || "").replace(/\D/g, "");
 
 export default function ClientsPage() {
   const { business } = useAuth();
+  const router = useRouter();
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const [clients, setClients] = useState([]);
@@ -31,11 +33,6 @@ export default function ClientsPage() {
   const [erreurTel, setErreurTel] = useState(false);
   const [msg, setMsg] = useState("");
   const [showDesactives, setShowDesactives] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ nom: "", adresse: "", email: "", telephone: "" });
-  const [editOriginalTelephone, setEditOriginalTelephone] = useState("");
-  const [editErreurTel, setEditErreurTel] = useState(false);
-  const [editError, setEditError] = useState("");
 
   // Recherche tapée au fil de l'eau, requêtée après une courte pause (300 ms)
   // pour ne pas interroger Supabase à chaque frappe — retour à la première
@@ -156,88 +153,6 @@ export default function ClientsPage() {
     setMsg(t("clients.savedSuccess", { nom: data.nom || t("clients.defaultNom") }));
     setForm({ nom: "", adresse: "", email: "", telephone: "" });
     setShowForm(false);
-  }
-
-  function ouvrirEdition(client) {
-    setEditingId(client.id);
-    setEditForm({
-      nom: client.nom || "",
-      adresse: client.adresse || "",
-      email: client.email || "",
-      telephone: client.telephone || "",
-    });
-    setEditOriginalTelephone(client.telephone || "");
-    setEditErreurTel(false);
-    setEditError("");
-  }
-
-  async function validerEdition(e) {
-    e.preventDefault();
-    if (!editForm.telephone.trim()) {
-      setEditErreurTel(true);
-      return;
-    }
-    setEditErreurTel(false);
-
-    const telephoneChange = normalizeTel(editForm.telephone) !== normalizeTel(editOriginalTelephone);
-    if (telephoneChange) {
-      const doublon = trouverDoublonTelephone(editForm.telephone, editingId);
-      if (doublon) {
-        setEditError(t("clients.duplicatePhoneNoPrefix", { nom: doublon.nom || t("clients.autreClientCap") }));
-        return;
-      }
-    }
-
-    const { error } = await supabase
-      .from("clients")
-      .update({
-        nom: editForm.nom.trim(),
-        adresse: editForm.adresse.trim() || null,
-        email: editForm.email.trim() || null,
-        telephone: editForm.telephone.trim(),
-      })
-      .eq("id", editingId)
-      .select()
-      .single();
-    if (error) {
-      setEditError(error.message);
-      return;
-    }
-    setRefreshTick((t2) => t2 + 1);
-    setEditingId(null);
-  }
-
-  async function desactiverClient(client) {
-    const { error } = await supabase.from("clients").update({ actif: false }).eq("id", client.id);
-    if (error) {
-      window.alert(t("clients.desactiverError", { message: error.message }));
-      return;
-    }
-    setRefreshTick((t2) => t2 + 1);
-  }
-
-  async function reactiverClient(client) {
-    const { error } = await supabase.from("clients").update({ actif: true }).eq("id", client.id);
-    if (error) {
-      window.alert(t("clients.reactiverError", { message: error.message }));
-      return;
-    }
-    setRefreshTick((t2) => t2 + 1);
-  }
-
-  async function supprimerClient(client) {
-    const confirmed = window.confirm(t("clients.confirmDelete", { nom: client.nom }));
-    if (!confirmed) return;
-    const { error } = await supabase.from("clients").delete().eq("id", client.id);
-    if (error) {
-      if (error.code === "23503") {
-        window.alert(t("clients.deleteLinkedError", { nom: client.nom }));
-      } else {
-        window.alert(t("clients.deleteGenericError", { message: error.message }));
-      }
-      return;
-    }
-    setRefreshTick((t2) => t2 + 1);
   }
 
   // L'export doit couvrir tous les clients filtrés, pas seulement la page
@@ -377,7 +292,6 @@ export default function ClientsPage() {
                 <th>{t("clients.colCommandes")}</th>
                 <th>{t("clients.colTotalAchats")}</th>
                 <th>{t("clients.colStatut")}</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -385,7 +299,7 @@ export default function ClientsPage() {
                 const s = stats(c.id);
                 const desactive = c.actif === false;
                 return (
-                  <tr key={c.id}>
+                  <tr key={c.id} className="sb-row-clickable" onClick={() => router.push(`/clients/${c.id}`)}>
                     <td>{c.nom}</td>
                     <td style={{ color: "var(--muted)" }}>{c.telephone}</td>
                     <td style={{ color: "var(--muted)" }}>{c.adresse || "—"}</td>
@@ -399,30 +313,6 @@ export default function ClientsPage() {
                         <span className="sb-badge sb-badge-emerald">{t("common.badgeActif")}</span>
                       )}
                     </td>
-                    <td>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => ouvrirEdition(c)}>
-                          <Pencil size={12} /> {t("clients.modifier")}
-                        </button>
-                        {desactive ? (
-                          <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => reactiverClient(c)}>
-                            <RotateCcw size={12} /> {t("clients.reactiver")}
-                          </button>
-                        ) : s.count === 0 ? (
-                          <button
-                            className="sb-btn sb-btn-ghost"
-                            style={{ padding: "4px 8px", color: "var(--coral)" }}
-                            onClick={() => supprimerClient(c)}
-                          >
-                            <Trash2 size={12} /> {t("clients.supprimer")}
-                          </button>
-                        ) : (
-                          <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => desactiverClient(c)}>
-                            <UserX size={12} /> {t("clients.desactiver")}
-                          </button>
-                        )}
-                      </div>
-                    </td>
                   </tr>
                 );
               })}
@@ -431,72 +321,6 @@ export default function ClientsPage() {
         </div>
         <Pagination page={page} totalPages={totalPages} onChange={setPage} label={t("common.pageSur", { page: page + 1, total: totalPages })} />
       </div>
-
-      {editingId && (
-        <div className="sb-modal-overlay" onClick={() => setEditingId(null)}>
-          <div className="sb-card" style={{ width: 380, background: "var(--card)" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-              <div className="sb-section-title" style={{ margin: 0 }}>
-                {t("clients.editModalTitle")}
-              </div>
-              <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
-                <X size={16} />
-              </button>
-            </div>
-
-            <form onSubmit={validerEdition} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-              <div className="sb-field">
-                <label>{t("clients.nomLabel")}</label>
-                <ClearableInput
-                  placeholder={t("clients.nomPlaceholder")}
-                  value={editForm.nom}
-                  onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })}
-                  clearLabel={t("common.clearField")}
-                />
-              </div>
-              <div className="sb-field">
-                <label>{t("clients.adresseLabel")}</label>
-                <input
-                  className="sb-input"
-                  placeholder={t("clients.adressePlaceholder")}
-                  value={editForm.adresse}
-                  onChange={(e) => setEditForm({ ...editForm, adresse: e.target.value })}
-                />
-              </div>
-              <div className="sb-field">
-                <label>{t("clients.emailLabel")}</label>
-                <input
-                  className="sb-input"
-                  placeholder={t("clients.emailPlaceholder")}
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                />
-              </div>
-              <div className="sb-field">
-                <label>{t("clients.telephoneLabel")}</label>
-                <input
-                  className="sb-input"
-                  placeholder={t("clients.telephonePlaceholder")}
-                  value={editForm.telephone}
-                  onChange={(e) => {
-                    setEditForm({ ...editForm, telephone: e.target.value });
-                    if (editErreurTel) setEditErreurTel(false);
-                  }}
-                  style={editErreurTel ? { borderColor: "var(--coral)" } : undefined}
-                />
-                <p style={{ fontSize: 11, color: editErreurTel ? "var(--coral)" : "var(--muted)", margin: "5px 2px 0" }}>
-                  {editErreurTel ? t("clients.telephoneRequiredError") : t("clients.telephoneHint")}
-                </p>
-              </div>
-              {editError && <p style={{ fontSize: 12, color: "var(--coral)", margin: 0 }}>{editError}</p>}
-              <button className="sb-btn sb-btn-emerald" type="submit" style={{ justifyContent: "center" }}>
-                <CheckCircle2 size={14} /> {t("clients.saveEdits")}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
