@@ -905,6 +905,40 @@ a {
   font-size: 17px;
 }
 
+/* Pages de détail (Commandes/Articles/Clients) : lien de retour en haut,
+   rangée d'actions bien espacée (contraste volontaire avec les petits
+   boutons collés qu'elles remplacent dans les listes). */
+.sb-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.sb-back-link:hover {
+  color: var(--ink);
+}
+.sb-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+.sb-detail-actions .sb-btn {
+  padding: 10px 18px;
+}
+.sb-detail-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px;
+}
+
 .sb-catalogue-banner {
   display: flex;
   align-items: center;
