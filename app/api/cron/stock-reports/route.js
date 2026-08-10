@@ -5,10 +5,13 @@ const RESEND_FROM = process.env.RESEND_FROM_EMAIL || "Doka <onboarding@resend.de
 // Route serveur (jamais exposée au navigateur) : même garde-fou que
 // app/api/cron/expiration-reminders (CRON_SECRET + SUPABASE_SERVICE_ROLE_KEY
 // obligatoires, sinon refus plutôt que fonctionnement non protégé/sans les
-// droits nécessaires). Déclenchée toutes les heures par Vercel Cron (voir
-// vercel.json) — heure d'Abidjan = UTC toute l'année, donc
-// boutiques_dues_rapport_stock() compare directement à l'heure serveur
-// sans conversion de fuseau (voir supabase-rapport-stock-horaire-migration.sql).
+// droits nécessaires). Déclenchée une fois par jour à 7h fixe pour toutes
+// les boutiques (voir vercel.json) — le plan Vercel Hobby limite les Cron
+// Jobs à une exécution/jour, donc pas de choix d'heure exposé au
+// commerçant (voir supabase-rapport-stock-retrait-heure-migration.sql).
+// Le jour choisi pour l'hebdomadaire (rapport_stock_jour_semaine), lui,
+// est pleinement respecté : une comparaison par jour suffit avec un
+// déclenchement quotidien.
 export async function GET(request) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {

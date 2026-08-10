@@ -20,7 +20,6 @@ export default function ParametresPage() {
   const [emailDraft, setEmailDraft] = useState(business?.notif_email || "");
   const [confirmationEmail, setConfirmationEmail] = useState(business?.confirmation_email || false);
   const [rapportStock, setRapportStock] = useState(business?.rapport_stock || "aucun");
-  const [rapportStockHeure, setRapportStockHeure] = useState(business?.rapport_stock_heure ?? 8);
   const [rapportStockJour, setRapportStockJour] = useState(business?.rapport_stock_jour_semaine ?? 1);
   const [savedMsg, setSavedMsg] = useState("");
   const [notifMsg, setNotifMsg] = useState("");
@@ -85,11 +84,6 @@ export default function ParametresPage() {
   async function changerRapportStock(key) {
     setRapportStock(key);
     await updateBusiness({ rapport_stock: key });
-  }
-
-  async function changerRapportStockHeure(h) {
-    setRapportStockHeure(h);
-    await updateBusiness({ rapport_stock_heure: h });
   }
 
   async function changerRapportStockJour(j) {
@@ -340,44 +334,22 @@ export default function ParametresPage() {
             ))}
           </div>
 
-          {(rapportStock === "journalier" || rapportStock === "hebdomadaire") && (
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 12 }}>
-              {rapportStock === "hebdomadaire" && (
-                <div>
-                  <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 }}>
-                    {t("parametres.rapportJourLabel")}
-                  </label>
-                  <select
-                    className="sb-input"
-                    style={{ maxWidth: 160 }}
-                    value={rapportStockJour}
-                    onChange={(e) => changerRapportStockJour(Number(e.target.value))}
-                  >
-                    {JOURS_SEMAINE.map((jour, i) => (
-                      <option key={jour} value={i}>
-                        {t(`parametres.jours.${jour}`)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div>
-                <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 }}>
-                  {t("parametres.rapportHeureLabel")}
-                </label>
-                <select
-                  className="sb-input"
-                  style={{ maxWidth: 160 }}
-                  value={rapportStockHeure}
-                  onChange={(e) => changerRapportStockHeure(Number(e.target.value))}
-                >
-                  {Array.from({ length: 24 }, (_, h) => (
-                    <option key={h} value={h}>
-                      {String(h).padStart(2, "0")}h
-                    </option>
-                  ))}
-                </select>
-              </div>
+          {rapportStock === "hebdomadaire" && (
+            <div style={{ marginTop: 12, maxWidth: 160 }}>
+              <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 }}>
+                {t("parametres.rapportJourLabel")}
+              </label>
+              <select
+                className="sb-input"
+                value={rapportStockJour}
+                onChange={(e) => changerRapportStockJour(Number(e.target.value))}
+              >
+                {JOURS_SEMAINE.map((jour, i) => (
+                  <option key={jour} value={i}>
+                    {t(`parametres.jours.${jour}`)}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
         </div>
