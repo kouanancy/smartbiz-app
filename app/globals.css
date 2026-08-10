@@ -1117,6 +1117,17 @@ a {
 }
 
 @media print {
+  /* html/body ont un max-width: 100vw à l'écran (garde-fou anti-scroll
+     horizontal, voir en tête de fichier) — sur certains navigateurs
+     mobiles, l'impression/export PDF calcule 100vw à partir de la largeur
+     de l'écran du téléphone plutôt que de la page A4 réellement imprimée
+     (@page plus bas), ce qui laisse tout le contenu imprimé collé à
+     gauche au lieu d'être centré sur la page. On retire cette contrainte
+     à l'impression : elle n'a de sens qu'à l'écran. */
+  html,
+  body {
+    max-width: none;
+  }
   .sb-sidebar,
   .sb-no-print {
     display: none !important;
@@ -1163,6 +1174,14 @@ a {
   .sb-receipt-print {
     display: block;
     width: 100%;
+    /* max-width + margin: 0 auto plutôt que width: 100% seul : si le
+       moteur d'impression d'un navigateur mobile ignore @page et rend le
+       PDF à la largeur de l'écran plutôt qu'au format A4 réel, le reçu se
+       centre quand même dans l'espace disponible au lieu de rester collé
+       à gauche — cohérent avec la largeur imprimable A4 (210mm - 2×16mm
+       de marge @page) sur les moteurs qui la respectent. */
+    max-width: 178mm;
+    margin: 0 auto;
     font-family: "Inter", sans-serif;
     color: #2e2c2b;
   }
@@ -1335,6 +1354,8 @@ a {
   .sb-tresorerie-print {
     display: block;
     width: 100%;
+    max-width: 178mm;
+    margin: 0 auto;
     font-family: "Inter", sans-serif;
     color: #2e2c2b;
   }
@@ -1470,6 +1491,8 @@ a {
   .sb-revenus-print {
     display: block;
     width: 100%;
+    max-width: 178mm;
+    margin: 0 auto;
     font-family: "Inter", sans-serif;
     color: #2e2c2b;
   }
