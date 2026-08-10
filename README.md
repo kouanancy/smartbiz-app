@@ -302,13 +302,20 @@ dans le champ dédié tant que le stock réel le permet ; le sélecteur
 lui-même (`components/ArticleSelect.js`) désactive les articles à stock
 réel ≤ 0, indépendamment de ce message.
 
-**Sélecteur d'article avec miniature** : `components/ArticleSelect.js`
-remplace le `<select>` natif utilisé jusque-là dans Nouvelle commande — un
-`<option>` HTML ne peut pas contenir d'image (limitation universelle des
-navigateurs), donc un panneau personnalisé (bouton + liste positionnée en
-absolu, fermeture au clic extérieur) affiche la photo de chaque article en
+**Sélecteur d'article avec recherche + miniature** :
+`components/ArticleSelect.js` remplace le `<select>` natif — un `<option>`
+HTML ne peut ni filtrer en tapant, ni contenir d'image (limitations
+universelles des navigateurs), donc un champ de recherche avec
+suggestions (fermeture au clic extérieur) filtre la liste en temps réel
+sur `articles.nom` (recherche insensible à la casse, sur toute la chaîne,
+pas seulement le début) et affiche la photo de chaque résultat en
 miniature à côté de son nom/prix/stock, avec le même pictogramme de repli
-que `ImageUploadField` pour les articles sans photo.
+que `ImageUploadField` pour les articles sans photo. Le champ reste
+utilisable au clavier (Entrée sélectionne le premier résultat non
+désactivé, Échap referme et revient au nom déjà sélectionné) comme au
+clic/tactile (choisir une suggestion). Utilisé à la fois dans Nouvelle
+commande et dans la modale d'édition d'une commande (Commandes) — même
+composant, même comportement de recherche aux deux endroits.
 
 ## Fiche article
 
