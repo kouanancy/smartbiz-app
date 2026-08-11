@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, FileText, Palette, Plus, Truck, X } from "lucide-react";
+import { Check, CheckCircle2, FileText, Palette, Plus, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase } from "@/lib/format";
-import { THEMES, MODES_AFFICHAGE, JOURS_SEMAINE, PLANS } from "@/lib/constants";
+import { THEMES, MODES_AFFICHAGE, JOURS_SEMAINE, PLANS, PLAN_PRICES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import ImageUploadField from "@/components/ImageUploadField";
 import PaiementAbonnement from "@/components/PaiementAbonnement";
@@ -377,7 +377,8 @@ export default function ParametresPage() {
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
         <div className="sb-section-title">{t("parametres.formuleTitle")}</div>
-        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.formuleSub")}</p>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 4px" }}>{t("parametres.formuleSub")}</p>
+        <p style={{ fontSize: 12, color: "var(--text-faint)", margin: "0 0 16px" }}>{t("parametres.formuleNote")}</p>
 
         {formuleMsg && (
           <div className="sb-badge sb-badge-emerald" style={{ marginBottom: 12, fontSize: 12.5, padding: "6px 10px" }}>
@@ -385,42 +386,37 @@ export default function ParametresPage() {
           </div>
         )}
 
-        <div className="sb-plan-card sb-plan-card-active" style={{ marginBottom: 16 }}>
-          <div className="sb-plan-card-head">
-            <span className="sb-badge sb-badge-emerald">{t("parametres.formuleActive")}</span>
-            <strong>{t(`common.plans.${planKey}.nom`)}</strong>
-          </div>
-          <p className="sb-plan-card-accroche">{t(`common.plans.${planKey}.accroche`)}</p>
-          <p className="sb-plan-card-description">{t(`common.plans.${planKey}.description`)}</p>
-          <ul className="sb-plan-card-avantages">
-            {t(`common.plans.${planKey}.avantages`).map((a) => (
-              <li key={a}>{a}</li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="sb-section-title" style={{ fontSize: 13, marginBottom: 4 }}>
-          {t("parametres.formuleAutresTitle")}
-        </div>
-        <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.formuleAutresSub")}</p>
         <div className="sb-plan-grid">
-          {PLANS.filter((key) => key !== planKey).map((key) => (
-            <div className="sb-plan-card" key={key}>
-              <div className="sb-plan-card-head">
-                <strong>{t(`common.plans.${key}.nom`)}</strong>
+          {PLANS.map((key) => {
+            const active = key === planKey;
+            return (
+              <div className={`sb-plan-card${active ? " sb-plan-card-active" : ""}`} key={key}>
+                {active && <span className="sb-plan-card-badge sb-badge sb-badge-emerald">{t("parametres.formuleActive")}</span>}
+                <div className="sb-plan-card-head">
+                  <strong>{t(`common.plans.${key}.nom`)}</strong>
+                </div>
+                <div className="sb-plan-card-price">
+                  {fmt(PLAN_PRICES[key])}
+                  <span>{t("parametres.formulePrixSuffixe")}</span>
+                </div>
+                <p className="sb-plan-card-accroche">{t(`common.plans.${key}.accroche`)}</p>
+                <ul className="sb-plan-card-avantages sb-plan-card-avantages-icons">
+                  {t(`common.plans.${key}.avantages`).map((a) => (
+                    <li key={a}>
+                      <Check size={13} /> {a}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  className={`sb-btn ${active ? "sb-btn-ghost" : "sb-btn-primary"} sb-plan-card-btn`}
+                  disabled={active}
+                  onClick={() => changerFormule(key)}
+                >
+                  {active ? t("parametres.formuleActive") : t("parametres.formuleChoisir")}
+                </button>
               </div>
-              <p className="sb-plan-card-accroche">{t(`common.plans.${key}.accroche`)}</p>
-              <p className="sb-plan-card-description">{t(`common.plans.${key}.description`)}</p>
-              <ul className="sb-plan-card-avantages">
-                {t(`common.plans.${key}.avantages`).map((a) => (
-                  <li key={a}>{a}</li>
-                ))}
-              </ul>
-              <button className="sb-btn sb-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => changerFormule(key)}>
-                {t("parametres.formuleChoisir")}
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

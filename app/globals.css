@@ -360,33 +360,56 @@ a {
 }
 .sb-plan-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+@media (max-width: 860px) {
+  .sb-plan-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .sb-plan-card {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 14px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 .sb-plan-card-active {
-  border-color: var(--accent);
+  background: var(--card);
+  border: 2px solid var(--accent);
+  padding: 15px;
+}
+.sb-plan-card-badge {
+  align-self: flex-start;
 }
 .sb-plan-card-head {
   display: flex;
   align-items: center;
   gap: 8px;
   font-family: "Space Grotesk", sans-serif;
-  font-size: 14px;
+  font-size: 15px;
+}
+.sb-plan-card-price {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--ink);
+}
+.sb-plan-card-price span {
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 2px;
 }
 .sb-plan-card-accroche {
   font-size: 12.5px;
-  color: var(--ink);
-  margin: 0;
-  font-weight: 600;
+  color: var(--muted);
+  margin: 0 0 4px;
 }
 .sb-plan-card-description {
   font-size: 12px;
@@ -399,9 +422,10 @@ a {
   margin: 0 0 4px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
+  gap: 6px;
+  font-size: 12.5px;
   color: var(--ink);
+  flex: 1;
 }
 .sb-plan-card-avantages li {
   padding-left: 14px;
@@ -413,6 +437,25 @@ a {
   left: 0;
   color: var(--emerald);
   font-weight: 700;
+}
+.sb-plan-card-avantages-icons li {
+  padding-left: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.sb-plan-card-avantages-icons li::before {
+  content: none;
+}
+.sb-plan-card-avantages-icons svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--emerald);
+}
+.sb-plan-card-btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: auto;
 }
 .sb-stat-label {
   font-size: 11.5px;
