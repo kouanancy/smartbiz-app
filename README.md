@@ -176,9 +176,12 @@ repli sur `'autonome'` si absent/invalide.
 **Dans Paramètres** : une carte « Formule » affiche les trois formules
 côte à côte façon page tarifaire (`.sb-plan-grid`, `repeat(3, 1fr)` — une
 seule colonne sous 860px, même breakpoint que le reste de l'app). Chaque
-colonne montre le nom, le prix (`lib/constants.js`, `PLAN_PRICES`, formaté
-via `fmt`/`business.devise` comme tout autre montant), l'accroche et la
-liste d'avantages avec icône de coche (`lucide-react`, `Check`). La
+colonne montre le nom, le prix mensuel (`lib/constants.js`, `PLAN_PRICES`,
+formaté via `fmt`/`business.devise` comme tout autre montant — Clé en main
+garde le même abonnement mensuel qu'Autonome, avec un frais d'installation
+ponctuel affiché en plus, ex. « + 15 000 FCFA à l'installation »),
+l'accroche et la liste d'avantages avec icône de coche (`lucide-react`,
+`Check`). La
 formule active du commerçant se distingue par une bordure `--accent`, un
 fond légèrement différent et un badge « Formule actuelle » ; son bouton
 est désactivé (même libellé), les deux autres proposent « Choisir cette

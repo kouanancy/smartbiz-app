@@ -396,9 +396,14 @@ export default function ParametresPage() {
                   <strong>{t(`common.plans.${key}.nom`)}</strong>
                 </div>
                 <div className="sb-plan-card-price">
-                  {fmt(PLAN_PRICES[key])}
+                  {fmt(PLAN_PRICES[key].mensuel)}
                   <span>{t("parametres.formulePrixSuffixe")}</span>
                 </div>
+                {PLAN_PRICES[key].installation && (
+                  <p className="sb-plan-card-installation">
+                    {t("parametres.formuleInstallation", { montant: fmt(PLAN_PRICES[key].installation) })}
+                  </p>
+                )}
                 <p className="sb-plan-card-accroche">{t(`common.plans.${key}.accroche`)}</p>
                 <ul className="sb-plan-card-avantages sb-plan-card-avantages-icons">
                   {t(`common.plans.${key}.avantages`).map((a) => (
