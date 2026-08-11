@@ -73,7 +73,7 @@ export default function PaiementAbonnement({ business }) {
     fetch("/api/notify-admin-payment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessName: business.name }),
+      body: JSON.stringify({ businessName: business.name, plan: business.plan }),
     }).catch(() => {});
   }
 
