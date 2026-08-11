@@ -97,6 +97,11 @@ automatique » plus bas ; nécessite
 `supabase-notifications-formule-migration.sql` (mentionne la formule du
 commerçant dans les notifications admin de justificatif et d'inscription
 — voir « Centre de notifications » plus bas ; nécessite
+`supabase-notifications-migration.sql`), et enfin
+`supabase-generer-notifications-expiration-onconflict-fix-migration.sql`
+(corrige une clause `ON CONFLICT` ne correspondant à aucune contrainte,
+qui faisait échouer `generer_notifications_expiration()` à chaque appel —
+voir « Centre de notifications » plus bas ; nécessite
 `supabase-notifications-migration.sql`).
 
 ## Variables d'environnement
@@ -881,12 +886,20 @@ insérées depuis le client — voir RLS plus bas) :
   `generer_notifications_expiration()`, appelée une fois par jour par
   `app/api/cron/expiration-reminders` (Vercel Cron, voir `vercel.json`,
   06:00 UTC). Une colonne `dedupe_key` (`abonnement_expire:<business_id>:<date
-  d'expiration>`) avec un index unique garantit qu'une échéance donnée ne
-  génère jamais qu'une seule notification, même si la tâche tourne
-  plusieurs fois le même jour ou que le commerçant se reconnecte entre-temps
-  — contrairement à une vérification faite à chaque connexion (comme
-  `verifierExpirationAbonnement`), qui aurait dupliqué la notification à
-  chaque rechargement. **En plus** de la notification en base, un e-mail de
+  d'expiration>`) avec un index unique **partiel** (`where dedupe_key is
+  not null` — les autres types de notifications n'en posent pas) garantit
+  qu'une échéance donnée ne génère jamais qu'une seule notification, même
+  si la tâche tourne plusieurs fois le même jour ou que le commerçant se
+  reconnecte entre-temps — contrairement à une vérification faite à chaque
+  connexion (comme `verifierExpirationAbonnement`), qui aurait dupliqué la
+  notification à chaque rechargement. La clause `on conflict (dedupe_key)`
+  de la fonction doit répéter ce même prédicat (`where dedupe_key is not
+  null`) pour que Postgres accepte de l'associer à cet index partiel —
+  omis initialement, ce qui faisait échouer la fonction à chaque appel
+  avec l'erreur `42P10` (« no unique or exclusion constraint matching the
+  ON CONFLICT specification ») ; corrigé par
+  `supabase-generer-notifications-expiration-onconflict-fix-migration.sql`.
+  **En plus** de la notification en base, un e-mail de
   rappel est envoyé via Resend (même mécanisme que `notify-admin-payment`)
   — les deux canaux coexistent, et l'e-mail n'est envoyé que pour les
   boutiques réellement notifiées cette fois-ci (donc, comme la notification,
@@ -967,7 +980,15 @@ de celles sous leur seuil d'alerte (`stock <= seuil`), ou un message
 (`SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `RESEND_API_KEY`) — sans
 `RESEND_API_KEY`, la route est ignorée (le rapport n'existe que par
 e-mail, contrairement au rappel d'expiration qui a la notification en base
-comme filet).
+comme filet). `RESEND_API_KEY` est lue indépendamment dans cette route et
+dans `app/api/notify-admin-payment` — chaque route lit sa propre variable
+d'environnement à l'exécution, aucun partage ni dépendance entre les deux.
+La réponse JSON et les logs serveur indiquent explicitement
+`destinatairesTrouves` (nombre de boutiques dues renvoyées par
+`boutiques_dues_rapport_stock()`) et `envoyes` (nombre d'e-mails
+effectivement partis avec succès) — utile pour diagnostiquer un « 200 sans
+e-mail » sans avoir à deviner si la requête SQL n'a rien trouvé ou si
+`RESEND_API_KEY` est absente/mal configurée.
 
 **Pas de choix d'heure côté commerçant** : un champ d'heure a existé
 brièvement puis a été retiré — laisser choisir une heure qu'on ne peut pas
