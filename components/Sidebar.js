@@ -137,7 +137,17 @@ export default function Sidebar({ business, onSignOut, onChangeMode }) {
             onClick={() => setMenuOpen(false)}
           />
         ))}
-        <button className="sb-nav-item" onClick={() => setConfirmLogout(true)} type="button">
+        <button
+          className="sb-nav-item"
+          onClick={() => {
+            // Referme le menu mobile en même temps : sinon la confirmation
+            // s'affiche derrière lui (même sans le bug de z-index, elle
+            // resterait visuellement confuse à côté du menu encore ouvert).
+            setMenuOpen(false);
+            setConfirmLogout(true);
+          }}
+          type="button"
+        >
           <LogOut size={16} />
           {t("sidebar.logout")}
         </button>

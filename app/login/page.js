@@ -6,11 +6,20 @@ import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
+import { PLANS } from "@/lib/constants";
+import { t as tBase } from "@/lib/i18n";
+
+// Page de connexion/inscription affichée avant qu'une boutique (et donc une
+// langue) ne soit chargée — toujours en français, comme le reste de cette
+// page (aucune autre chaîne ici ne passe par lib/i18n).
+const t = (key, vars) => tBase("fr", key, vars);
 
 export default function LoginPage() {
   const router = useRouter();
   const { session } = useAuth();
   const [mode, setMode] = useState("login"); // 'login' | 'signup'
+  const [signupStep, setSignupStep] = useState("plan"); // 'plan' | 'form'
+  const [selectedPlan, setSelectedPlan] = useState("autonome");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -50,10 +59,12 @@ export default function LoginPage() {
           throw new Error("Le mot de passe doit contenir au moins 6 caractères.");
         }
         const trimmedBusinessName = businessName.trim();
+        const metadata = { plan: selectedPlan };
+        if (trimmedBusinessName) metadata.business_name = trimmedBusinessName;
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
-          options: trimmedBusinessName ? { data: { business_name: trimmedBusinessName } } : undefined,
+          options: { data: metadata },
         });
         if (signUpError) throw signUpError;
 
@@ -64,6 +75,7 @@ export default function LoginPage() {
             "Compte créé ! Vérifie ta boîte e-mail pour confirmer ton adresse, puis connecte-toi ci-dessous."
           );
           setMode("login");
+          setSignupStep("plan");
           setPassword("");
         }
       } else {
@@ -109,6 +121,7 @@ export default function LoginPage() {
             type="button"
             className={`sb-auth-tab${mode === "signup" ? " active" : ""}`}
             onClick={() => {
+              if (mode !== "signup") setSignupStep("plan");
               setMode("signup");
               setError("");
               setInfo("");
@@ -121,7 +134,44 @@ export default function LoginPage() {
         {error && <div className="sb-auth-error">{error}</div>}
         {info && <div className="sb-auth-info">{info}</div>}
 
+        {mode === "signup" && signupStep === "plan" ? (
+          <div className="sb-auth-plans">
+            <p className="sb-auth-plans-intro">Choisis la formule qui correspond le mieux à ton commerce.</p>
+            {PLANS.map((key) => (
+              <button
+                type="button"
+                key={key}
+                className={`sb-plan-card sb-auth-plan-option${selectedPlan === key ? " sb-plan-card-active" : ""}`}
+                onClick={() => {
+                  setSelectedPlan(key);
+                  setSignupStep("form");
+                }}
+              >
+                <div className="sb-plan-card-head">
+                  <strong>{t(`common.plans.${key}.nom`)}</strong>
+                </div>
+                <p className="sb-plan-card-accroche">{t(`common.plans.${key}.accroche`)}</p>
+                <p className="sb-plan-card-description">{t(`common.plans.${key}.description`)}</p>
+                <ul className="sb-plan-card-avantages">
+                  {t(`common.plans.${key}.avantages`).map((a) => (
+                    <li key={a}>{a}</li>
+                  ))}
+                </ul>
+              </button>
+            ))}
+          </div>
+        ) : (
         <form onSubmit={handleSubmit}>
+          {mode === "signup" && (
+            <div className="sb-auth-selected-plan">
+              <span>
+                Formule choisie : <strong>{t(`common.plans.${selectedPlan}.nom`)}</strong>
+              </span>
+              <button type="button" className="sb-auth-plan-change" onClick={() => setSignupStep("plan")}>
+                Changer
+              </button>
+            </div>
+          )}
           {mode === "signup" && (
             <div className="sb-auth-field">
               <label>Nom de la boutique (facultatif)</label>
@@ -196,6 +246,7 @@ export default function LoginPage() {
             {loading ? "Un instant…" : mode === "signup" ? "Créer mon compte" : "Se connecter"}
           </button>
         </form>
+        )}
 
         <p className="sb-auth-footer">
           {mode === "signup"
