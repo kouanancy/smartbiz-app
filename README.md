@@ -173,18 +173,29 @@ revenir. Le choix voyage dans les métadonnées utilisateur Supabase
 (`lib/AuthProvider.js`) à la création de la ligne `businesses`, avec
 repli sur `'autonome'` si absent/invalide.
 
-**Dans Paramètres** : une carte « Formule » affiche la formule actuelle en
-détail (nom, accroche, description, avantages), suivie d'une section
-« Autres formules disponibles » façon page tarifaire — chaque formule non
-active y est présentée avec un bouton « Choisir cette formule » qui met à
-jour `businesses.plan` immédiatement (`updateBusiness({ plan })`).
+**Dans Paramètres** : une carte « Formule » affiche les trois formules
+côte à côte façon page tarifaire (`.sb-plan-grid`, `repeat(3, 1fr)` — une
+seule colonne sous 860px, même breakpoint que le reste de l'app). Chaque
+colonne montre le nom, le prix mensuel (`lib/constants.js`, `PLAN_PRICES`,
+formaté via `fmt`/`business.devise` comme tout autre montant — Clé en main
+garde le même abonnement mensuel qu'Autonome, avec un frais d'installation
+ponctuel affiché en plus, ex. « + 15 000 FCFA à l'installation »),
+l'accroche et la liste d'avantages avec icône de coche (`lucide-react`,
+`Check`). La
+formule active du commerçant se distingue par une bordure `--accent`, un
+fond légèrement différent et un badge « Formule actuelle » ; son bouton
+est désactivé (même libellé), les deux autres proposent « Choisir cette
+formule » et mettent à jour `businesses.plan` immédiatement
+(`updateBusiness({ plan })`).
 
 Les libellés/descriptions des trois formules sont centralisés dans
 `lib/i18n` (`common.plans.<clé>.{nom,accroche,description,avantages}`,
 fr/en) et réutilisés à l'identique par `app/login/page.js` (toujours en
-français, comme le reste de cette page) et `app/(app)/parametres/page.js`
-(langue du compte). La liste des clés de formule vit dans
-`lib/constants.js` (`PLANS`), pour rester alignée avec la contrainte SQL.
+français, comme le reste de cette page — sans les prix, propres à l'écran
+Paramètres) et `app/(app)/parametres/page.js` (langue du compte). La liste
+des clés de formule vit dans `lib/constants.js` (`PLANS`), pour rester
+alignée avec la contrainte SQL ; les prix affichés (`PLAN_PRICES`) sont
+purement indicatifs, la facturation réelle restant gérée manuellement.
 
 ## Photos d'articles (et logo de la boutique)
 
