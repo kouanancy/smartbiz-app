@@ -33,20 +33,36 @@ export async function GET(request) {
   if (!resendApiKey) {
     // Contrairement au rappel d'expiration (qui a la notification en base
     // comme filet), le rapport de stock n'existe QUE par e-mail : sans
-    // clé Resend il n'y a rien à envoyer, donc rien à faire ici.
+    // clé Resend il n'y a rien à envoyer, donc rien à faire ici. Lue
+    // indépendamment de app/api/notify-admin-payment (chaque route lit sa
+    // propre variable d'environnement à l'exécution — aucun partage
+    // possible entre les deux, donc rien à faire ici même si l'autre
+    // route fonctionne).
     console.warn("RESEND_API_KEY absente : rapport de stock ignoré.");
-    return Response.json({ envoyes: 0 });
+    return Response.json({ destinatairesTrouves: 0, envoyes: 0, raison: "RESEND_API_KEY absente" });
   }
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // select id, name, notif_email, langue, devise from businesses
+  // where notif_email is not null
+  //   and (
+  //     rapport_stock = 'journalier'
+  //     or (rapport_stock = 'hebdomadaire' and rapport_stock_jour_semaine = extract(dow from now())::int)
+  //   )
+  //   and (rapport_stock_dernier_envoi is null or rapport_stock_dernier_envoi < current_date)
+  // — voir boutiques_dues_rapport_stock() dans
+  // supabase-rapport-stock-heure-fixe-migration.sql pour la requête exacte
+  // (marque aussi rapport_stock_dernier_envoi = current_date dans le même
+  // mouvement, pour ne jamais renvoyer deux fois le même jour).
   const { data: boutiques, error } = await supabaseAdmin.rpc("boutiques_dues_rapport_stock");
   if (error) {
     console.error("Échec de boutiques_dues_rapport_stock :", error);
     return Response.json({ error: error.message }, { status: 500 });
   }
+  console.log(`Rapport de stock : ${boutiques?.length || 0} boutique(s) due(s) trouvée(s).`);
 
   const resultats = [];
   for (const b of boutiques || []) {
@@ -85,5 +101,10 @@ export async function GET(request) {
     }
   }
 
-  return Response.json({ envoyes: resultats.length, resultats });
+  const envoyes = resultats.filter((r) => r.envoye).length;
+  console.log(
+    `Rapport de stock : ${boutiques?.length || 0} destinataire(s) trouvé(s), ${envoyes} e-mail(s) effectivement envoyé(s).`
+  );
+
+  return Response.json({ destinatairesTrouves: boutiques?.length || 0, envoyes, resultats });
 }
