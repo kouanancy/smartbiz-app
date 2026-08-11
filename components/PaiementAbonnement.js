@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Send } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
+import { PLAN_PRICES } from "@/lib/constants";
 import ImageUploadField from "@/components/ImageUploadField";
 
 const STATUT_BADGE_CLASS = {
@@ -12,17 +14,34 @@ const STATUT_BADGE_CLASS = {
   echoue: "sb-badge-coral",
 };
 
-// Composant partagé entre l'écran de blocage (PendingSubscription, seul
-// endroit accessible à un compte bloqué) et la carte Abonnement des
-// Paramètres (pour un renouvellement anticipé pendant que le compte est
-// encore actif/en essai) — même flux de paiement dans les deux cas.
-export default function PaiementAbonnement({ business }) {
+// Composant partagé entre l'écran de blocage (premier paiement,
+// réabonnement) et la carte Abonnement des Paramètres (pour un
+// renouvellement anticipé pendant que le compte est encore actif/en
+// essai) — même flux de paiement partout. Le prop `plan` (optionnel) sert
+// aux parcours de choix de formule (premier paiement, réabonnement,
+// changement de formule dans Paramètres) : quand il est fourni, le
+// montant affiché/enregistré vient de PLAN_PRICES pour cette formule
+// précise plutôt que du prix global de parametres_globaux.abonnement_prix
+// (renouvellement générique, sans formule en jeu).
+export default function PaiementAbonnement({ business, plan }) {
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
+  const prixPlan = plan ? PLAN_PRICES[plan] : null;
+  const montantMensuel = prixPlan ? prixPlan.mensuel : undefined;
+  const montantInstallation = prixPlan?.installation || 0;
   const [parametres, setParametres] = useState(null);
   const [historique, setHistorique] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploadMsg, setUploadMsg] = useState("");
+  // Photo déjà envoyée vers Supabase Storage mais pas encore soumise en
+  // vérification — l'upload seul ne notifie plus l'administratrice, il
+  // faut un clic explicite sur "Envoyer" (voir soumettreJustificatif).
+  const [justificatifDraft, setJustificatifDraft] = useState("");
+  const [envoiEnCours, setEnvoiEnCours] = useState(false);
+  // Force le remontage d'ImageUploadField après un envoi réussi, pour
+  // repartir d'une zone vide plutôt que de continuer à afficher la photo
+  // déjà envoyée (qui, elle, reste "value" fixe à "" — voir plus bas).
+  const [uploadKey, setUploadKey] = useState(0);
 
   useEffect(() => {
     if (!business?.id) return;
@@ -48,25 +67,36 @@ export default function PaiementAbonnement({ business }) {
     };
   }, [business?.id]);
 
-  async function soumettreJustificatif(url) {
-    if (!url) return;
+  // Séparé en deux étapes explicites : l'upload seul (ci-dessous) ne fait
+  // que stocker la photo dans Supabase Storage et la garder en brouillon
+  // local — seul un clic sur "Envoyer" (envoyerJustificatif) l'insère en
+  // base et notifie l'administratrice. Évite qu'une simple sélection de
+  // fichier parte en vérification avant que le commerçant ait pu se
+  // relire/changer d'avis.
+  async function envoyerJustificatif() {
+    if (!justificatifDraft) return;
     setUploadMsg("");
+    setEnvoiEnCours(true);
+    const montantAPayer = prixPlan ? montantMensuel + montantInstallation : parametres?.abonnement_prix || 0;
     const { data, error } = await supabase
       .from("paiements_abonnement")
       .insert({
         business_id: business.id,
-        montant: parametres?.abonnement_prix || 0,
+        montant: montantAPayer,
         statut: "en_attente",
-        justificatif_url: url,
+        justificatif_url: justificatifDraft,
       })
       .select()
       .single();
+    setEnvoiEnCours(false);
     if (error) {
       setUploadMsg(t("paiement.submitError", { message: error.message }));
       return;
     }
     setHistorique((prev) => [data, ...prev]);
     setUploadMsg(t("paiement.submitSuccess"));
+    setJustificatifDraft("");
+    setUploadKey((k) => k + 1);
 
     // Best effort : l'échec de la notification ne doit jamais empêcher le
     // commerçant de considérer son envoi comme réussi.
@@ -108,7 +138,22 @@ export default function PaiementAbonnement({ business }) {
 
       <div className="sb-paiement-info">
         <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 8px" }}>
-          {t("paiement.montantAPayer")} <strong style={{ color: "var(--ink)" }}>{fmt(parametres?.abonnement_prix)}</strong>
+          {t("paiement.montantAPayer")}{" "}
+          {prixPlan ? (
+            <>
+              <strong style={{ color: "var(--ink)" }}>
+                {fmt(montantMensuel)}
+                {t("parametres.formulePrixSuffixe")}
+              </strong>
+              {montantInstallation > 0 && (
+                <span style={{ display: "block", color: "var(--accent-text)", fontWeight: 600, marginTop: 2 }}>
+                  {t("parametres.formuleInstallation", { montant: fmt(montantInstallation) })}
+                </span>
+              )}
+            </>
+          ) : (
+            <strong style={{ color: "var(--ink)" }}>{fmt(parametres?.abonnement_prix)}</strong>
+          )}
         </p>
         {parametres?.wave_qr_url ? (
           <img src={parametres.wave_qr_url} alt="QR Wave" style={{ width: 160, height: 160, objectFit: "contain", borderRadius: 10, border: "1px solid var(--line)" }} />
@@ -123,12 +168,23 @@ export default function PaiementAbonnement({ business }) {
 
       <div style={{ marginTop: 14 }}>
         <ImageUploadField
+          key={uploadKey}
           label={t("paiement.uploadLabel")}
           businessId={business.id}
           folder="justificatifs-paiement"
           value=""
-          onChange={soumettreJustificatif}
+          onChange={setJustificatifDraft}
         />
+        {justificatifDraft && (
+          <button
+            className="sb-btn sb-btn-primary"
+            style={{ width: "100%", justifyContent: "center", marginTop: 10 }}
+            onClick={envoyerJustificatif}
+            disabled={envoiEnCours}
+          >
+            <Send size={14} /> {envoiEnCours ? t("paiement.envoiEnCours") : t("paiement.envoyerJustificatif")}
+          </button>
+        )}
       </div>
 
       {historique.length > 0 && (

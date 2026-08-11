@@ -102,7 +102,11 @@ commerçant dans les notifications admin de justificatif et d'inscription
 (corrige une clause `ON CONFLICT` ne correspondant à aucune contrainte,
 qui faisait échouer `generer_notifications_expiration()` à chaque appel —
 voir « Centre de notifications » plus bas ; nécessite
-`supabase-notifications-migration.sql`).
+`supabase-notifications-migration.sql`), et enfin
+`supabase-rapport-stock-retrait-migration.sql` (retire la fonctionnalité
+de rapport de stock automatique, jugée redondante — voir « Rapport de
+stock automatique — retiré » plus bas ; nécessite
+`supabase-rapport-stock-retrait-heure-migration.sql`).
 
 ## Variables d'environnement
 
@@ -140,11 +144,19 @@ bas) — sans elles, le reste de l'application fonctionne normalement.
    serveur, cette bascule est vérifiée paresseusement à chaque connexion /
    chargement de la boutique (`verifierExpirationAbonnement` dans
    `lib/AuthProvider.js`) plutôt que par un cron. Deux cas selon le statut
-   précédent : un essai dépassé (jamais payé) passe à
-   `en_attente_paiement` ; un abonnement `actif` dépassé (payé, puis
-   expiré) passe à `expire`, avec son propre écran « Abonnement expiré ».
+   précédent, chacun avec son propre écran de blocage dédié
+   (`app/(app)/layout.js`) — jamais le même texte entre les deux, voir
+   plus bas :
+   - un essai dépassé (jamais payé) passe à `en_attente_paiement` →
+     `components/PremierPaiement.js` (message d'accueil « premier
+     paiement ») ;
+   - un abonnement `actif` dépassé (payé, puis expiré) passe à `expire`
+     → `components/Reabonnement.js` (message de réabonnement).
+
    Dans les deux cas, l'accès à l'application (Tableau de bord, Commandes,
-   Articles, Clients, Catalogue, Paramètres) est bloqué.
+   Articles, Clients, Catalogue, Paramètres) est bloqué. Un compte
+   `suspendu` (pas forcément lié à un problème de paiement) affiche un
+   troisième écran sans flux de paiement, `components/CompteSuspendu.js`.
 5. Le passage à `actif` (fin d'essai payée ou renouvellement classique) se
    fait via le circuit de paiement manuel vérifié décrit ci-dessous
    (« Marquer comme payé » dans l'espace Administration, une fois le
@@ -182,29 +194,57 @@ revenir. Le choix voyage dans les métadonnées utilisateur Supabase
 (`lib/AuthProvider.js`) à la création de la ligne `businesses`, avec
 repli sur `'autonome'` si absent/invalide.
 
-**Dans Paramètres** : une carte « Formule » affiche les trois formules
-côte à côte façon page tarifaire (`.sb-plan-grid`, `repeat(3, 1fr)` — une
-seule colonne sous 860px, même breakpoint que le reste de l'app). Chaque
+**`components/PlanGrid.js`** : grille des 3 formules côte à côte façon
+page tarifaire (`.sb-plan-grid`, `repeat(3, 1fr)` — une seule colonne sous
+860px), réutilisée partout où un commerçant choisit une formule. Chaque
 colonne montre le nom, le prix mensuel (`lib/constants.js`, `PLAN_PRICES`,
-formaté via `fmt`/`business.devise` comme tout autre montant — Clé en main
-garde le même abonnement mensuel qu'Autonome, avec un frais d'installation
-ponctuel affiché en plus, ex. « + 15 000 FCFA à l'installation »),
-l'accroche et la liste d'avantages avec icône de coche (`lucide-react`,
-`Check`). La
-formule active du commerçant se distingue par une bordure `--accent`, un
-fond légèrement différent et un badge « Formule actuelle » ; son bouton
-est désactivé (même libellé), les deux autres proposent « Choisir cette
-formule » et mettent à jour `businesses.plan` immédiatement
-(`updateBusiness({ plan })`).
+formaté via `fmt`/`business.devise` — Clé en main garde le même abonnement
+mensuel qu'Autonome, avec un frais d'installation ponctuel affiché en
+plus, ex. « + 15 000 FCFA à l'installation »), l'accroche et la liste
+d'avantages avec icône de coche (`lucide-react`, `Check`). La formule
+active se distingue par une bordure `--accent`, un fond légèrement
+différent et un badge ; `disableActive` contrôle si son bouton est
+désactivé (rien à faire — cas « changer de formule » ci-dessous) ou reste
+cliquable (premier paiement/réabonnement, qui doivent aboutir à un
+paiement même si c'est la même formule qu'avant).
+
+**Dans Paramètres** : plus de grille complète affichée directement — une
+carte « Formule » résume juste la formule actuelle (nom) et propose un
+bouton « Changer ma formule » vers une page dédiée
+(`app/(app)/parametres/formule/page.js`), en trois étapes avec bouton
+retour à chaque étape : liste des formules (`PlanGrid`, formule active
+désactivée) → détail de la formule choisie (nom, prix, description,
+avantages) → paiement (`components/PaiementAbonnement.js`, avec le
+montant de cette formule précise). Choisir une formule différente met à
+jour `businesses.plan` immédiatement (`updateBusiness({ plan })`), avant
+même la vérification du paiement — même logique que le reste de
+l'application, la différence de prix/paiement réelle restant gérée
+manuellement par l'équipe Doka. **Masqué entièrement pour un compte
+administrateur** (carte « Abonnement » et bouton « Changer ma formule »),
+avec redirection si l'URL est atteinte directement — l'abonnement ne
+concerne jamais ce type de compte (accès permanent, voir plus haut).
+
+**Premier paiement et réabonnement** (`components/PremierPaiement.js`,
+`components/Reabonnement.js`) partagent le même bloc choix de formule +
+paiement, `components/FormuleEtPaiement.js` : les trois formules y sont
+toutes cliquables (y compris celle déjà en place), pour toujours aboutir
+à un paiement quelle qu'elle soit.
+
+**`components/PaiementAbonnement.js`** accepte un prop `plan` optionnel :
+quand il est fourni (formule en cours de choix), le montant
+affiché/enregistré vient de `PLAN_PRICES` pour cette formule précise ;
+sans ce prop (renouvellement générique, hors changement de formule), il
+reste basé sur `parametres_globaux.abonnement_prix` comme avant.
 
 Les libellés/descriptions des trois formules sont centralisés dans
 `lib/i18n` (`common.plans.<clé>.{nom,accroche,description,avantages}`,
 fr/en) et réutilisés à l'identique par `app/login/page.js` (toujours en
-français, comme le reste de cette page — sans les prix, propres à l'écran
-Paramètres) et `app/(app)/parametres/page.js` (langue du compte). La liste
-des clés de formule vit dans `lib/constants.js` (`PLANS`), pour rester
-alignée avec la contrainte SQL ; les prix affichés (`PLAN_PRICES`) sont
-purement indicatifs, la facturation réelle restant gérée manuellement.
+français, comme le reste de cette page — sans les prix, propres aux
+écrans authentifiés), `app/(app)/parametres/page.js`/`formule/page.js` et
+les écrans de blocage (langue du compte). La liste des clés de formule
+vit dans `lib/constants.js` (`PLANS`), pour rester alignée avec la
+contrainte SQL ; les prix affichés (`PLAN_PRICES`) sont purement
+indicatifs, la facturation réelle restant gérée manuellement.
 
 ## Photos d'articles (et logo de la boutique)
 
@@ -721,7 +761,16 @@ Les lignes dont l'abonnement (`actif` ou `essai`) expire dans les 7 jours
 à venir sont mises en évidence (fond ambre, badge « Expire bientôt ») et
 triées en premier — sauf la propre ligne de l'admin connecté, qui n'
 affiche jamais sa date d'expiration ni ce badge (son accès est permanent,
-voir plus bas). Actions par ligne :
+voir plus bas). Une ligne entièrement cliquable (`.sb-row-clickable`, même
+principe que Commandes/Articles/Clients) ouvre une page de détail dédiée
+(`app/(app)/admin/commercants/[id]/page.js`) plutôt que d'entasser des
+boutons d'action sur chaque ligne de la liste — celle-ci se limite donc
+aux colonnes Boutique/E-mail/Statut/Expiration, avec un badge « X
+justificatif(s) à vérifier » au-dessus du tableau (compteur global, sans
+avoir à ouvrir chaque fiche). La page de détail affiche le justificatif en
+attente (le cas échéant, en image directement, plus de modale) et
+regroupe les actions, bien espacées (`.sb-detail-actions`, même style que
+les autres pages de détail) :
 
 - **Marquer comme payé** (masqué sur les lignes déjà admin, dont
   l'abonnement n'a pas d'effet sur l'accès) : `subscription_status →
@@ -729,13 +778,16 @@ voir plus bas). Actions par ligne :
   soit le statut ou la date précédente — le pendant manuel de ce que fera
   le webhook CinetPay plus tard, via `admin_mark_subscription_paid`. Si un
   justificatif est en attente pour ce commerçant, il passe aussi à
-  `reussi`. Une vignette cliquable ouvre un aperçu du justificatif à
-  contrôler avant de cliquer, et un bouton « Rejeter » (visible seulement
-  s'il y a un justificatif en attente) ouvre une modale demandant une
-  raison, affichée au commerçant — voir « Paiement manuel vérifié » plus
-  bas.
+  `reussi`.
+- **Rejeter** (visible seulement s'il y a un justificatif en attente)
+  ouvre une modale demandant une raison, affichée au commerçant — voir
+  « Paiement manuel vérifié » plus bas.
 - **Donner/Retirer les droits admin** (`admin_set_is_admin`) : toujours
   actif, y compris sur sa propre ligne.
+
+La page de détail réutilise `admin_list_businesses()` (filtrée côté client
+sur l'identifiant de la fiche) plutôt qu'une nouvelle fonction SQL dédiée
+— même périmètre de colonnes, aucune migration supplémentaire nécessaire.
 
 **Compte admin = accès permanent à l'application.** `subscription_status`
 et `subscription_expires_at` n'ont aucun effet sur un compte
@@ -784,7 +836,11 @@ boutiques.
   détaille par semaine, les trois autres par mois glissants).
 - **Tableau détaillé** : tous les paiements validés (boutique, montant,
   date de validation), triable en cliquant l'en-tête « Date de validation »
-  — le plus récent en premier par défaut.
+  — le plus récent en premier par défaut. Un bouton « Supprimer » par
+  ligne (avec confirmation) retire un paiement — utile pour nettoyer les
+  paiements fictifs créés en phase de test ; la policy admin existante
+  (`for all`, `is_admin_user()`) couvre déjà `DELETE`, aucune migration
+  supplémentaire nécessaire.
 - **Export PDF et Excel** : mêmes mécanismes que partout ailleurs dans
   l'app — impression via `window.print()` et une mise en page dédiée
   (`.sb-revenus-print`, portail dans `<body>`, comme la Trésorerie), et
@@ -809,19 +865,32 @@ contrôle et débloque. Toute la logique vit dans
 `components/PaiementAbonnement.js`, un composant partagé monté à deux
 endroits :
 
-- **`PendingSubscription.js`** (écran de blocage) : seul endroit accessible
-  à un compte dont le statut n'est ni `actif` ni `essai` (le shell normal
-  de l'app, sidebar comprise, ne se rend pas du tout dans ce cas), donc
-  c'est là que doit vivre le flux complet pour un compte bloqué. Absent
-  pour un compte `suspendu` (une suspension n'est pas forcément liée à un
+**Police** : `.sb-pending-screen` (écrans de blocage ci-dessous) est en
+dehors du shell applicatif (`.sb-root`, qui définit `font-family: "Inter"`)
+— sans sa propre déclaration, tout son texte (montant, QR, boutons non
+stylés) retombait sur la police par défaut du navigateur au lieu d'Inter,
+contrairement au reste de l'app. Corrigé en ajoutant `font-family: "Inter",
+sans-serif` directement sur `.sb-pending-screen`, même principe que
+`.sb-auth-screen` (page de connexion).
+
+- **`PremierPaiement.js`/`Reabonnement.js`** (écrans de blocage, via
+  `FormuleEtPaiement.js` — voir « Formule (plan) » plus haut) : seuls
+  endroits accessibles à un compte dont le statut n'est ni `actif` ni
+  `essai` (le shell normal de l'app, sidebar comprise, ne se rend pas du
+  tout dans ce cas), donc c'est là que doit vivre le flux complet pour un
+  compte bloqué. Absent pour un compte `suspendu`
+  (`CompteSuspendu.js` — une suspension n'est pas forcément liée à un
   impayé).
 - **Carte « Abonnement » de `parametres/page.js`** : pour un renouvellement
   anticipé pendant que le compte est encore `actif` ou en `essai` (page
   seulement accessible dans ce cas, donc jamais en double avec l'écran de
-  blocage).
+  blocage), ou via « Changer ma formule » →
+  `parametres/formule/page.js`.
 
-**Ce que montre le composant** : le prix (`parametres_globaux.abonnement_prix`,
-formaté selon la devise de la boutique comme partout ailleurs), le QR Wave
+**Ce que montre le composant** : le prix — via le prop `plan` (formule en
+cours de choix, montant tiré de `PLAN_PRICES`) ou, à défaut,
+`parametres_globaux.abonnement_prix` (renouvellement générique), formaté
+selon la devise de la boutique comme partout ailleurs —, le QR Wave
 (`parametres_globaux.wave_qr_url`) ou à défaut le numéro Wave
 (`wave_telephone`) si le QR n'est pas encore renseigné, un champ d'upload
 (`ImageUploadField`, même mécanisme que les photos d'articles ou le logo)
@@ -833,18 +902,28 @@ cours de vérification, l'activation peut prendre jusqu'à 1 heure. ») s'il
 est `en_attente`, la raison du rejet s'il est `echoue`, rien s'il est
 `reussi` ou s'il n'y a encore aucun envoi.
 
-**À l'envoi d'un justificatif** (`ImageUploadField` → Storage → URL
-publique) : une ligne est insérée dans `paiements_abonnement` avec
-`statut = 'en_attente'`, `montant` = prix courant au moment de l'envoi
-(figé, comme les prix sur `commande_lignes`), puis un appel best-effort à
-`POST /api/notify-admin-payment` (route serveur Next.js, jamais exposée au
-client) envoie un e-mail à l'administratrice via l'API REST de Resend. Un
-échec de cet appel (clé absente, Resend indisponible...) n'empêche jamais
-le commerçant de considérer son envoi comme réussi — l'admin voit de toute
-façon les paiements en attente dans `/admin`. Nécessite `RESEND_API_KEY`
-(et idéalement `RESEND_FROM_EMAIL` avec un domaine vérifié dans Resend,
-sans quoi l'adresse sandbox par défaut ne peut envoyer qu'à l'adresse du
-compte Resend lui-même) — voir `.env.local.example`.
+**Validation explicite avant envoi** : l'upload de la photo
+(`ImageUploadField.onChange`) ne fait plus qu'enregistrer l'URL en
+brouillon local (`justificatifDraft`) — un bouton « Envoyer pour
+vérification » distinct déclenche l'insertion en base et la notification
+admin (`envoyerJustificatif`). Évite qu'une simple sélection de fichier
+parte en vérification avant que le commerçant ait pu se relire ou changer
+d'avis. `ImageUploadField` est remonté (prop `key`) après un envoi réussi
+pour repartir d'une zone vide.
+
+**À l'envoi d'un justificatif** (bouton « Envoyer pour vérification », une
+fois la photo déjà dans Storage) : une ligne est insérée dans
+`paiements_abonnement` avec `statut = 'en_attente'`, `montant` = prix
+courant au moment de l'envoi (figé, comme les prix sur `commande_lignes`),
+puis un appel best-effort à `POST /api/notify-admin-payment` (route
+serveur Next.js, jamais exposée au client) envoie un e-mail à
+l'administratrice via l'API REST de Resend. Un échec de cet appel (clé
+absente, Resend indisponible...) n'empêche jamais le commerçant de
+considérer son envoi comme réussi — l'admin voit de toute façon les
+paiements en attente dans `/admin`. Nécessite `RESEND_API_KEY` (et
+idéalement `RESEND_FROM_EMAIL` avec un domaine vérifié dans Resend, sans
+quoi l'adresse sandbox par défaut ne peut envoyer qu'à l'adresse du compte
+Resend lui-même) — voir `.env.local.example`.
 
 **Sécurité RLS** : la policy d'origine sur `paiements_abonnement`
 (`for all`, propriétaire de la boutique) permettait à un commerçant de
@@ -955,56 +1034,20 @@ s'exécuter (500) plutôt que de tourner sans protection ou sans les droits
 nécessaires ; le reste du centre de notifications (cloche, panneau,
 notification de justificatif) fonctionne normalement sans elles.
 
-## Rapport de stock automatique
+## Rapport de stock automatique — retiré
 
-Dans Paramètres, le commerçant choisit « Aucun », « Journalier » ou
-« Hebdomadaire » (`businesses.rapport_stock`, existant). Pour
-« Hebdomadaire » seulement, un sélecteur de jour apparaît —
-`businesses.rapport_stock_jour_semaine` (0 = dimanche .. 6 = samedi, même
-convention que `Date.getDay()`), enregistré immédiatement au changement
-comme le reste des réglages de cette page. **Pas de choix d'heure** :
-volontairement retiré (voir plus bas) — le rapport part toujours à 7h,
-heure d'Abidjan (UTC toute l'année, pas de fuseau par boutique à gérer).
-
-**Tâche planifiée** : `app/api/cron/stock-reports` tourne une fois par
-jour à 7h (`vercel.json`) — le plan Vercel actuellement utilisé (Hobby)
-limite les Cron Jobs à une exécution par jour, à heure fixe. Elle appelle
-`boutiques_dues_rapport_stock()` (SQL) qui sélectionne — et marque
-atomiquement comme envoyées, dans le même `UPDATE ... RETURNING` — les
-boutiques en `journalier`, plus celles en `hebdomadaire` dont le jour
-choisi (`rapport_stock_jour_semaine`) correspond à aujourd'hui, qui n'ont
-pas encore reçu de rapport aujourd'hui (`rapport_stock_dernier_envoi`).
-Pour chacune, la route interroge `articles` et envoie par Resend la liste
-de celles sous leur seuil d'alerte (`stock <= seuil`), ou un message
-« aucun article en alerte » sinon. Mêmes clés que le rappel d'expiration
-(`SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `RESEND_API_KEY`) — sans
-`RESEND_API_KEY`, la route est ignorée (le rapport n'existe que par
-e-mail, contrairement au rappel d'expiration qui a la notification en base
-comme filet). `RESEND_API_KEY` est lue indépendamment dans cette route et
-dans `app/api/notify-admin-payment` — chaque route lit sa propre variable
-d'environnement à l'exécution, aucun partage ni dépendance entre les deux.
-La réponse JSON et les logs serveur indiquent explicitement
-`destinatairesTrouves` (nombre de boutiques dues renvoyées par
-`boutiques_dues_rapport_stock()`) et `envoyes` (nombre d'e-mails
-effectivement partis avec succès) — utile pour diagnostiquer un « 200 sans
-e-mail » sans avoir à deviner si la requête SQL n'a rien trouvé ou si
-`RESEND_API_KEY` est absente/mal configurée.
-
-**Pas de choix d'heure côté commerçant** : un champ d'heure a existé
-brièvement puis a été retiré — laisser choisir une heure qu'on ne peut pas
-respecter (plan Hobby : une seule exécution par jour, à heure fixe pour
-toutes les boutiques) induisait en erreur plutôt que d'aider.
-`businesses.rapport_stock_heure` a été retiré de la base
-(`supabase-rapport-stock-retrait-heure-migration.sql`), plus seulement
-laissé inutilisé. Seul `rapport_stock_jour_semaine` subsiste, pour le jour
-du rapport hebdomadaire — le déclenchement reste quotidien à 7h fixe pour
-tout le monde. Si le plan Vercel passe un jour à Pro, `app/api/cron/stock-reports`
-peut retourner à une fréquence horaire et un choix d'heure par boutique
-être réintroduit à ce moment-là.
-
-Nécessite, dans l'ordre, `supabase-rapport-stock-horaire-migration.sql`,
-`supabase-rapport-stock-heure-fixe-migration.sql` puis
-`supabase-rapport-stock-retrait-heure-migration.sql` (voir Démarrage).
+Cette fonctionnalité (rapport journalier/hebdomadaire du stock par
+e-mail, `app/api/cron/stock-reports`) a existé un temps puis a été
+retirée : jugée redondante, le stock étant déjà facilement consultable
+dans l'application (page Articles). Retiré : la route cron elle-même,
+son entrée dans `vercel.json`, le champ correspondant dans Paramètres, la
+fonction SQL `boutiques_dues_rapport_stock()` et les colonnes
+`businesses.rapport_stock`/`rapport_stock_jour_semaine`/`rapport_stock_dernier_envoi`
+(`supabase-rapport-stock-retrait-migration.sql`, à exécuter une fois dans
+Supabase). Les confirmations de commande par e-mail
+(`businesses.notif_email`, `businesses.confirmation_email`) sont une
+fonctionnalité distincte, conservée telle quelle — voir « Centre de
+notifications » plus bas.
 
 ## Logo Doka (marque de la plateforme)
 
@@ -1073,7 +1116,8 @@ de boutons du navigateur — une modale maison était nécessaire pour les
 libellés demandés. Montée aux deux endroits où vit un bouton de
 déconnexion : `Sidebar.js` (même bouton pour ordinateur et mobile, la
 sidebar ne fait que se repositionner en CSS selon la largeur d'écran) et
-`PendingSubscription.js` (écran de blocage d'un compte non actif).
+les trois écrans de blocage d'un compte non actif (`PremierPaiement.js`,
+`Reabonnement.js`, `CompteSuspendu.js`).
 
 Sur mobile, avec le menu ☰ ouvert, cette modale doit s'afficher au-dessus
 du panneau de navigation coulissant plutôt que derrière lui : `.sb-modal-overlay`
@@ -1183,12 +1227,16 @@ app/
   (app)/articles/          stock / articles / catégories / réappro
   (app)/clients/           clients
   (app)/catalogue/         catalogue partageable (WhatsApp / impression)
-  (app)/parametres/        boutique, thème, zones de livraison, notifications
+  (app)/parametres/        boutique, thème, zones de livraison, notifications, formule
+  (app)/parametres/formule/   changement de formule (liste → détail → paiement)
   (app)/aide/              support (WhatsApp / e-mail)
   (app)/admin/             espace Administration (visible si is_admin, portée limitée à l'abonnement)
+  (app)/admin/commercants/[id]/   page de détail d'un commerçant (justificatif, actions)
   api/notify-admin-payment/   route serveur : e-mail Resend à la soumission d'un justificatif
+  api/cron/expiration-reminders/   route serveur : rappel d'abonnement qui expire (Vercel Cron)
 components/
-  Sidebar.js, PendingSubscription.js, Receipt.js, ImageUploadField.js,
+  Sidebar.js, Receipt.js, ImageUploadField.js, PlanGrid.js,
+  FormuleEtPaiement.js, PremierPaiement.js, Reabonnement.js, CompteSuspendu.js,
   PaiementAbonnement.js   flux de paiement Wave (montant, QR/tél., upload, historique)
 lib/
   supabaseClient.js        client Supabase (browser)

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { ArrowUpDown, CheckCircle2, FileSpreadsheet, Printer, ShieldCheck, ShieldOff, XCircle, X } from "lucide-react";
+import { ArrowUpDown, FileSpreadsheet, Printer, Trash2 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
@@ -75,7 +75,7 @@ function buildSemainesRevenus(paiements, t) {
 }
 
 export default function AdminPage() {
-  const { business, refreshBusiness } = useAuth();
+  const { business } = useAuth();
   const router = useRouter();
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
@@ -87,9 +87,6 @@ export default function AdminPage() {
   const [triDateAsc, setTriDateAsc] = useState(false);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
-  const [rejetId, setRejetId] = useState(null);
-  const [raisonRejet, setRaisonRejet] = useState("");
-  const [previewPaiement, setPreviewPaiement] = useState(null);
   const [logoMsg, setLogoMsg] = useState("");
   const [parametresGlobaux, setParametresGlobaux] = useState(null);
   const [waveQrDraft, setWaveQrDraft] = useState("");
@@ -140,58 +137,15 @@ export default function AdminPage() {
     };
   }, [business?.is_admin]);
 
-  function paiementEnAttentePour(businessId) {
-    return paiementsEnAttente.find((p) => p.business_id === businessId) || null;
-  }
-
-  async function marquerPaye(b) {
-    const nouvelleExpiration = new Date();
-    nouvelleExpiration.setMonth(nouvelleExpiration.getMonth() + 1);
-    const { data, error } = await supabase
-      .rpc("admin_mark_subscription_paid", { p_business_id: b.id, p_expires_at: nouvelleExpiration.toISOString() })
-      .single();
+  async function supprimerPaiement(p) {
+    const confirmed = window.confirm(t("admin.revenus.confirmDelete"));
+    if (!confirmed) return;
+    const { error } = await supabase.from("paiements_abonnement").delete().eq("id", p.id);
     if (error) {
-      setMsg(t("admin.paidError", { message: error.message }));
+      setMsg(t("admin.revenus.deleteError", { message: error.message }));
       return;
     }
-    setBusinesses((prev) => prev.map((x) => (x.id === b.id ? data : x)));
-    // Le contexte AuthProvider (donc la sidebar) garde sa propre copie de
-    // "business" : sans ce rafraîchissement, une action sur sa propre
-    // boutique (ex. marquer son propre abonnement comme payé) resterait
-    // invisible dans la sidebar jusqu'à la prochaine reconnexion.
-    if (b.owner_id === business.owner_id) refreshBusiness();
-
-    const paiement = paiementEnAttentePour(b.id);
-    if (paiement) {
-      const valideAt = new Date().toISOString();
-      const { data: paiementValide, error: paiementError } = await supabase
-        .from("paiements_abonnement")
-        .update({ statut: "reussi", valide_at: valideAt })
-        .eq("id", paiement.id)
-        .select()
-        .single();
-      if (!paiementError) {
-        setPaiementsEnAttente((prev) => prev.filter((p) => p.id !== paiement.id));
-        setPaiementsReussis((prev) => [paiementValide, ...prev]);
-      }
-    }
-    setMsg(t("admin.paidSuccess"));
-  }
-
-  async function confirmerRejet() {
-    if (!raisonRejet.trim()) return;
-    const { error } = await supabase
-      .from("paiements_abonnement")
-      .update({ statut: "echoue", raison_rejet: raisonRejet.trim() })
-      .eq("id", rejetId);
-    if (error) {
-      setMsg(t("admin.rejectError", { message: error.message }));
-      return;
-    }
-    setPaiementsEnAttente((prev) => prev.filter((p) => p.id !== rejetId));
-    setRejetId(null);
-    setRaisonRejet("");
-    setMsg(t("admin.rejectSuccess"));
+    setPaiementsReussis((prev) => prev.filter((x) => x.id !== p.id));
   }
 
   async function enregistrerLogoPlatform(urls) {
@@ -249,16 +203,6 @@ export default function AdminPage() {
     }
     setParametresGlobaux(data);
     setSupportMsg(t("admin.supportSavedMsg"));
-  }
-
-  async function toggleAdmin(b) {
-    const { data, error } = await supabase.rpc("admin_set_is_admin", { p_business_id: b.id, p_is_admin: !b.is_admin }).single();
-    if (error) {
-      setMsg(t("admin.adminToggleError", { message: error.message }));
-      return;
-    }
-    setBusinesses((prev) => prev.map((x) => (x.id === b.id ? data : x)));
-    if (b.owner_id === business.owner_id) refreshBusiness();
   }
 
   function nomBoutique(businessId) {
@@ -413,12 +357,13 @@ export default function AdminPage() {
                     {t("admin.revenus.colDateValidation")} <ArrowUpDown size={12} />
                   </span>
                 </th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {paiementsTries.length === 0 ? (
                 <tr>
-                  <td colSpan={3} style={{ color: "var(--muted)" }}>
+                  <td colSpan={4} style={{ color: "var(--muted)" }}>
                     {t("admin.revenus.aucunPaiement")}
                   </td>
                 </tr>
@@ -428,6 +373,15 @@ export default function AdminPage() {
                     <td>{nomBoutique(p.business_id)}</td>
                     <td className="sb-mono">{fmt(p.montant)}</td>
                     <td>{p.valide_at ? new Date(p.valide_at).toLocaleDateString(dateLocale(business?.langue)) : "—"}</td>
+                    <td>
+                      <button
+                        className="sb-btn sb-btn-ghost"
+                        style={{ padding: "4px 8px", color: "var(--coral)" }}
+                        onClick={() => supprimerPaiement(p)}
+                      >
+                        <Trash2 size={12} /> {t("admin.revenus.supprimer")}
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -542,6 +496,16 @@ export default function AdminPage() {
         <p style={{ fontSize: 13, color: "var(--muted)" }}>{t("admin.aucunCommercant")}</p>
       ) : (
         <div className="sb-card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+            <div className="sb-section-title" style={{ margin: 0 }}>
+              {t("admin.title")}
+            </div>
+            {paiementsEnAttente.length > 0 && (
+              <span className="sb-badge sb-badge-amber" style={{ fontSize: 12.5, padding: "6px 10px" }}>
+                {t("admin.nbJustificatifsEnAttente", { n: paiementsEnAttente.length })}
+              </span>
+            )}
+          </div>
           <div className="sb-table-scroll">
             <table className="sb-table">
               <thead>
@@ -550,20 +514,22 @@ export default function AdminPage() {
                   <th>{t("admin.colEmail")}</th>
                   <th>{t("admin.colStatut")}</th>
                   <th>{t("admin.colExpiration")}</th>
-                  <th>{t("admin.colJustificatif")}</th>
-                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {businesses.map((b) => {
-                  const paiement = paiementEnAttentePour(b.id);
                   // La date d'expiration ne concerne jamais l'admin connecté
                   // lui-même (accès permanent, quel que soit son abonnement) :
                   // elle ne doit apparaître que pour les autres commerçants
                   // listés, jamais comme information personnelle le concernant.
                   const estMoi = b.owner_id === business.owner_id;
                   return (
-                    <tr key={b.id} style={expireBientot(b) && !estMoi ? { background: "var(--amber-bg)" } : undefined}>
+                    <tr
+                      key={b.id}
+                      className="sb-row-clickable"
+                      onClick={() => router.push(`/admin/commercants/${b.id}`)}
+                      style={expireBientot(b) && !estMoi ? { background: "var(--amber-bg)" } : undefined}
+                    >
                       <td>{b.name || t("common.defaultBusinessName")}</td>
                       <td style={{ color: "var(--muted)" }}>{b.email || "—"}</td>
                       <td>
@@ -585,112 +551,11 @@ export default function AdminPage() {
                           </div>
                         )}
                       </td>
-                      <td>
-                        {paiement ? (
-                          <div
-                            className="sb-thumb-upload"
-                            style={{ width: 44, height: 44 }}
-                            onClick={() => setPreviewPaiement(paiement)}
-                            title={t("admin.voirJustificatif", { montant: fmt(paiement.montant) })}
-                          >
-                            <img src={paiement.justificatif_url} alt="" />
-                          </div>
-                        ) : (
-                          <span style={{ color: "var(--text-faint)", fontSize: 12.5 }}>—</span>
-                        )}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          {!b.is_admin && (
-                            <button className="sb-btn sb-btn-emerald" style={{ padding: "4px 8px" }} onClick={() => marquerPaye(b)}>
-                              <CheckCircle2 size={12} /> {t("admin.marquerPaye")}
-                            </button>
-                          )}
-                          {paiement && (
-                            <button
-                              className="sb-btn sb-btn-ghost"
-                              style={{ padding: "4px 8px", color: "var(--coral)" }}
-                              onClick={() => {
-                                setRejetId(paiement.id);
-                                setRaisonRejet("");
-                              }}
-                            >
-                              <XCircle size={12} /> {t("admin.rejeter")}
-                            </button>
-                          )}
-                          <button className="sb-btn sb-btn-ghost" style={{ padding: "4px 8px" }} onClick={() => toggleAdmin(b)}>
-                            {b.is_admin ? <ShieldOff size={12} /> : <ShieldCheck size={12} />}{" "}
-                            {b.is_admin ? t("admin.retirerAdmin") : t("admin.donnerAdmin")}
-                          </button>
-                        </div>
-                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {rejetId && (
-        <div className="sb-modal-overlay" onClick={() => setRejetId(null)}>
-          <div className="sb-card" style={{ width: 360, background: "var(--card)" }} onClick={(e) => e.stopPropagation()}>
-            <div className="sb-section-title" style={{ margin: "0 0 4px" }}>
-              {t("admin.rejeterModalTitle")}
-            </div>
-            <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("admin.rejeterModalSub")}</p>
-            <div className="sb-field">
-              <label>{t("admin.raisonRejetLabel")}</label>
-              <textarea
-                className="sb-input"
-                rows={3}
-                style={{ resize: "vertical", fontFamily: "inherit" }}
-                placeholder={t("admin.raisonRejetPlaceholder")}
-                value={raisonRejet}
-                onChange={(e) => setRaisonRejet(e.target.value)}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button className="sb-btn sb-btn-ghost" style={{ flex: 1, justifyContent: "center" }} onClick={() => setRejetId(null)}>
-                {t("admin.annuler")}
-              </button>
-              <button
-                className="sb-btn"
-                style={{ flex: 1, justifyContent: "center", background: "var(--coral)", color: "#fff" }}
-                onClick={confirmerRejet}
-                disabled={!raisonRejet.trim()}
-              >
-                {t("admin.confirmerRejet")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {previewPaiement && (
-        <div className="sb-modal-overlay" onClick={() => setPreviewPaiement(null)}>
-          <div className="sb-card" style={{ width: 420, maxWidth: "92vw", background: "var(--card)" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-              <div className="sb-section-title" style={{ margin: 0 }}>
-                {t("admin.justificatifModalTitle")}
-              </div>
-              <button
-                onClick={() => setPreviewPaiement(null)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 10px" }}>
-              {t("paiement.colMontant")} : <strong>{fmt(previewPaiement.montant)}</strong> —{" "}
-              {new Date(previewPaiement.created_at).toLocaleDateString(dateLocale(business?.langue))}
-            </p>
-            <img
-              src={previewPaiement.justificatif_url}
-              alt=""
-              style={{ width: "100%", borderRadius: 10, border: "1px solid var(--line)" }}
-            />
           </div>
         </div>
       )}

@@ -2001,6 +2001,12 @@ a {
   align-items: center;
   justify-content: center;
   background: var(--paper);
+  /* Écran hors du shell applicatif (.sb-root, qui définit la police) —
+     sans ceci, tout le texte (montant, QR, boutons non stylés) retombe
+     sur la police par défaut du navigateur au lieu d'Inter, contrairement
+     au reste de l'application. Même correctif que .sb-auth-screen. */
+  font-family: "Inter", sans-serif;
+  color: var(--ink);
   padding: 20px;
 }
 .sb-pending-card {

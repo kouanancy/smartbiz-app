@@ -1,24 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, RefreshCw, LogOut } from "lucide-react";
+import { Sparkles, LogOut, RefreshCw } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { t as tBase } from "@/lib/i18n";
-import PaiementAbonnement from "@/components/PaiementAbonnement";
+import FormuleEtPaiement from "@/components/FormuleEtPaiement";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
-export default function PendingSubscription({ business }) {
+// Écran affiché à la toute première échéance de paiement (essai gratuit
+// de 7 jours terminé, jamais encore payé — subscription_status =
+// 'en_attente_paiement'). Distinct de Reabonnement.js (abonnement déjà
+// payé au moins une fois, puis expiré) : jamais le même texte entre les
+// deux, même s'ils partagent le même bloc choix de formule + paiement
+// (components/FormuleEtPaiement.js).
+export default function PremierPaiement({ business }) {
   const { refreshBusiness, signOut } = useAuth();
   const [checking, setChecking] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const t = (key, vars) => tBase(business?.langue, key, vars);
-
-  const status = business?.subscription_status || "en_attente_paiement";
-  const isExpired = status === "expire";
-  const isSuspended = status === "suspendu";
-  // Un compte "suspendu" ne l'est pas forcément pour une question de
-  // paiement — pas de flux de paiement sur cet écran-là.
-  const montrerPaiement = !isSuspended;
 
   async function handleRefresh() {
     setChecking(true);
@@ -28,28 +27,20 @@ export default function PendingSubscription({ business }) {
 
   return (
     <div className="sb-pending-screen">
-      <div className="sb-pending-card">
-        <div className="sb-pending-icon">
-          <Clock size={24} />
+      <div className="sb-pending-card" style={{ maxWidth: 720, textAlign: "left" }}>
+        <div className="sb-pending-icon" style={{ margin: "0 auto 16px" }}>
+          <Sparkles size={24} />
         </div>
-        <h1 className="sb-h1" style={{ marginBottom: 8 }}>
-          {isExpired ? t("pending.titleExpired") : isSuspended ? t("pending.titleSuspended") : t("pending.titleDefault")}
+        <h1 className="sb-h1" style={{ textAlign: "center", marginBottom: 8 }}>
+          {t("premierPaiement.title")}
         </h1>
-        <p className="sb-sub" style={{ marginBottom: 4 }}>
-          {t("pending.statusLine", {
-            name: business?.name || t("pending.defaultBusinessName"),
-            status: t(`common.subscriptionStatus.${status}`),
-          })}
+        <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", margin: "0 auto 24px", maxWidth: 480 }}>
+          {t("premierPaiement.text")}
         </p>
-        <p style={{ fontSize: 13, color: "var(--muted)", margin: "12px 0 22px" }}>
-          {isExpired ? t("pending.textExpired") : t("pending.textDefault")}
-        </p>
-        {montrerPaiement && (
-          <div style={{ textAlign: "left", marginBottom: 20 }}>
-            <PaiementAbonnement business={business} />
-          </div>
-        )}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+
+        <FormuleEtPaiement business={business} activeLabel={t("premierPaiement.formuleActuelleLabel")} />
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20, maxWidth: 320, marginLeft: "auto", marginRight: "auto" }}>
           <button className="sb-btn sb-btn-primary" style={{ justifyContent: "center" }} onClick={handleRefresh} disabled={checking}>
             <RefreshCw size={14} /> {checking ? t("pending.checking") : t("pending.checkStatus")}
           </button>

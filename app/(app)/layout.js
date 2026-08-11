@@ -8,7 +8,9 @@ import { supabase } from "@/lib/supabaseClient";
 import { THEMES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import Sidebar from "@/components/Sidebar";
-import PendingSubscription from "@/components/PendingSubscription";
+import PremierPaiement from "@/components/PremierPaiement";
+import Reabonnement from "@/components/Reabonnement";
+import CompteSuspendu from "@/components/CompteSuspendu";
 
 export default function AppLayout({ children }) {
   const { session, business, setBusiness, signOut } = useAuth();
@@ -67,7 +69,15 @@ export default function AppLayout({ children }) {
   // subscription_status : le blocage automatique à l'expiration ne
   // concerne que les comptes commerçants classiques.
   if (!business.is_admin && business.subscription_status !== "actif" && business.subscription_status !== "essai") {
-    return <PendingSubscription business={business} />;
+    // Trois écrans distincts, jamais le même texte entre eux (voir
+    // PremierPaiement.js et Reabonnement.js) : 'en_attente_paiement' ne
+    // se produit qu'après un essai jamais payé (premier paiement),
+    // 'expire' qu'après un abonnement actif retombé (réabonnement) — voir
+    // EXPIRATION_SUIVANTE dans lib/AuthProvider.js. 'suspendu' n'a pas de
+    // flux de paiement (pas forcément lié à un problème de paiement).
+    if (business.subscription_status === "expire") return <Reabonnement business={business} />;
+    if (business.subscription_status === "suspendu") return <CompteSuspendu business={business} />;
+    return <PremierPaiement business={business} />;
   }
 
   return (
