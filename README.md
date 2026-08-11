@@ -93,7 +93,11 @@ au déclenchement quotidien à heure fixe du plan Vercel Hobby — voir
 `supabase-rapport-stock-retrait-heure-migration.sql` (retire la colonne
 `rapport_stock_heure`, devenue inutile — voir « Rapport de stock
 automatique » plus bas ; nécessite
-`supabase-rapport-stock-heure-fixe-migration.sql`).
+`supabase-rapport-stock-heure-fixe-migration.sql`), et enfin
+`supabase-notifications-formule-migration.sql` (mentionne la formule du
+commerçant dans les notifications admin de justificatif et d'inscription
+— voir « Centre de notifications » plus bas ; nécessite
+`supabase-notifications-migration.sql`).
 
 ## Variables d'environnement
 
@@ -869,7 +873,7 @@ la partie visuelle, montée deux fois dans `Sidebar.js` (une seule visible à
 la fois selon la largeur d'écran, l'autre masquée en CSS) pour partager le
 même état sans dupliquer les requêtes.
 
-**Deux types de notifications**, générées uniquement côté base (jamais
+**Trois types de notifications**, générées uniquement côté base (jamais
 insérées depuis le client — voir RLS plus bas) :
 
 - **`abonnement_expire`** (commerçant) : dès que `subscription_expires_at`
@@ -892,7 +896,29 @@ insérées depuis le client — voir RLS plus bas) :
   ligne `paiements_abonnement` est insérée avec `statut = 'en_attente'` —
   donc à chaque envoi de justificatif (voir « Paiement manuel vérifié »
   ci-dessus), sans rien changer côté `PaiementAbonnement.js`. Une
-  notification est créée pour chaque boutique `is_admin = true`.
+  notification est créée pour chaque boutique `is_admin = true`. Le
+  message et l'e-mail correspondant (`app/api/notify-admin-payment`)
+  mentionnent tous les deux la formule du commerçant concerné (ex. «
+  formule Clé en main (5 000 FCFA/mois + 15 000 FCFA à l'installation) »)
+  pour que l'administratrice sache immédiatement quel montant vérifier
+  sans aller chercher l'information ailleurs.
+- **`nouvelle_inscription`** (administratrice) : créée immédiatement par un
+  déclencheur SQL (`trg_notifier_admins_nouvelle_inscription`) dès qu'une
+  ligne `businesses` non-admin est insérée — donc à la première connexion
+  d'un commerçant après confirmation de son e-mail (voir `ensureBusiness`
+  dans `lib/AuthProvider.js`), pas à la soumission du formulaire
+  d'inscription elle-même. Mentionne elle aussi la formule choisie. Pas
+  d'e-mail pour ce cas (aucun mécanisme d'e-mail n'existait déjà pour les
+  inscriptions).
+
+Le libellé + prix de chaque formule utilisé dans ces messages est
+centralisé dans `libelle_formule(plan)` côté SQL
+(`supabase-notifications-formule-migration.sql`) et dans
+`libelleFormule()` côté `app/api/notify-admin-payment/route.js` (qui, lui,
+réutilise directement `PLAN_PRICES`/`PLANS` de `lib/constants.js`) — la
+fonction SQL, elle, duplique ces valeurs à la main (Postgres ne peut pas
+importer de JS) et doit être mise à jour manuellement si les prix
+changent côté application.
 
 **Sécurité RLS** : la table `notifications` n'a de policy que pour
 `select` et `update`, toutes deux limitées à
