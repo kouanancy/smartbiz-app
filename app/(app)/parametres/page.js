@@ -6,7 +6,7 @@ import { CheckCircle2, FileText, Palette, Plus, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase } from "@/lib/format";
-import { THEMES, MODES_AFFICHAGE, JOURS_SEMAINE } from "@/lib/constants";
+import { THEMES, MODES_AFFICHAGE, JOURS_SEMAINE, PLANS } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import ImageUploadField from "@/components/ImageUploadField";
 import PaiementAbonnement from "@/components/PaiementAbonnement";
@@ -23,6 +23,7 @@ export default function ParametresPage() {
   const [rapportStockJour, setRapportStockJour] = useState(business?.rapport_stock_jour_semaine ?? 1);
   const [savedMsg, setSavedMsg] = useState("");
   const [notifMsg, setNotifMsg] = useState("");
+  const [formuleMsg, setFormuleMsg] = useState("");
 
   const [zones, setZones] = useState([]);
   const [zoneForm, setZoneForm] = useState({ zone: "", frais: "" });
@@ -91,6 +92,11 @@ export default function ParametresPage() {
     await updateBusiness({ rapport_stock_jour_semaine: j });
   }
 
+  async function changerFormule(key) {
+    const { error } = await updateBusiness({ plan: key });
+    setFormuleMsg(error ? t("common.error", { message: error.message }) : t("parametres.formuleChangeeMsg"));
+  }
+
   async function ajouterZone() {
     const zone = zoneForm.zone.trim();
     const frais = Number(zoneForm.frais);
@@ -118,6 +124,7 @@ export default function ParametresPage() {
   }
 
   const themeKey = business?.theme_key || "orange";
+  const planKey = business?.plan || "autonome";
 
   return (
     <div>
@@ -366,6 +373,55 @@ export default function ParametresPage() {
           <strong>{t(`common.subscriptionStatus.${business?.subscription_status}`)}</strong>
         </p>
         {business?.id && <PaiementAbonnement business={business} />}
+      </div>
+
+      <div className="sb-card" style={{ marginBottom: 16 }}>
+        <div className="sb-section-title">{t("parametres.formuleTitle")}</div>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.formuleSub")}</p>
+
+        {formuleMsg && (
+          <div className="sb-badge sb-badge-emerald" style={{ marginBottom: 12, fontSize: 12.5, padding: "6px 10px" }}>
+            {formuleMsg}
+          </div>
+        )}
+
+        <div className="sb-plan-card sb-plan-card-active" style={{ marginBottom: 16 }}>
+          <div className="sb-plan-card-head">
+            <span className="sb-badge sb-badge-emerald">{t("parametres.formuleActive")}</span>
+            <strong>{t(`common.plans.${planKey}.nom`)}</strong>
+          </div>
+          <p className="sb-plan-card-accroche">{t(`common.plans.${planKey}.accroche`)}</p>
+          <p className="sb-plan-card-description">{t(`common.plans.${planKey}.description`)}</p>
+          <ul className="sb-plan-card-avantages">
+            {t(`common.plans.${planKey}.avantages`).map((a) => (
+              <li key={a}>{a}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="sb-section-title" style={{ fontSize: 13, marginBottom: 4 }}>
+          {t("parametres.formuleAutresTitle")}
+        </div>
+        <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.formuleAutresSub")}</p>
+        <div className="sb-plan-grid">
+          {PLANS.filter((key) => key !== planKey).map((key) => (
+            <div className="sb-plan-card" key={key}>
+              <div className="sb-plan-card-head">
+                <strong>{t(`common.plans.${key}.nom`)}</strong>
+              </div>
+              <p className="sb-plan-card-accroche">{t(`common.plans.${key}.accroche`)}</p>
+              <p className="sb-plan-card-description">{t(`common.plans.${key}.description`)}</p>
+              <ul className="sb-plan-card-avantages">
+                {t(`common.plans.${key}.avantages`).map((a) => (
+                  <li key={a}>{a}</li>
+                ))}
+              </ul>
+              <button className="sb-btn sb-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => changerFormule(key)}>
+                {t("parametres.formuleChoisir")}
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="sb-card">

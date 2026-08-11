@@ -153,6 +153,39 @@ bas) — sans elles, le reste de l'application fonctionne normalement.
    navigation (le `business` du contexte `AuthProvider` est partagé par
    toute l'app).
 
+## Formule (plan)
+
+Indépendante du statut d'abonnement ci-dessus (essai/actif/expiré...), la
+formule (`businesses.plan` : `'autonome' | 'cle_en_main' | 'premium'`,
+colonne déjà présente dans `smartbiz-schema.sql`, `'autonome'` par défaut)
+détermine le niveau d'accompagnement dont bénéficie le commerçant — elle
+n'a aucun effet automatique sur la facturation ou l'accès : la différence
+de prix/paiement entre formules reste gérée manuellement, côté
+Administration, par l'équipe Doka.
+
+**À l'inscription** (`app/login/page.js`) : l'onglet « Créer un compte »
+s'ouvre désormais sur une étape de choix de formule (les trois cartes,
+avec accroche/description/avantages) avant le formulaire habituel
+(nom de boutique/e-mail/mot de passe/CGU) — un lien « Changer » permet d'y
+revenir. Le choix voyage dans les métadonnées utilisateur Supabase
+(`options.data.plan` de `supabase.auth.signUp`, même mécanisme que
+`business_name`) et est repris par `ensureBusiness`
+(`lib/AuthProvider.js`) à la création de la ligne `businesses`, avec
+repli sur `'autonome'` si absent/invalide.
+
+**Dans Paramètres** : une carte « Formule » affiche la formule actuelle en
+détail (nom, accroche, description, avantages), suivie d'une section
+« Autres formules disponibles » façon page tarifaire — chaque formule non
+active y est présentée avec un bouton « Choisir cette formule » qui met à
+jour `businesses.plan` immédiatement (`updateBusiness({ plan })`).
+
+Les libellés/descriptions des trois formules sont centralisés dans
+`lib/i18n` (`common.plans.<clé>.{nom,accroche,description,avantages}`,
+fr/en) et réutilisés à l'identique par `app/login/page.js` (toujours en
+français, comme le reste de cette page) et `app/(app)/parametres/page.js`
+(langue du compte). La liste des clés de formule vit dans
+`lib/constants.js` (`PLANS`), pour rester alignée avec la contrainte SQL.
+
 ## Photos d'articles (et logo de la boutique)
 
 Les photos (formulaires « Nouvel article » et « Modifier l'article ») sont
@@ -563,6 +596,10 @@ reste ≥ 8:1 sur fond sombre pour les six couleurs. Vérifié par calcul de
 contraste WCAG sur toutes les paires texte/fond du système de variables
 (texte principal ≥ 13:1, textes secondaires ≥ 4.7:1, couleurs de statut
 ≥ 5.9:1) et par capture d'écran comparative clair/sombre.
+
+Audit complet ré-effectué sur l'ensemble du code (hex/`rgb()`/couleurs
+nommées, en JSX comme en CSS) : aucune couleur de texte fixe restante en
+dehors des cas volontairement exclus ci-dessous.
 
 **Couvre toute l'application**, pas seulement les nouveaux écrans : les
 ~120 couleurs jusque-là écrites en dur dans les styles JSX (`color:
@@ -979,6 +1016,13 @@ libellés demandés. Montée aux deux endroits où vit un bouton de
 déconnexion : `Sidebar.js` (même bouton pour ordinateur et mobile, la
 sidebar ne fait que se repositionner en CSS selon la largeur d'écran) et
 `PendingSubscription.js` (écran de blocage d'un compte non actif).
+
+Sur mobile, avec le menu ☰ ouvert, cette modale doit s'afficher au-dessus
+du panneau de navigation coulissant plutôt que derrière lui : `.sb-modal-overlay`
+est passée en `z-index: 70`, au-dessus de `.sb-nav` (`z-index: 60` sous
+860px). Le bouton « Déconnexion » de `Sidebar.js` referme aussi
+explicitement le menu (`setMenuOpen(false)`) au moment où il ouvre la
+confirmation, pour éviter que les deux restent visuellement superposés.
 
 ## Navigation mobile (menu hamburger)
 

@@ -358,6 +358,62 @@ a {
   border-radius: 10px;
   padding: 16px 18px;
 }
+.sb-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.sb-plan-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sb-plan-card-active {
+  border-color: var(--accent);
+}
+.sb-plan-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 14px;
+}
+.sb-plan-card-accroche {
+  font-size: 12.5px;
+  color: var(--ink);
+  margin: 0;
+  font-weight: 600;
+}
+.sb-plan-card-description {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+.sb-plan-card-avantages {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ink);
+}
+.sb-plan-card-avantages li {
+  padding-left: 14px;
+  position: relative;
+}
+.sb-plan-card-avantages li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--emerald);
+  font-weight: 700;
+}
 .sb-stat-label {
   font-size: 11.5px;
   text-transform: uppercase;
@@ -564,7 +620,11 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 50;
+  /* Au-dessus du menu mobile coulissant (.sb-nav, z-index 60 en dessous de
+     860px) — sinon une modale ouverte pendant que le menu ☰ est ouvert
+     (ex. confirmation de déconnexion) restait visuellement cachée
+     derrière lui, boutons inclus. */
+  z-index: 70;
   padding: 16px;
 }
 .sb-stamp {
@@ -1755,6 +1815,43 @@ a {
   background: var(--card);
   color: var(--accent-text);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.sb-auth-plans {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sb-auth-plans-intro {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 0;
+}
+.sb-auth-plan-option {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: "Inter", sans-serif;
+}
+.sb-auth-selected-plan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  margin-bottom: 14px;
+}
+.sb-auth-plan-change {
+  border: none;
+  background: transparent;
+  color: var(--accent-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
 }
 .sb-auth-field {
   display: flex;
