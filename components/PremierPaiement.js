@@ -13,21 +13,26 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 // payé au moins une fois, puis expiré) : jamais le même texte entre les
 // deux, même s'ils partagent le même bloc choix de formule + paiement
 // (components/FormuleEtPaiement.js). 'en_attente_paiement' peut aussi
-// venir du rejet d'un justificatif envoyé pendant l'essai (voir
-// admin_reject_payment) — même statut que la fin d'essai classique, donc
-// distingué ici via paiementRejete (calculé dans AuthProvider à partir du
-// dernier paiement en date, pas via le statut) plutôt que via le statut,
-// pour un message encore différent des deux autres (ni accueil, ni
-// réabonnement). Un seul bouton de confirmation dans tout le parcours :
-// celui d'envoi du justificatif, dans FormuleEtPaiement/PaiementAbonnement
-// — pas de bouton "vérifier mon statut" séparé (n'a pas de sens tant
-// qu'aucune formule n'est choisie, et fait doublon avec "Envoyer pour
-// vérification" une fois sur l'écran de paiement ; refreshBusiness est de
-// toute façon déjà rappelé à chaque navigation, voir app/(app)/layout.js).
-export default function PremierPaiement({ business, paiementRejete }) {
+// venir d'un justificatif envoyé pendant l'essai encore en attente ou
+// rejeté (voir admin_reject_payment) — même statut que la fin d'essai
+// classique, donc distingué ici via paiementBlocage ('en_attente' |
+// 'echoue' | null, calculé dans AuthProvider à partir du dernier paiement
+// en date, pas via le statut) plutôt que via le statut, pour un message
+// encore différent des deux autres (ni accueil, ni réabonnement). Un seul
+// bouton de confirmation dans tout le parcours : celui d'envoi du
+// justificatif, dans FormuleEtPaiement/PaiementAbonnement — pas de bouton
+// "vérifier mon statut" séparé (n'a pas de sens tant qu'aucune formule
+// n'est choisie, et fait doublon avec "Envoyer pour vérification" une
+// fois sur l'écran de paiement ; refreshBusiness est de toute façon déjà
+// rappelé à chaque navigation, voir app/(app)/layout.js).
+export default function PremierPaiement({ business, paiementBlocage }) {
   const { signOut } = useAuth();
   const [confirmLogout, setConfirmLogout] = useState(false);
   const t = (key, vars) => tBase(business?.langue, key, vars);
+  const titre =
+    paiementBlocage === "en_attente" ? t("paiementEnAttente.title") : paiementBlocage === "echoue" ? t("paiementRejete.title") : t("premierPaiement.title");
+  const texte =
+    paiementBlocage === "en_attente" ? t("paiementEnAttente.text") : paiementBlocage === "echoue" ? t("paiementRejete.text") : t("premierPaiement.text");
 
   return (
     <div className="sb-pending-screen">
@@ -36,11 +41,9 @@ export default function PremierPaiement({ business, paiementRejete }) {
           <Sparkles size={24} />
         </div>
         <h1 className="sb-h1" style={{ textAlign: "center", marginBottom: 8 }}>
-          {paiementRejete ? t("paiementRejete.title") : t("premierPaiement.title")}
+          {titre}
         </h1>
-        <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", margin: "0 auto 24px", maxWidth: 480 }}>
-          {paiementRejete ? t("paiementRejete.text") : t("premierPaiement.text")}
-        </p>
+        <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", margin: "0 auto 24px", maxWidth: 480 }}>{texte}</p>
 
         <FormuleEtPaiement business={business} activeLabel={t("premierPaiement.formuleActuelleLabel")} />
 

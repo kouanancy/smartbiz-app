@@ -15,17 +15,21 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 // confirmation dans tout le parcours : celui d'envoi du justificatif,
 // dans FormuleEtPaiement/PaiementAbonnement — pas de bouton "vérifier mon
 // statut" séparé, qui faisait doublon depuis la mise en place du vrai
-// circuit de justificatif. 'expire' peut aussi venir du rejet d'un
-// justificatif de renouvellement anticipé envoyé pendant que le compte
-// était encore actif (voir admin_reject_payment) — même statut qu'une
-// expiration classique, donc distingué ici via paiementRejete (calculé
-// dans AuthProvider à partir du dernier paiement en date, pas via le
-// statut) plutôt que via le statut, pour un message encore différent des
-// deux autres.
-export default function Reabonnement({ business, paiementRejete }) {
+// circuit de justificatif. 'expire' peut aussi venir d'un justificatif de
+// renouvellement anticipé envoyé pendant que le compte était encore actif,
+// en attente ou rejeté (voir admin_reject_payment) — même statut qu'une
+// expiration classique, donc distingué ici via paiementBlocage
+// ('en_attente' | 'echoue' | null, calculé dans AuthProvider à partir du
+// dernier paiement en date, pas via le statut) plutôt que via le statut,
+// pour un message encore différent des deux autres.
+export default function Reabonnement({ business, paiementBlocage }) {
   const { signOut } = useAuth();
   const [confirmLogout, setConfirmLogout] = useState(false);
   const t = (key, vars) => tBase(business?.langue, key, vars);
+  const titre =
+    paiementBlocage === "en_attente" ? t("paiementEnAttente.title") : paiementBlocage === "echoue" ? t("paiementRejete.title") : t("reabonnement.title");
+  const texte =
+    paiementBlocage === "en_attente" ? t("paiementEnAttente.text") : paiementBlocage === "echoue" ? t("paiementRejete.text") : t("reabonnement.text");
 
   return (
     <div className="sb-pending-screen">
@@ -34,11 +38,9 @@ export default function Reabonnement({ business, paiementRejete }) {
           <Clock size={24} />
         </div>
         <h1 className="sb-h1" style={{ textAlign: "center", marginBottom: 8 }}>
-          {paiementRejete ? t("paiementRejete.title") : t("reabonnement.title")}
+          {titre}
         </h1>
-        <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", margin: "0 auto 24px", maxWidth: 480 }}>
-          {paiementRejete ? t("paiementRejete.text") : t("reabonnement.text")}
-        </p>
+        <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", margin: "0 auto 24px", maxWidth: 480 }}>{texte}</p>
 
         <FormuleEtPaiement business={business} activeLabel={t("reabonnement.formuleActuelleLabel")} />
 

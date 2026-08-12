@@ -206,29 +206,41 @@ bas) — sans elles, le reste de l'application fonctionne normalement.
    émis n'étant pas instantanée, ne garantirait de toute façon pas un
    blocage plus immédiat que cette revérification par navigation.
 8. **Deuxième ligne de défense, indépendante de `subscription_status`**
-   (`lib/AuthProvider.js`, state `paiementRejete`) : le point 6
-   (`admin_reject_payment`) met déjà `subscription_status` à jour au
-   moment du rejet, mais un commerçant a pu malgré tout garder l'accès
-   après un rejet — la cause exacte n'a pas pu être confirmée sans accès
-   aux données de production, donc plutôt que de se fier uniquement à
-   `subscription_status` (qui peut, par un chemin non prévu ou une
-   manipulation manuelle en base, ne pas refléter un rejet), l'accès est
-   maintenant aussi conditionné, indépendamment, au dernier
-   `paiements_abonnement` de la boutique : s'il est au statut `echoue`,
-   l'accès est bloqué **quelle que soit la valeur de
-   `subscription_status`** — y compris `actif` ou `essai`. Recalculé dans
-   `ensureBusiness` (donc à chaque connexion, chaque `getSession()` au
-   chargement de l'app, et chaque `refreshBusiness()` — voir point 7 pour
-   la revérification par navigation), jamais uniquement de façon
-   différée. Sans écran de blocage dédié pour ce cas précis (`expire`/
-   `suspendu` restent decidés par `subscription_status` seul quand ils
-   s'appliquent), l'accès retombe sur `PremierPaiement.js`, qui affiche le
-   message dédié au rejet (voir plus bas) dès que `paiementRejete` est
-   vrai. Un nouvel envoi de justificatif (`PaiementAbonnement.js`) devient
-   aussitôt le paiement le plus récent (`statut = 'en_attente'`) et
-   déclenche lui-même un `refreshBusiness()` pour faire retomber
-   `paiementRejete` à `false` sans attendre la prochaine navigation ; la
-   validation par l'administratrice réactive ensuite le compte normalement.
+   (`lib/AuthProvider.js`, state `paiementBlocage` — `null` | `'en_attente'`
+   | `'echoue'`, calculé par `dernierPaiementBlocage()` dans
+   `lib/paiements.js`) : le point 6 (`admin_reject_payment`) met déjà
+   `subscription_status` à jour au moment du rejet, mais un commerçant a
+   pu malgré tout garder l'accès pendant qu'un justificatif était encore
+   en attente ou avait été rejeté — le cas typique est un renouvellement
+   anticipé pendant que le compte est encore `actif`/`essai` (carte
+   « Abonnement » de Paramètres, ou « Changer ma formule ») : le nouveau
+   justificatif ne touche jamais `subscription_status` tant qu'il n'est
+   pas validé par l'administratrice, donc rien ne bloquait l'accès dans
+   ce cas précis. L'accès est donc conditionné, indépendamment de
+   `subscription_status`, au dernier `paiements_abonnement` de la
+   boutique : s'il est au statut `en_attente` ou `echoue`, l'accès est
+   bloqué **quelle que soit la valeur de `subscription_status`** — y
+   compris `actif` ou `essai`. Recalculé dans `ensureBusiness` (donc à
+   chaque connexion, chaque `getSession()` au chargement de l'app, et
+   chaque `refreshBusiness()` — voir point 7 pour la revérification par
+   navigation), jamais uniquement de façon différée — `business` et
+   `paiementBlocage` sont mis à jour par deux `setState` volontairement
+   appelés l'un juste après l'autre, sans `await` entre eux (React les
+   regroupe alors en un seul rendu), pour éviter un rendu intermédiaire
+   où `business` refléterait déjà un compte débloqué avant que
+   `paiementBlocage` n'ait rattrapé le retard d'un aller-retour réseau.
+   Sans écran de blocage dédié pour ce cas précis (`expire`/`suspendu`
+   restent décidés par `subscription_status` seul quand ils s'appliquent),
+   l'accès retombe sur `PremierPaiement.js`, qui affiche l'un des trois
+   messages (`premierPaiement`, `paiementEnAttente` ou `paiementRejete`,
+   selon la valeur de `paiementBlocage`) — même logique dans
+   `Reabonnement.js` avec son propre message par défaut. Un nouvel envoi
+   de justificatif (`PaiementAbonnement.js`) devient aussitôt le paiement
+   le plus récent (`statut = 'en_attente'`, donc `paiementBlocage` bascule
+   sur `'en_attente'` — le blocage reste actif, mais avec le message
+   adapté) et déclenche lui-même un `refreshBusiness()` sans attendre la
+   prochaine navigation ; la validation par l'administratrice réactive
+   ensuite le compte normalement.
 9. **Colonnes de `businesses` restreintes en écriture**
    (`supabase-businesses-colonnes-restreintes-migration.sql`) — la vraie
    cause probable d'un cas où un commerçant a retrouvé l'accès à son
@@ -975,19 +987,20 @@ sans-serif` directement sur `.sb-pending-screen`, même principe que
 - **`PremierPaiement.js`/`Reabonnement.js`** (écrans de blocage, via
   `FormuleEtPaiement.js` — voir « Formule (plan) » plus haut) : seuls
   endroits accessibles à un compte dont l'accès est bloqué (voir le point 8
-  de « Fonctionnement du compte / abonnement » plus haut — statut ou
-  dernier paiement rejeté), donc c'est là que doit vivre le flux complet
-  pour un compte bloqué. Absent pour un compte `suspendu`
+  de « Fonctionnement du compte / abonnement » plus haut — statut, ou
+  dernier paiement en attente ou rejeté), donc c'est là que doit vivre le
+  flux complet pour un compte bloqué. Absent pour un compte `suspendu`
   (`CompteSuspendu.js` — une suspension n'est pas forcément liée à un
-  impayé). Titre/texte remplacés par un troisième message dédié
-  (`paiementRejete.title`/`.text`, prop `paiementRejete` transmise depuis
-  `app/(app)/layout.js`, elle-même dérivée du state `paiementRejete` de
-  `AuthProvider`) quand le blocage vient du rejet d'un justificatif plutôt
-  que d'un premier paiement ou d'une expiration classique. Un nouvel envoi
-  de justificatif (`PaiementAbonnement.js`) fait retomber ce dernier
-  paiement à `en_attente` et appelle lui-même `refreshBusiness()` : le
-  message générique (premier paiement/réabonnement) réapparaît aussitôt,
-  sans attendre une navigation, en attendant la vérification. Un seul
+  impayé). Titre/texte remplacés par l'un de deux messages dédiés
+  (`paiementEnAttente.title`/`.text` ou `paiementRejete.title`/`.text`,
+  prop `paiementBlocage` transmise depuis `app/(app)/layout.js`, elle-même
+  dérivée du state `paiementBlocage` de `AuthProvider`) quand le blocage
+  vient du dernier paiement plutôt que d'un premier paiement ou d'une
+  expiration classique. Un nouvel envoi de justificatif
+  (`PaiementAbonnement.js`) fait retomber ce dernier paiement à
+  `en_attente` et appelle lui-même `refreshBusiness()` : le message
+  bascule aussitôt sur « en cours de vérification » (toujours bloqué, mais
+  avec le message adapté), sans attendre une navigation. Un seul
   bouton de confirmation dans tout le parcours, sur les deux écrans :
   celui d'envoi du justificatif, dans FormuleEtPaiement/PaiementAbonnement
   — pas de bouton « J'ai payé, vérifier mon statut » séparé, qui faisait
