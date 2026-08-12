@@ -18,11 +18,28 @@ function libelleFormule(plan) {
 }
 
 // Route serveur (jamais exposée au navigateur) : seul endroit où
-// RESEND_API_KEY est utilisée. Notification "best effort" — son échec ne
-// doit jamais bloquer l'envoi du justificatif par le commerçant, l'admin
-// voit de toute façon les paiements en attente dans l'espace
-// Administration.
+// RESEND_API_KEY est utilisée. Déclenchée directement depuis Supabase
+// (pg_net, voir notifier_admins_nouveau_justificatif dans
+// supabase-alerte-paiement-serveur-migration.sql) dès qu'un commerçant
+// envoie un justificatif — jamais depuis le navigateur du commerçant
+// (contrairement à l'ancienne route /api/notify-admin-payment) : un
+// fetch() envoyé depuis ce navigateur pouvait être bloqué en silence avant
+// même de quitter la page (bloqueurs de pub filtrant par défaut toute URL
+// contenant "notify"), sans laisser aucune trace exploitable côté serveur —
+// d'où aussi ce renommage. Protégée par PAYMENT_ALERT_SECRET, même
+// mécanisme que CRON_SECRET (app/api/cron/expiration-reminders) : sans
+// elle, ou avec un jeton incorrect, la route refuse tout appel plutôt que
+// d'accepter n'importe quel appelant.
 export async function POST(request) {
+  const alertSecret = process.env.PAYMENT_ALERT_SECRET;
+  if (!alertSecret) {
+    console.error("[alerte-paiement] PAYMENT_ALERT_SECRET absente : route désactivée.");
+    return Response.json({ sent: false, reason: "missing_alert_secret" }, { status: 500 });
+  }
+  if (request.headers.get("authorization") !== `Bearer ${alertSecret}`) {
+    return Response.json({ sent: false, reason: "unauthorized" }, { status: 401 });
+  }
+
   const { businessName, plan } = await request.json().catch(() => ({}));
   const apiKey = process.env.RESEND_API_KEY;
   const formule = libelleFormule(plan);
@@ -32,10 +49,10 @@ export async function POST(request) {
   // révoquée...) ne laisse aucune trace exploitable dans les logs
   // Vercel — impossible de distinguer "jamais appelée" de "appelée mais
   // échouée en silence" sans ce log systématique.
-  console.log(`[notify-admin-payment] appel reçu — boutique="${businessName || "?"}" formule=${plan || "?"}`);
+  console.log(`[alerte-paiement] appel reçu — boutique="${businessName || "?"}" formule=${plan || "?"}`);
 
   if (!apiKey) {
-    console.warn("[notify-admin-payment] RESEND_API_KEY absente : notification admin de paiement ignorée.");
+    console.warn("[alerte-paiement] RESEND_API_KEY absente : notification admin de paiement ignorée.");
     return Response.json({ sent: false, reason: "missing_api_key" });
   }
 
@@ -60,13 +77,13 @@ export async function POST(request) {
       // pas configurée avec un domaine vérifié) : Resend refuse d'envoyer
       // à toute adresse autre que celle du compte Resend lui-même — voir
       // README, section « Paiement manuel vérifié ».
-      console.error(`[notify-admin-payment] Resend a répondu ${res.status} : ${bodyText}`);
+      console.error(`[alerte-paiement] Resend a répondu ${res.status} : ${bodyText}`);
       return Response.json({ sent: false, reason: "resend_error", status: res.status });
     }
-    console.log(`[notify-admin-payment] e-mail envoyé avec succès à ${ADMIN_EMAIL}`);
+    console.log(`[alerte-paiement] e-mail envoyé avec succès à ${ADMIN_EMAIL}`);
     return Response.json({ sent: true });
   } catch (err) {
-    console.error("[notify-admin-payment] échec réseau lors de l'appel à Resend :", err);
+    console.error("[alerte-paiement] échec réseau lors de l'appel à Resend :", err);
     return Response.json({ sent: false, reason: "network_error" });
   }
 }

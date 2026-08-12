@@ -134,15 +134,16 @@ export default function PaiementAbonnement({ business, plan }) {
     // et une notification dédiée apparaît dans le centre de notifications —
     // voir trg_notifier_commercant_renouvellement_anticipe,
     // supabase-notifications-renouvellement-anticipe-migration.sql).
+    //
+    // L'e-mail d'alerte à l'administratrice (jadis envoyé ici par un
+    // fetch() vers /api/notify-admin-payment) part désormais depuis la
+    // base elle-même, au moment même de l'insertion ci-dessus
+    // (notifier_admins_nouveau_justificatif, pg_net, voir
+    // supabase-alerte-paiement-serveur-migration.sql) — ce fetch()
+    // pouvait être bloqué en silence par un bloqueur de pub avant même de
+    // quitter le navigateur du commerçant (URL contenant "notify"), sans
+    // laisser aucune trace côté serveur ; rien à faire ici désormais.
     refreshBusiness();
-
-    // Best effort : l'échec de la notification ne doit jamais empêcher le
-    // commerçant de considérer son envoi comme réussi.
-    fetch("/api/notify-admin-payment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessName: business.name, plan: business.plan }),
-    }).catch(() => {});
   }
 
   if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
