@@ -27,9 +27,16 @@ export async function POST(request) {
   const apiKey = process.env.RESEND_API_KEY;
   const formule = libelleFormule(plan);
 
+  // Marqueur explicite à chaque appel (même en succès) : sans ça, un
+  // échec silencieux côté Resend (mauvaise adresse d'expéditeur, clé
+  // révoquée...) ne laisse aucune trace exploitable dans les logs
+  // Vercel — impossible de distinguer "jamais appelée" de "appelée mais
+  // échouée en silence" sans ce log systématique.
+  console.log(`[notify-admin-payment] appel reçu — boutique="${businessName || "?"}" formule=${plan || "?"}`);
+
   if (!apiKey) {
-    console.warn("RESEND_API_KEY absente : notification admin de paiement ignorée.");
-    return Response.json({ sent: false });
+    console.warn("[notify-admin-payment] RESEND_API_KEY absente : notification admin de paiement ignorée.");
+    return Response.json({ sent: false, reason: "missing_api_key" });
   }
 
   try {
@@ -46,10 +53,20 @@ export async function POST(request) {
         text: `${businessName || "Une boutique"} (formule ${formule}) vient d'envoyer un justificatif de paiement sur Doka. Rends-toi dans l'espace Administration pour le vérifier.`,
       }),
     });
-    if (!res.ok) throw new Error(await res.text());
+    const bodyText = await res.text();
+    if (!res.ok) {
+      // Cause la plus fréquente avec l'adresse sandbox par défaut
+      // (onboarding@resend.dev, utilisée tant que RESEND_FROM_EMAIL n'est
+      // pas configurée avec un domaine vérifié) : Resend refuse d'envoyer
+      // à toute adresse autre que celle du compte Resend lui-même — voir
+      // README, section « Paiement manuel vérifié ».
+      console.error(`[notify-admin-payment] Resend a répondu ${res.status} : ${bodyText}`);
+      return Response.json({ sent: false, reason: "resend_error", status: res.status });
+    }
+    console.log(`[notify-admin-payment] e-mail envoyé avec succès à ${ADMIN_EMAIL}`);
     return Response.json({ sent: true });
   } catch (err) {
-    console.error("Échec de l'envoi de l'e-mail de notification admin :", err);
-    return Response.json({ sent: false });
+    console.error("[notify-admin-payment] échec réseau lors de l'appel à Resend :", err);
+    return Response.json({ sent: false, reason: "network_error" });
   }
 }

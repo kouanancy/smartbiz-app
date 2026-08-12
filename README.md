@@ -112,7 +112,15 @@ stock automatique — retiré » plus bas ; nécessite
 rejette un justificatif, plutôt que de ne toucher que
 `paiements_abonnement.statut` — voir « Paiement manuel vérifié » plus bas ;
 nécessite `supabase-admin-scope-abonnement-migration.sql` et
-`supabase-paiements-manuels-migration.sql`).
+`supabase-paiements-manuels-migration.sql`), et enfin
+`supabase-businesses-colonnes-restreintes-migration.sql` (retire à
+`authenticated` le droit d'écrire n'importe quelle colonne de sa propre
+ligne `businesses` — notamment `subscription_status` et `is_admin` — et
+ajoute la fonction `verifier_expiration_abonnement` qui reprend la
+bascule d'expiration jusque-là faite par un update direct du client ; voir
+le point 9 de « Fonctionnement du compte / abonnement » plus bas ;
+nécessite `supabase-businesses-admin-migration.sql` et
+`supabase-admin-scope-abonnement-migration.sql`).
 
 ## Variables d'environnement
 
@@ -221,6 +229,43 @@ bas) — sans elles, le reste de l'application fonctionne normalement.
    déclenche lui-même un `refreshBusiness()` pour faire retomber
    `paiementRejete` à `false` sans attendre la prochaine navigation ; la
    validation par l'administratrice réactive ensuite le compte normalement.
+9. **Colonnes de `businesses` restreintes en écriture**
+   (`supabase-businesses-colonnes-restreintes-migration.sql`) — la vraie
+   cause probable d'un cas où un commerçant a retrouvé l'accès à son
+   compte après un simple envoi de justificatif, sans aucune validation
+   admin, alors qu'aucun code applicatif (client ou fonction SQL) ne fait
+   passer `subscription_status` à `'actif'` en dehors de
+   `admin_mark_subscription_paid` (voir point 5). La policy RLS de
+   `businesses` (`for all using (owner_id = auth.uid())`) n'a jamais
+   restreint les *colonnes* qu'un commerçant peut écrire sur sa propre
+   ligne — seulement les lignes visibles — et Supabase accorde par défaut
+   les droits `INSERT`/`UPDATE`/`DELETE` complets à `authenticated` sur
+   les tables du schéma public. Un commerçant authentifié pouvait donc,
+   via un appel direct à l'API REST Supabase (n'importe quel outil HTTP
+   avec son propre jeton — pas besoin de passer par l'app ni par un bug
+   de son code), modifier `subscription_status` (se remettre `'actif'`
+   lui-même) ou même `is_admin` sur sa propre ligne, y compris dès
+   l'inscription. `INSERT`/`UPDATE`/`DELETE` sont maintenant révoqués pour
+   `authenticated` puis regrantés colonne par colonne : `INSERT` ne couvre
+   que ce qu'`ensureBusiness` pose à l'inscription (`owner_id`, `email`,
+   `name`, `plan`, `subscription_status`, `subscription_expires_at` — mais
+   jamais `is_admin`, qui garde sa valeur par défaut `false` quoi que le
+   client envoie) ; `UPDATE` ne couvre que les colonnes que l'app modifie
+   légitimement depuis le client (`name`, `logo_url`, `theme_key`,
+   `mode_affichage`, `devise`, `langue`, `notif_email`,
+   `confirmation_email`, `plan`, `next_numero`) — jamais
+   `subscription_status`, `subscription_expires_at`, `is_admin`,
+   `owner_id` ni `email`. `DELETE` est retiré aussi : supprimer sa propre
+   ligne aurait permis de relancer un essai gratuit de 7 jours à la
+   prochaine connexion (`ensureBusiness` recrée la ligne faute d'en
+   trouver une). La bascule paresseuse d'expiration
+   (`verifierExpirationAbonnement`, point 4) était le seul autre endroit
+   du code à écrire `subscription_status` par un update direct du client
+   — remplacée par la fonction `verifier_expiration_abonnement`
+   (`SECURITY DEFINER`, vérifie `owner_id = auth.uid()`, recalcule tout
+   côté serveur à partir de la ligne réelle en base). Les fonctions
+   `admin_*` continuent de fonctionner normalement : `SECURITY DEFINER`
+   les rend indépendantes de ces `GRANT`.
 
 ## Formule (plan)
 
@@ -1002,7 +1047,14 @@ considérer son envoi comme réussi — l'admin voit de toute façon les
 paiements en attente dans `/admin`. Nécessite `RESEND_API_KEY` (et
 idéalement `RESEND_FROM_EMAIL` avec un domaine vérifié dans Resend, sans
 quoi l'adresse sandbox par défaut ne peut envoyer qu'à l'adresse du compte
-Resend lui-même) — voir `.env.local.example`.
+Resend lui-même) — voir `.env.local.example`. Un `console.log`/
+`console.error` explicite marque chaque appel de la route (reçu, clé
+absente, réponse Resend non-`ok` avec son statut, ou succès) — sans accès
+au dashboard Vercel/Supabase de production, ce best-effort n'a pas pu être
+testé de bout en bout ici ; ces logs bien visibles permettent de vérifier
+directement dans les logs de fonction Vercel si l'appel part, et pourquoi
+il échoue le cas échéant (clé manquante, adresse d'expéditeur sandbox non
+vérifiée pour destinataire externe...).
 
 **Sécurité RLS** : la policy d'origine sur `paiements_abonnement`
 (`for all`, propriétaire de la boutique) permettait à un commerçant de
