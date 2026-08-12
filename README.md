@@ -971,7 +971,15 @@ vérification » distinct déclenche l'insertion en base et la notification
 admin (`envoyerJustificatif`). Évite qu'une simple sélection de fichier
 parte en vérification avant que le commerçant ait pu se relire ou changer
 d'avis. `ImageUploadField` est remonté (prop `key`) après un envoi réussi
-pour repartir d'une zone vide.
+pour repartir d'une zone vide. Le bouton reste affiché même sans photo
+chargée (plutôt que d'être absent tant que `justificatifDraft` est vide) :
+un clic sans justificatif affiche un message d'erreur dédié
+(`paiement.justificatifRequis`) au lieu de ne rien faire silencieusement.
+Ce message d'erreur, ainsi que celui d'un échec d'envoi
+(`paiement.submitError`), vit dans un state séparé (`erreurMsg`, badge
+corail) du message de succès (`uploadMsg`, badge vert) — avant, les deux
+partageaient le même badge vert, ce qui affichait une erreur d'envoi avec
+un style de succès.
 
 **À l'envoi d'un justificatif** (bouton « Envoyer pour vérification », une
 fois la photo déjà dans Storage) : une ligne est insérée dans

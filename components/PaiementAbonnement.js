@@ -35,6 +35,10 @@ export default function PaiementAbonnement({ business, plan }) {
   const [historique, setHistorique] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploadMsg, setUploadMsg] = useState("");
+  // Erreur de validation ou d'envoi — séparée de uploadMsg (réservé au
+  // message de succès) pour ne jamais afficher une erreur dans le badge
+  // vert de confirmation.
+  const [erreurMsg, setErreurMsg] = useState("");
   // Photo déjà envoyée vers Supabase Storage mais pas encore soumise en
   // vérification — l'upload seul ne notifie plus l'administratrice, il
   // faut un clic explicite sur "Envoyer" (voir soumettreJustificatif).
@@ -76,8 +80,12 @@ export default function PaiementAbonnement({ business, plan }) {
   // fichier parte en vérification avant que le commerçant ait pu se
   // relire/changer d'avis.
   async function envoyerJustificatif() {
-    if (!justificatifDraft) return;
+    if (!justificatifDraft) {
+      setErreurMsg(t("paiement.justificatifRequis"));
+      return;
+    }
     setUploadMsg("");
+    setErreurMsg("");
     setEnvoiEnCours(true);
     const montantAPayer = prixPlan ? montantMensuel + montantInstallation : parametres?.abonnement_prix || 0;
     const { data, error } = await supabase
@@ -92,7 +100,7 @@ export default function PaiementAbonnement({ business, plan }) {
       .single();
     setEnvoiEnCours(false);
     if (error) {
-      setUploadMsg(t("paiement.submitError", { message: error.message }));
+      setErreurMsg(t("paiement.submitError", { message: error.message }));
       return;
     }
     setHistorique((prev) => [data, ...prev]);
@@ -130,15 +138,26 @@ export default function PaiementAbonnement({ business, plan }) {
 
   return (
     <div>
-      {/* !uploadMsg évite d'afficher ce bandeau en même temps que la
-          confirmation d'envoi juste en dessous — un seul message à la
-          fois juste après avoir envoyé un justificatif. */}
-      {!uploadMsg && enAttente && (
+      {/* Un seul message à la fois, dans cet ordre de priorité : une erreur
+          (validation avant envoi ou échec de l'envoi lui-même) prime sur la
+          confirmation de succès, qui prime elle-même sur les statuts
+          "en attente"/"rejeté" du dernier envoi déjà enregistré. */}
+      {erreurMsg && (
+        <div className="sb-badge sb-badge-coral" style={{ display: "block", marginBottom: 12, fontSize: 12.5, padding: "8px 12px" }}>
+          {erreurMsg}
+        </div>
+      )}
+      {!erreurMsg && uploadMsg && (
+        <div className="sb-badge sb-badge-emerald" style={{ display: "block", marginBottom: 12, fontSize: 12.5, padding: "8px 12px" }}>
+          {uploadMsg}
+        </div>
+      )}
+      {!erreurMsg && !uploadMsg && enAttente && (
         <div className="sb-badge sb-badge-amber" style={{ display: "block", marginBottom: 12, fontSize: 12.5, padding: "8px 12px" }}>
           {t("paiement.statutEnAttente")}
         </div>
       )}
-      {!uploadMsg && !enAttente && rejete && (
+      {!erreurMsg && !uploadMsg && !enAttente && rejete && (
         <div className="sb-badge sb-badge-coral" style={{ display: "block", marginBottom: 12, fontSize: 12.5, padding: "8px 12px" }}>
           {t("paiement.statutRejete")}
           {dernierPaiement.raison_rejet && (
@@ -146,11 +165,6 @@ export default function PaiementAbonnement({ business, plan }) {
               {t("paiement.raisonRejetLabel")} {dernierPaiement.raison_rejet}
             </div>
           )}
-        </div>
-      )}
-      {uploadMsg && (
-        <div className="sb-badge sb-badge-emerald" style={{ display: "block", marginBottom: 12, fontSize: 12.5, padding: "8px 12px" }}>
-          {uploadMsg}
         </div>
       )}
 
@@ -191,18 +205,22 @@ export default function PaiementAbonnement({ business, plan }) {
           businessId={business.id}
           folder="justificatifs-paiement"
           value=""
-          onChange={setJustificatifDraft}
+          onChange={(url) => {
+            setJustificatifDraft(url);
+            if (url) setErreurMsg("");
+          }}
         />
-        {justificatifDraft && (
-          <button
-            className="sb-btn sb-btn-primary"
-            style={{ width: "100%", justifyContent: "center", marginTop: 10 }}
-            onClick={envoyerJustificatif}
-            disabled={envoiEnCours}
-          >
-            <Send size={14} /> {envoiEnCours ? t("paiement.envoiEnCours") : t("paiement.envoyerJustificatif")}
-          </button>
-        )}
+        {/* Toujours affiché, même sans photo chargée : un clic sans
+            justificatif doit afficher une erreur claire (envoyerJustificatif)
+            plutôt que de laisser le bouton absent sans explication. */}
+        <button
+          className="sb-btn sb-btn-primary"
+          style={{ width: "100%", justifyContent: "center", marginTop: 10 }}
+          onClick={envoyerJustificatif}
+          disabled={envoiEnCours}
+        >
+          <Send size={14} /> {envoiEnCours ? t("paiement.envoiEnCours") : t("paiement.envoyerJustificatif")}
+        </button>
       </div>
 
       {historique.length > 0 && (
