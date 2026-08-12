@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, LogOut, RefreshCw } from "lucide-react";
+import { Clock, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { t as tBase } from "@/lib/i18n";
 import FormuleEtPaiement from "@/components/FormuleEtPaiement";
@@ -11,18 +11,15 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 // expiré — subscription_status = 'expire'). Distinct de PremierPaiement.js
 // (tout premier paiement, jamais encore payé) : jamais le même texte
 // entre les deux, même s'ils partagent le même bloc choix de formule +
-// paiement (components/FormuleEtPaiement.js).
+// paiement (components/FormuleEtPaiement.js). Un seul bouton de
+// confirmation dans tout le parcours : celui d'envoi du justificatif,
+// dans FormuleEtPaiement/PaiementAbonnement — pas de bouton "vérifier mon
+// statut" séparé, qui faisait doublon depuis la mise en place du vrai
+// circuit de justificatif.
 export default function Reabonnement({ business }) {
-  const { refreshBusiness, signOut } = useAuth();
-  const [checking, setChecking] = useState(false);
+  const { signOut } = useAuth();
   const [confirmLogout, setConfirmLogout] = useState(false);
   const t = (key, vars) => tBase(business?.langue, key, vars);
-
-  async function handleRefresh() {
-    setChecking(true);
-    await refreshBusiness();
-    setChecking(false);
-  }
 
   return (
     <div className="sb-pending-screen">
@@ -40,9 +37,6 @@ export default function Reabonnement({ business }) {
         <FormuleEtPaiement business={business} activeLabel={t("reabonnement.formuleActuelleLabel")} />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20, maxWidth: 320, marginLeft: "auto", marginRight: "auto" }}>
-          <button className="sb-btn sb-btn-primary" style={{ justifyContent: "center" }} onClick={handleRefresh} disabled={checking}>
-            <RefreshCw size={14} /> {checking ? t("pending.checking") : t("pending.checkStatus")}
-          </button>
           <button className="sb-btn sb-btn-ghost" style={{ justifyContent: "center" }} onClick={() => setConfirmLogout(true)}>
             <LogOut size={14} /> {t("pending.logout")}
           </button>

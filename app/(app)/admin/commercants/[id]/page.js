@@ -54,7 +54,13 @@ export default function CommercantDetailPage() {
   }, [moi?.is_admin, params.id]);
 
   async function marquerPaye() {
-    const nouvelleExpiration = new Date();
+    // Prolonge depuis la date d'expiration existante si elle est encore
+    // dans le futur (un commerçant qui paie en avance ne doit jamais
+    // perdre les jours déjà payés) ; repart d'aujourd'hui seulement si
+    // elle est déjà passée (ou absente).
+    const expirationActuelle = commercant.subscription_expires_at ? new Date(commercant.subscription_expires_at) : null;
+    const base = expirationActuelle && expirationActuelle > new Date() ? expirationActuelle : new Date();
+    const nouvelleExpiration = new Date(base);
     nouvelleExpiration.setMonth(nouvelleExpiration.getMonth() + 1);
     const { data, error } = await supabase
       .rpc("admin_mark_subscription_paid", { p_business_id: commercant.id, p_expires_at: nouvelleExpiration.toISOString() })
