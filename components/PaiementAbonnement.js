@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Send, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
+import { accesDejaValide } from "@/lib/paiements";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 import { PLAN_PRICES } from "@/lib/constants";
@@ -49,6 +50,21 @@ export default function PaiementAbonnement({ business, plan }) {
   // déjà envoyée (qui, elle, reste "value" fixe à "" — voir plus bas).
   const [uploadKey, setUploadKey] = useState(0);
 
+  // Frais d'installation (formule Clé en main) : dus une seule fois par
+  // compte, jamais refacturés (business.frais_installation_payes, posée
+  // par admin_mark_subscription_paid à la validation — voir
+  // supabase-validation-paiement-installation-migration.sql). Tant qu'ils
+  // restent dus et que l'accès en cours est encore valide (renouvellement
+  // anticipé ou changement de formule avant l'échéance, voir
+  // accesDejaValide/lib/paiements.js), seuls ces frais sont facturés — pas
+  // le mois en cours, déjà couvert par ailleurs. Sinon (installation déjà
+  // payée, ou abonnement déjà expiré) le mois reste dû comme d'habitude.
+  const installationRestante = montantInstallation > 0 && !business?.frais_installation_payes;
+  const facturerMensuel = installationRestante ? !accesDejaValide(business) : true;
+  const montantAPayer = prixPlan
+    ? (facturerMensuel ? montantMensuel : 0) + (installationRestante ? montantInstallation : 0)
+    : parametres?.abonnement_prix || 0;
+
   useEffect(() => {
     if (!business?.id) return;
     let active = true;
@@ -87,7 +103,6 @@ export default function PaiementAbonnement({ business, plan }) {
     setUploadMsg("");
     setErreurMsg("");
     setEnvoiEnCours(true);
-    const montantAPayer = prixPlan ? montantMensuel + montantInstallation : parametres?.abonnement_prix || 0;
     const { data, error } = await supabase
       .from("paiements_abonnement")
       .insert({
@@ -95,6 +110,7 @@ export default function PaiementAbonnement({ business, plan }) {
         montant: montantAPayer,
         statut: "en_attente",
         justificatif_url: justificatifDraft,
+        installation_incluse: installationRestante,
       })
       .select()
       .single();
@@ -179,18 +195,23 @@ export default function PaiementAbonnement({ business, plan }) {
 
       <div className="sb-paiement-info">
         <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 8px" }}>
-          {t("paiement.montantAPayer")}{" "}
+          {facturerMensuel ? t("paiement.montantAPayer") : t("paiement.montantAPayerInstallationSeule")}{" "}
           {prixPlan ? (
             <>
-              <strong style={{ color: "var(--ink)" }}>
-                {fmt(montantMensuel)}
-                {t("parametres.formulePrixSuffixe")}
-              </strong>
-              {montantInstallation > 0 && (
-                <span style={{ display: "block", color: "var(--accent-text)", fontWeight: 600, marginTop: 2 }}>
-                  {t("parametres.formuleInstallation", { montant: fmt(montantInstallation) })}
-                </span>
+              {facturerMensuel && (
+                <strong style={{ color: "var(--ink)" }}>
+                  {fmt(montantMensuel)}
+                  {t("parametres.formulePrixSuffixe")}
+                </strong>
               )}
+              {installationRestante &&
+                (facturerMensuel ? (
+                  <span style={{ display: "block", color: "var(--accent-text)", fontWeight: 600, marginTop: 2 }}>
+                    {t("parametres.formuleInstallation", { montant: fmt(montantInstallation) })}
+                  </span>
+                ) : (
+                  <strong style={{ color: "var(--ink)" }}>{fmt(montantInstallation)}</strong>
+                ))}
             </>
           ) : (
             <strong style={{ color: "var(--ink)" }}>{fmt(parametres?.abonnement_prix)}</strong>

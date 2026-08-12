@@ -54,16 +54,14 @@ export default function CommercantDetailPage() {
   }, [moi?.is_admin, params.id]);
 
   async function marquerPaye() {
-    // Prolonge depuis la date d'expiration existante si elle est encore
-    // dans le futur (un commerçant qui paie en avance ne doit jamais
-    // perdre les jours déjà payés) ; repart d'aujourd'hui seulement si
-    // elle est déjà passée (ou absente).
-    const expirationActuelle = commercant.subscription_expires_at ? new Date(commercant.subscription_expires_at) : null;
-    const base = expirationActuelle && expirationActuelle > new Date() ? expirationActuelle : new Date();
-    const nouvelleExpiration = new Date(base);
-    nouvelleExpiration.setMonth(nouvelleExpiration.getMonth() + 1);
+    // La date d'expiration (prolonge depuis l'existante si elle n'est pas
+    // encore passée, repart d'aujourd'hui sinon) et le passage du
+    // justificatif à 'reussi' sont désormais calculés/appliqués côté
+    // serveur, en une seule opération atomique — voir
+    // admin_mark_subscription_paid,
+    // supabase-validation-paiement-installation-migration.sql.
     const { data, error } = await supabase
-      .rpc("admin_mark_subscription_paid", { p_business_id: commercant.id, p_expires_at: nouvelleExpiration.toISOString() })
+      .rpc("admin_mark_subscription_paid", { p_business_id: commercant.id, p_paiement_id: paiementEnAttente?.id || null })
       .single();
     if (error) {
       setMsg(t("admin.paidError", { message: error.message }));
@@ -71,14 +69,7 @@ export default function CommercantDetailPage() {
     }
     setCommercant(data);
     if (commercant.owner_id === moi.owner_id) refreshBusiness();
-
-    if (paiementEnAttente) {
-      const { error: paiementError } = await supabase
-        .from("paiements_abonnement")
-        .update({ statut: "reussi", valide_at: new Date().toISOString() })
-        .eq("id", paiementEnAttente.id);
-      if (!paiementError) setPaiementEnAttente(null);
-    }
+    setPaiementEnAttente(null);
     setMsg(t("admin.paidSuccess"));
   }
 
