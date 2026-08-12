@@ -106,7 +106,13 @@ voir « Centre de notifications » plus bas ; nécessite
 `supabase-rapport-stock-retrait-migration.sql` (retire la fonctionnalité
 de rapport de stock automatique, jugée redondante — voir « Rapport de
 stock automatique — retiré » plus bas ; nécessite
-`supabase-rapport-stock-retrait-heure-migration.sql`).
+`supabase-rapport-stock-retrait-heure-migration.sql`), et enfin
+`supabase-admin-reject-payment-migration.sql` (fait aussi repasser
+`businesses.subscription_status` à un état bloqué quand l'administratrice
+rejette un justificatif, plutôt que de ne toucher que
+`paiements_abonnement.statut` — voir « Paiement manuel vérifié » plus bas ;
+nécessite `supabase-admin-scope-abonnement-migration.sql` et
+`supabase-paiements-manuels-migration.sql`).
 
 ## Variables d'environnement
 
@@ -173,6 +179,24 @@ bas) — sans elles, le reste de l'application fonctionne normalement.
    aussi bien à la connexion qu'à toute revérification pendant la
    navigation (le `business` du contexte `AuthProvider` est partagé par
    toute l'app).
+7. **Revérification en cours de session** (`app/(app)/layout.js`) : au-delà
+   du calcul d'expiration paresseux du point 4 (qui ne se déclenche qu'à la
+   connexion/au chargement initial de la boutique), un `useEffect` déclenché
+   à chaque changement de route (`usePathname`) rappelle `refreshBusiness()`
+   — sauf au tout premier rendu, déjà couvert par le chargement initial de
+   `AuthProvider`. Sans ça, un compte encore `actif`/`essai` dont le
+   justificatif de renouvellement anticipé vient d'être rejeté par
+   l'administratrice (voir « Espace Administration » plus bas) gardait un
+   accès complet jusqu'à une déconnexion/reconnexion manuelle : l'état
+   `business` de `AuthProvider`, chargé une seule fois, ne reflétait jamais
+   le changement fait côté base par une autre session. Avec ce correctif, le
+   blocage prend effet dès la prochaine navigation du commerçant — pas
+   besoin de se déconnecter. Une déconnexion forcée côté serveur au moment
+   même du rejet (plutôt que d'attendre cette prochaine navigation) a été
+   envisagée puis écartée : elle demanderait une route API dédiée avec
+   `SUPABASE_SERVICE_ROLE_KEY` et, la révocation d'un jeton Supabase déjà
+   émis n'étant pas instantanée, ne garantirait de toute façon pas un
+   blocage plus immédiat que cette revérification par navigation.
 
 ## Formule (plan)
 
@@ -781,7 +805,13 @@ les autres pages de détail) :
   `reussi`.
 - **Rejeter** (visible seulement s'il y a un justificatif en attente)
   ouvre une modale demandant une raison, affichée au commerçant — voir
-  « Paiement manuel vérifié » plus bas.
+  « Paiement manuel vérifié » plus bas. Fait aussi repasser
+  `subscription_status` à un état bloqué (`admin_reject_payment`) : `actif
+  → expire`, `essai → en_attente_paiement`, inchangé s'il était déjà
+  bloqué — sinon un commerçant qui avait envoyé un justificatif de
+  renouvellement anticipé en étant encore actif/en essai gardait un accès
+  complet même après le rejet de ce justificatif, seul
+  `paiements_abonnement.statut` changeait.
 - **Donner/Retirer les droits admin** (`admin_set_is_admin`) : toujours
   actif, y compris sur sa propre ligne.
 
