@@ -84,14 +84,15 @@ export default function CommercantDetailPage() {
 
   async function confirmerRejet() {
     if (!raisonRejet.trim()) return;
-    const { error } = await supabase
-      .from("paiements_abonnement")
-      .update({ statut: "echoue", raison_rejet: raisonRejet.trim() })
-      .eq("id", paiementEnAttente.id);
+    const { data, error } = await supabase
+      .rpc("admin_reject_payment", { p_paiement_id: paiementEnAttente.id, p_raison: raisonRejet.trim() })
+      .single();
     if (error) {
       setMsg(t("admin.rejectError", { message: error.message }));
       return;
     }
+    setCommercant(data);
+    if (commercant.owner_id === moi.owner_id) refreshBusiness();
     setPaiementEnAttente(null);
     setRejetOpen(false);
     setRaisonRejet("");

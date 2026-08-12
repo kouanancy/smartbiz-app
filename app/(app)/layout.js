@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/AuthProvider";
 import { NotificationsProvider } from "@/lib/NotificationsProvider";
 import { supabase } from "@/lib/supabaseClient";
@@ -13,8 +13,9 @@ import Reabonnement from "@/components/Reabonnement";
 import CompteSuspendu from "@/components/CompteSuspendu";
 
 export default function AppLayout({ children }) {
-  const { session, business, setBusiness, signOut } = useAuth();
+  const { session, business, setBusiness, signOut, refreshBusiness } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const t = (key) => tBase(business?.langue, key);
 
   // Accès rapide au mode d'affichage depuis la sidebar — même mutation que
@@ -28,6 +29,25 @@ export default function AppLayout({ children }) {
   useEffect(() => {
     if (session === null) router.replace("/login");
   }, [session, router]);
+
+  // Reprend business à chaque changement de page (pas seulement à la
+  // connexion initiale) : si l'administratrice rejette un justificatif
+  // pendant que le commerçant a déjà l'app ouverte dans un autre onglet,
+  // son subscription_status en base change mais l'état React local
+  // (chargé une seule fois par AuthProvider) ne le sait pas tant que rien
+  // ne le rafraîchit — il garderait donc l'accès jusqu'à une déconnexion
+  // manuelle. Un aller simple par navigation suffit à détecter ce
+  // changement dès la prochaine action, sans polling en arrière-plan.
+  // Ignore le tout premier rendu : AuthProvider vient déjà de charger
+  // business, un second appel immédiat serait redondant.
+  const dejaMonte = useRef(false);
+  useEffect(() => {
+    if (!dejaMonte.current) {
+      dejaMonte.current = true;
+      return;
+    }
+    if (session) refreshBusiness();
+  }, [pathname, session, refreshBusiness]);
 
   // Applique le thème de la boutique aux variables CSS globales (--accent,
   // --accent-deep, --accent-soft) sur <html> plutôt que sur un seul wrapper :
