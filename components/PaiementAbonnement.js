@@ -109,12 +109,13 @@ export default function PaiementAbonnement({ business, plan }) {
     setUploadKey((k) => k + 1);
 
     // Ce nouvel envoi devient le paiement le plus récent : sans ce
-    // refreshBusiness, le message "ton dernier paiement n'a pas pu être
-    // validé" (paiementBlocage, lib/AuthProvider.js) resterait affiché en
-    // haut de l'écran de blocage jusqu'à la prochaine navigation, alors que
-    // ce nouvel envoi est justement la réponse à ce message — il devient
-    // désormais 'en_attente', qui bloque toujours l'accès mais avec le
-    // message adapté (voir PremierPaiement.js/Reabonnement.js).
+    // refreshBusiness, un message obsolète (paiementInfo, lib/AuthProvider.js)
+    // resterait affiché jusqu'à la prochaine navigation, alors que ce
+    // nouvel envoi est justement la réponse à ce message — il devient
+    // désormais 'en_attente' (voir PremierPaiement.js/Reabonnement.js pour
+    // un compte pas encore débloqué, ou le bandeau non bloquant de
+    // app/(app)/layout.js si le compte a déjà un accès valide en cours,
+    // renouvellement anticipé).
     refreshBusiness();
 
     // Best effort : l'échec de la notification ne doit jamais empêcher le

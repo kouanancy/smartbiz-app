@@ -13,7 +13,7 @@ import Reabonnement from "@/components/Reabonnement";
 import CompteSuspendu from "@/components/CompteSuspendu";
 
 export default function AppLayout({ children }) {
-  const { session, business, setBusiness, signOut, refreshBusiness, paiementBlocage } = useAuth();
+  const { session, business, setBusiness, signOut, refreshBusiness, paiementInfo } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const t = (key) => tBase(business?.langue, key);
@@ -87,41 +87,55 @@ export default function AppLayout({ children }) {
   // dépassée), donc arriver ici avec 'essai' signifie qu'il reste du temps.
   // Un compte administrateur garde un accès complet quel que soit son
   // subscription_status : le blocage automatique à l'expiration ne
-  // concerne que les comptes commerçants classiques. paiementBlocage
+  // concerne que les comptes commerçants classiques. paiementInfo.bloquant
   // (lib/AuthProvider.js, recalculé à chaque connexion et à chaque
   // revérification de navigation ci-dessus) bloque en plus l'accès même si
   // subscription_status vaut encore 'actif'/'essai' : deuxième vérification
-  // indépendante du statut du compte, sur le dernier paiement en date —
-  // un renouvellement anticipé en attente ou rejeté doit bloquer quoi
-  // qu'il arrive à subscription_status par ailleurs (un compte encore
-  // 'actif' qui a envoyé un nouveau justificatif ne doit jamais rester
-  // débloqué tant que ce justificatif n'a pas été validé manuellement par
-  // l'administratrice — admin_reject_payment met déjà subscription_status
-  // à jour au moment d'un rejet, mais ce n'est pas la seule chose qui
-  // fait foi).
+  // indépendante du statut du compte, sur le dernier paiement en date — un
+  // premier paiement jamais validé, ou un abonnement déjà réellement
+  // expiré, doit bloquer quoi qu'il arrive à subscription_status par
+  // ailleurs (admin_reject_payment/verifier_expiration_abonnement mettent
+  // déjà subscription_status à jour dans ces cas, mais ce n'est pas la
+  // seule chose qui fait foi). En revanche, un renouvellement anticipé
+  // (compte déjà 'actif'/'essai' avec une échéance encore dans le futur)
+  // n'est JAMAIS bloquant, même en_attente/echoue — voir
+  // lib/paiements.js — d'où paiementInfo.bloquant plutôt que la simple
+  // présence d'un paiement en_attente/echoue.
   const statutBloquant = business.subscription_status !== "actif" && business.subscription_status !== "essai";
-  if (!business.is_admin && (statutBloquant || paiementBlocage)) {
+  if (!business.is_admin && (statutBloquant || paiementInfo.bloquant)) {
     // Trois écrans distincts, jamais le même texte entre eux (voir
     // PremierPaiement.js et Reabonnement.js) : 'en_attente_paiement' ne
     // se produit qu'après un essai jamais payé (premier paiement),
     // 'expire' qu'après un abonnement actif retombé (réabonnement) — voir
     // EXPIRATION_SUIVANTE dans lib/AuthProvider.js. 'suspendu' n'a pas de
     // flux de paiement (pas forcément lié à un problème de paiement).
-    // paiementBlocage peut déclencher ce blocage même quand
+    // paiementInfo.bloquant peut déclencher ce blocage même quand
     // subscription_status ne le fait pas lui-même (encore 'actif'/'essai') :
     // dans ce cas il n'y a pas d'écran dédié, on retombe sur
     // PremierPaiement.js, qui affiche le message adapté ('en_attente' ou
-    // 'echoue') dès que paiementBlocage est renseigné.
-    if (business.subscription_status === "expire") return <Reabonnement business={business} paiementBlocage={paiementBlocage} />;
+    // 'echoue') dès que paiementInfo.statut est renseigné.
+    if (business.subscription_status === "expire") return <Reabonnement business={business} paiementBlocage={paiementInfo.statut} />;
     if (business.subscription_status === "suspendu") return <CompteSuspendu business={business} />;
-    return <PremierPaiement business={business} paiementBlocage={paiementBlocage} />;
+    return <PremierPaiement business={business} paiementBlocage={paiementInfo.statut} />;
   }
 
   return (
     <NotificationsProvider businessId={business.id}>
       <div className="sb-root">
         <Sidebar business={business} onSignOut={signOut} onChangeMode={changerModeAffichage} />
-        <main className="sb-main">{children}</main>
+        <main className="sb-main">
+          {/* Ici, l'accès n'est jamais bloqué (voir la condition
+              ci-dessus) : si paiementInfo.statut est quand même renseigné,
+              c'est forcément un renouvellement anticipé en attente ou
+              rejeté pendant que le compte a encore un accès valide en
+              cours — jamais bloquant, juste une information visible. */}
+          {!business.is_admin && paiementInfo.statut && (
+            <div className={`sb-info-banner ${paiementInfo.statut === "echoue" ? "sb-info-banner-coral" : "sb-info-banner-amber"}`}>
+              {t(`renouvellementAnticipe.${paiementInfo.statut === "echoue" ? "echoue" : "enAttente"}`)}
+            </div>
+          )}
+          {children}
+        </main>
       </div>
     </NotificationsProvider>
   );
