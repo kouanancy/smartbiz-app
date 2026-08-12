@@ -140,7 +140,13 @@ dans la même opération atomique, et ajoute le suivi des frais
 d'installation de la formule Clé en main — voir « Espace Administration »
 et « Paiement manuel vérifié » plus bas ; nécessite
 `supabase-admin-scope-abonnement-migration.sql` et
-`supabase-paiements-manuels-migration.sql`).
+`supabase-paiements-manuels-migration.sql`), et enfin
+`supabase-alerte-paiement-serveur-migration.sql` (remplace
+`notifier_admins_nouveau_justificatif` pour appeler l'e-mail d'alerte
+directement depuis la base, via `pg_net`, plutôt que depuis le navigateur
+du commerçant — voir « Notification e-mail : déclenchement serveur » plus
+bas, qui détaille aussi les étapes manuelles de configuration
+supplémentaires ; nécessite `supabase-notifications-migration.sql`).
 
 ## Variables d'environnement
 
@@ -153,6 +159,10 @@ clé.
 `SUPABASE_SERVICE_ROLE_KEY` et `CRON_SECRET` sont requises uniquement pour
 le rappel d'expiration planifié (voir « Centre de notifications » plus
 bas) — sans elles, le reste de l'application fonctionne normalement.
+`PAYMENT_ALERT_SECRET` est requise pour l'e-mail de nouveau justificatif
+(voir « Notification e-mail : déclenchement serveur » plus bas) — sans
+elle, l'envoi de justificatif fonctionne quand même, seul cet e-mail est
+ignoré.
 
 `.env.local` n'est jamais commité (voir `.gitignore`).
 
@@ -1172,23 +1182,11 @@ un style de succès.
 **À l'envoi d'un justificatif** (bouton « Envoyer pour vérification », une
 fois la photo déjà dans Storage) : une ligne est insérée dans
 `paiements_abonnement` avec `statut = 'en_attente'`, `montant` = prix
-courant au moment de l'envoi (figé, comme les prix sur `commande_lignes`),
-puis un appel best-effort à `POST /api/notify-admin-payment` (route
-serveur Next.js, jamais exposée au client) envoie un e-mail à
-l'administratrice via l'API REST de Resend. Un échec de cet appel (clé
-absente, Resend indisponible...) n'empêche jamais le commerçant de
-considérer son envoi comme réussi — l'admin voit de toute façon les
-paiements en attente dans `/admin`. Nécessite `RESEND_API_KEY` (et
-idéalement `RESEND_FROM_EMAIL` avec un domaine vérifié dans Resend, sans
-quoi l'adresse sandbox par défaut ne peut envoyer qu'à l'adresse du compte
-Resend lui-même) — voir `.env.local.example`. Un `console.log`/
-`console.error` explicite marque chaque appel de la route (reçu, clé
-absente, réponse Resend non-`ok` avec son statut, ou succès) — sans accès
-au dashboard Vercel/Supabase de production, ce best-effort n'a pas pu être
-testé de bout en bout ici ; ces logs bien visibles permettent de vérifier
-directement dans les logs de fonction Vercel si l'appel part, et pourquoi
-il échoue le cas échéant (clé manquante, adresse d'expéditeur sandbox non
-vérifiée pour destinataire externe...).
+courant au moment de l'envoi (figé, comme les prix sur `commande_lignes`).
+Cette insertion déclenche elle-même, côté base, la notification par
+e-mail à l'administratrice — voir « Notification e-mail : déclenchement
+serveur » plus bas pour le détail (et pourquoi ce n'est **plus** un appel
+fait depuis le navigateur du commerçant).
 
 **Sécurité RLS** : la policy d'origine sur `paiements_abonnement`
 (`for all`, propriétaire de la boutique) permettait à un commerçant de
@@ -1209,6 +1207,61 @@ carte dédiée dans Paramètres (visible si `business.is_admin`) réutilisant
 
 Nécessite `supabase-paiements-manuels-migration.sql` (voir Démarrage), à
 exécuter après `supabase-businesses-admin-migration.sql`.
+
+## Notification e-mail : déclenchement serveur
+
+L'e-mail « nouveau paiement à vérifier » envoyé à l'administratrice
+(`ADMIN_EMAIL`, `app/api/alerte-paiement/route.js`, ex
+`/api/notify-admin-payment`) partait jusqu'ici d'un `fetch()` déclenché
+depuis le navigateur du commerçant à la fin de `envoyerJustificatif()`
+(`components/PaiementAbonnement.js`). Diagnostiqué en conditions réelles
+(logs de fonction Vercel) : **aucune requête n'atteignait jamais la
+route**, alors que l'envoi du justificatif lui-même (insertion Supabase,
+indépendante) réussissait bien — la cause la plus probable est un
+bloqueur de pub côté commerçant, ce type d'outil filtrant par défaut
+toute URL contenant `notify` avant même qu'elle ne quitte le navigateur,
+sans laisser la moindre trace côté serveur. Corrigé de deux façons
+complémentaires :
+
+1. **Renommage de la route** (`/api/notify-admin-payment` →
+   `/api/alerte-paiement`) pour éviter ce mot-clé.
+2. **Déclenchement entièrement côté serveur**, qui rend le correctif
+   robuste même si (1) ne suffisait pas : `envoyerJustificatif()` ne fait
+   plus aucun appel réseau vers cette route — l'insertion dans
+   `paiements_abonnement` (`statut = 'en_attente'`) déclenche directement
+   `notifier_admins_nouveau_justificatif()`
+   (`supabase-alerte-paiement-serveur-migration.sql`, remplace la
+   fonction de `supabase-notifications-migration.sql`), qui appelle
+   désormais la route via `pg_net.http_post` en plus de créer la
+   notification en base — un appel serveur à serveur, indépendant du
+   navigateur, du réseau ou des extensions du commerçant.
+
+**Sécurité** : la route n'étant plus appelée que depuis Supabase, elle
+est protégée par `PAYMENT_ALERT_SECRET` — même mécanisme que `CRON_SECRET`
+pour `app/api/cron/expiration-reminders` (en-tête `Authorization: Bearer
+<secret>`, comparé côté serveur ; sans secret configuré ou avec un jeton
+incorrect, la route répond respectivement `500`/`401` plutôt que
+d'accepter n'importe quel appelant).
+
+**⚠️ Étapes manuelles requises, dans l'ordre :**
+
+1. Exécuter `supabase-alerte-paiement-serveur-migration.sql` dans
+   l'éditeur SQL Supabase (active les extensions `pg_net` et
+   `supabase_vault` si besoin, puis remplace la fonction).
+2. Choisir une chaîne aléatoire longue et la renseigner à deux endroits :
+   - dans les variables d'environnement du projet Vercel,
+     `PAYMENT_ALERT_SECRET` (voir `.env.local.example`) ;
+   - dans Supabase, éditeur SQL, en créant le secret Vault correspondant :
+     `select vault.create_secret('<la-meme-chaine>', 'payment_alert_secret');`
+3. Créer le second secret Vault avec l'URL complète de la route sur le
+   déploiement de production (à adapter au domaine réel) :
+   `select vault.create_secret('https://<ton-domaine>/api/alerte-paiement', 'payment_alert_url');`
+
+Sans ces trois étapes, le justificatif s'enregistre normalement et la
+notification dans le centre de notifications (badge cloche) continue de
+fonctionner — seul l'envoi de l'e-mail reste ignoré (`v_secret`/`v_url`
+restent `null` côté fonction SQL, `perform net.http_post` n'est alors
+jamais appelé).
 
 ## Fond animé des écrans d'entrée
 
@@ -1302,18 +1355,21 @@ insérées depuis le client — voir RLS plus bas) :
   ON CONFLICT specification ») ; corrigé par
   `supabase-generer-notifications-expiration-onconflict-fix-migration.sql`.
   **En plus** de la notification en base, un e-mail de
-  rappel est envoyé via Resend (même mécanisme que `notify-admin-payment`)
-  — les deux canaux coexistent, et l'e-mail n'est envoyé que pour les
+  rappel est envoyé via Resend (même API que « Notification e-mail :
+  déclenchement serveur » ci-dessus, mais appelée directement depuis cette
+  route cron, pas via `pg_net`) — les deux canaux coexistent, et l'e-mail n'est envoyé que pour les
   boutiques réellement notifiées cette fois-ci (donc, comme la notification,
   une seule fois par échéance).
 - **`paiement_a_verifier`** (administratrice) : créée immédiatement par un
   déclencheur SQL (`trg_notifier_admins_nouveau_justificatif`) dès qu'une
   ligne `paiements_abonnement` est insérée avec `statut = 'en_attente'` —
   donc à chaque envoi de justificatif (voir « Paiement manuel vérifié »
-  ci-dessus), sans rien changer côté `PaiementAbonnement.js`. Une
-  notification est créée pour chaque boutique `is_admin = true`. Le
-  message et l'e-mail correspondant (`app/api/notify-admin-payment`)
-  mentionnent tous les deux la formule du commerçant concerné (ex. «
+  ci-dessus). Une notification est créée pour chaque boutique
+  `is_admin = true` ; ce même déclencheur appelle aussi désormais l'e-mail
+  correspondant côté serveur (`app/api/alerte-paiement`, voir
+  « Notification e-mail : déclenchement serveur » ci-dessus). Le message
+  et l'e-mail mentionnent tous les deux la formule du commerçant concerné
+  (ex. «
   formule Clé en main (5 000 FCFA/mois + 15 000 FCFA à l'installation) »)
   pour que l'administratrice sache immédiatement quel montant vérifier
   sans aller chercher l'information ailleurs.
@@ -1350,7 +1406,7 @@ insérées depuis le client — voir RLS plus bas) :
 Le libellé + prix de chaque formule utilisé dans ces messages est
 centralisé dans `libelle_formule(plan)` côté SQL
 (`supabase-notifications-formule-migration.sql`) et dans
-`libelleFormule()` côté `app/api/notify-admin-payment/route.js` (qui, lui,
+`libelleFormule()` côté `app/api/alerte-paiement/route.js` (qui, lui,
 réutilise directement `PLAN_PRICES`/`PLANS` de `lib/constants.js`) — la
 fonction SQL, elle, duplique ces valeurs à la main (Postgres ne peut pas
 importer de JS) et doit être mise à jour manuellement si les prix
@@ -1579,7 +1635,7 @@ app/
   (app)/aide/              support (WhatsApp / e-mail)
   (app)/admin/             espace Administration (visible si is_admin, portée limitée à l'abonnement)
   (app)/admin/commercants/[id]/   page de détail d'un commerçant (justificatif, actions)
-  api/notify-admin-payment/   route serveur : e-mail Resend à la soumission d'un justificatif
+  api/alerte-paiement/        route serveur : e-mail Resend, appelée depuis Supabase (pg_net) à la soumission d'un justificatif
   api/cron/expiration-reminders/   route serveur : rappel d'abonnement qui expire (Vercel Cron)
 components/
   Sidebar.js, Receipt.js, ImageUploadField.js, PlanGrid.js,
