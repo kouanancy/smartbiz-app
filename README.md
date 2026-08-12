@@ -910,7 +910,17 @@ sans-serif` directement sur `.sb-pending-screen`, même principe que
   tout dans ce cas), donc c'est là que doit vivre le flux complet pour un
   compte bloqué. Absent pour un compte `suspendu`
   (`CompteSuspendu.js` — une suspension n'est pas forcément liée à un
-  impayé).
+  impayé). Titre/texte remplacés par un troisième message dédié
+  (`paiementRejete.title`/`.text`, `lib/paiements.js`,
+  `dernierPaiementRejete`) quand le blocage vient du rejet d'un
+  justificatif plutôt que d'un premier paiement ou d'une expiration
+  classique : `subscription_status` (`en_attente_paiement`/`expire`) est
+  identique dans les deux cas (voir `admin_reject_payment` plus haut), donc
+  la distinction se fait en regardant si le dernier `paiements_abonnement`
+  de la boutique est au statut `echoue`. Un nouvel envoi de justificatif
+  fait retomber ce dernier paiement à `en_attente` : le message générique
+  (premier paiement/réabonnement) réapparaît en attendant la vérification,
+  exactement comme n'importe quel autre envoi.
 - **Carte « Abonnement » de `parametres/page.js`** : pour un renouvellement
   anticipé pendant que le compte est encore `actif` ou en `essai` (page
   seulement accessible dans ce cas, donc jamais en double avec l'écran de
