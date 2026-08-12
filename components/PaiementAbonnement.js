@@ -110,17 +110,26 @@ export default function PaiementAbonnement({ business, plan }) {
   if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
 
   const dernierPaiement = historique[0];
-  const enAttente = dernierPaiement?.statut === "en_attente";
-  const rejete = dernierPaiement?.statut === "echoue";
+  // Une fois le compte actif — quelle que soit la façon dont il l'est
+  // devenu (bouton "Marquer comme payé" ou modification manuelle directe
+  // de subscription_status dans Supabase) — aucun message "en cours de
+  // vérification"/"rejeté" n'a plus de sens : la logique se base donc sur
+  // le statut du compte, jamais uniquement sur paiements_abonnement.statut.
+  const compteActif = business?.subscription_status === "actif";
+  const enAttente = !compteActif && dernierPaiement?.statut === "en_attente";
+  const rejete = !compteActif && dernierPaiement?.statut === "echoue";
 
   return (
     <div>
-      {enAttente && (
+      {/* !uploadMsg évite d'afficher ce bandeau en même temps que la
+          confirmation d'envoi juste en dessous — un seul message à la
+          fois juste après avoir envoyé un justificatif. */}
+      {!uploadMsg && enAttente && (
         <div className="sb-badge sb-badge-amber" style={{ display: "block", marginBottom: 12, fontSize: 12.5, padding: "8px 12px" }}>
           {t("paiement.statutEnAttente")}
         </div>
       )}
-      {!enAttente && rejete && (
+      {!uploadMsg && !enAttente && rejete && (
         <div className="sb-badge sb-badge-coral" style={{ display: "block", marginBottom: 12, fontSize: 12.5, padding: "8px 12px" }}>
           {t("paiement.statutRejete")}
           {dernierPaiement.raison_rejet && (
