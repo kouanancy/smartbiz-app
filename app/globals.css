@@ -1809,25 +1809,29 @@ a {
 }
 
 /* Fond animé partagé par tous les écrans d'entrée (connexion/inscription,
-   premier paiement, réabonnement, compte suspendu — tous montés via
-   .sb-auth-screen ou .sb-pending-screen) : deux taches floues de la
-   couleur d'accent du thème (celle par défaut avant connexion, celle
-   choisie par le commerçant une fois sa boutique chargée), qui dérivent
-   très lentement en boucle. Toujours derrière le contenu (z-index) et
-   toujours sous une carte à fond opaque (.sb-auth-card/.sb-pending-card),
+   premier paiement, réabonnement, compte suspendu, changement de formule —
+   montés via .sb-auth-screen, .sb-pending-screen ou .sb-formule-screen) :
+   deux taches floues de la couleur d'accent du thème (celle par défaut
+   avant connexion, celle choisie par le commerçant une fois sa boutique
+   chargée), qui dérivent très lentement en boucle. Toujours derrière le
+   contenu (z-index) et toujours sous une carte à fond opaque
+   (.sb-auth-card/.sb-pending-card ou les .sb-card de la page formule),
    donc sans aucun effet sur la lisibilité du texte — seul l'arrière-plan
-   bouge. object-position/overflow hidden évite tout scroll parasite créé
-   par les taches, volontairement positionnées à cheval sur les bords.
+   bouge. overflow hidden/masqué évite tout scroll parasite créé par les
+   taches, volontairement positionnées à cheval sur les bords.
    prefers-reduced-motion coupe l'animation sans rien changer au rendu. */
 .sb-auth-screen,
-.sb-pending-screen {
+.sb-pending-screen,
+.sb-formule-screen {
   position: relative;
   overflow: hidden;
 }
 .sb-auth-screen::before,
 .sb-auth-screen::after,
 .sb-pending-screen::before,
-.sb-pending-screen::after {
+.sb-pending-screen::after,
+.sb-formule-screen::before,
+.sb-formule-screen::after {
   content: "";
   position: absolute;
   border-radius: 50%;
@@ -1837,7 +1841,8 @@ a {
   pointer-events: none;
 }
 .sb-auth-screen::before,
-.sb-pending-screen::before {
+.sb-pending-screen::before,
+.sb-formule-screen::before {
   width: 46vw;
   height: 46vw;
   min-width: 340px;
@@ -1848,7 +1853,8 @@ a {
   animation: sb-glow-drift-a 22s ease-in-out infinite alternate;
 }
 .sb-auth-screen::after,
-.sb-pending-screen::after {
+.sb-pending-screen::after,
+.sb-formule-screen::after {
   width: 40vw;
   height: 40vw;
   min-width: 300px;
@@ -1860,6 +1866,10 @@ a {
 }
 .sb-auth-card,
 .sb-pending-card {
+  position: relative;
+  z-index: 1;
+}
+.sb-formule-screen > * {
   position: relative;
   z-index: 1;
 }
@@ -1883,9 +1893,40 @@ a {
   .sb-auth-screen::before,
   .sb-auth-screen::after,
   .sb-pending-screen::before,
-  .sb-pending-screen::after {
+  .sb-pending-screen::after,
+  .sb-formule-screen::before,
+  .sb-formule-screen::after {
     animation: none;
   }
+}
+
+/* Écran "Changer ma formule" : prend tout le viewport (position: fixed,
+   au-dessus de .sb-root — voir z-index) plutôt que de rester dans le
+   contenu de .sb-main, pour la même sensation d'écran d'entrée à part
+   entière que .sb-auth-screen/.sb-pending-screen — la sidebar reste
+   techniquement montée derrière (même page, même route, aucune
+   restructuration du shell applicatif ni de la garde d'authentification),
+   mais n'est plus visible pendant cette page. z-index: 70, au même niveau
+   que .sb-modal-overlay — au-dessus du menu mobile coulissant (.sb-nav,
+   z-index 60 sous 860px), pour rester au premier plan même si la page
+   change pendant que ce menu était ouvert. overflow-y: auto (pas hidden
+   comme les écrans ci-dessus) : contrairement à une carte de connexion,
+   le contenu (grille des 3 formules, détail, paiement) peut dépasser la
+   hauteur de l'écran sur les petits écrans.
+   app/(app)/parametres/formule/page.js */
+.sb-formule-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  overflow-y: auto;
+  background: var(--paper);
+  font-family: "Inter", sans-serif;
+  color: var(--ink);
+  padding: 26px 30px;
+}
+.sb-formule-inner {
+  max-width: 860px;
+  margin: 0 auto;
 }
 
 .sb-auth-screen {
@@ -2141,56 +2182,6 @@ a {
 }
 @media (prefers-reduced-motion: reduce) {
   .sb-trust-badge {
-    animation: none;
-  }
-}
-
-/* Même fond animé que .sb-auth-screen/.sb-pending-screen, mais contenu à
-   la zone de contenu de la page "Changer ma formule"
-   (app/(app)/parametres/formule/page.js) plutôt qu'au plein écran : cette
-   page reste dans le shell applicatif (sidebar visible), contrairement
-   aux quatre autres écrans de cette famille visuelle qui remplacent tout
-   l'écran. */
-.sb-formule-glow {
-  position: relative;
-  overflow: hidden;
-  border-radius: 14px;
-  padding: 4px;
-  margin: -4px;
-}
-.sb-formule-glow::before,
-.sb-formule-glow::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.25;
-  z-index: 0;
-  pointer-events: none;
-}
-.sb-formule-glow::before {
-  width: 320px;
-  height: 320px;
-  background: var(--accent-soft);
-  top: -120px;
-  left: -100px;
-  animation: sb-glow-drift-a 22s ease-in-out infinite alternate;
-}
-.sb-formule-glow::after {
-  width: 280px;
-  height: 280px;
-  background: var(--accent);
-  bottom: -120px;
-  right: -80px;
-  animation: sb-glow-drift-b 26s ease-in-out infinite alternate;
-}
-.sb-formule-glow > * {
-  position: relative;
-  z-index: 1;
-}
-@media (prefers-reduced-motion: reduce) {
-  .sb-formule-glow::before,
-  .sb-formule-glow::after {
     animation: none;
   }
 }
