@@ -1015,6 +1015,55 @@ carte dédiée dans Paramètres (visible si `business.is_admin`) réutilisant
 Nécessite `supabase-paiements-manuels-migration.sql` (voir Démarrage), à
 exécuter après `supabase-businesses-admin-migration.sql`.
 
+## Fond animé des écrans d'entrée
+
+Connexion/inscription, premier paiement, réabonnement et changement de
+formule partagent la même identité visuelle : un fond en dégradé animé,
+très discret, derrière une carte à fond opaque — jamais l'inverse.
+
+**Le fond animé** (`app/globals.css`, sélecteurs `.sb-auth-screen` et
+`.sb-pending-screen`) : deux taches floues (`filter: blur`, `border-radius:
+50%`) aux couleurs `--accent`/`--accent-soft` du thème, positionnées à
+cheval sur les coins opposés de l'écran et animées en boucle
+(`sb-glow-drift-a`/`-b`, 22-26s, `ease-in-out infinite alternate`) —
+suffisamment lent pour ne jamais distraire. Toujours en `z-index: 0`,
+`overflow: hidden` sur le conteneur pour éviter tout scroll parasite ; la
+carte (`.sb-auth-card`/`.sb-pending-card`) est explicitement passée en
+`z-index: 1` au-dessus, avec son propre fond opaque (`var(--card)`) — le
+texte et les boutons ne bougent jamais, seul l'arrière-plan est concerné.
+`@media (prefers-reduced-motion: reduce)` coupe l'animation pour les
+comptes qui la désactivent au niveau système. Comme ces deux classes sont
+déjà utilisées par `CompteSuspendu.js`, ce fond s'applique aussi à cet
+écran par la même occasion (pas de classe séparée à dupliquer pour un
+quatrième écran de blocage).
+
+Avant la connexion (page `/login`), aucune boutique n'est encore chargée
+donc `--accent` reste la couleur par défaut du thème (orange) — cohérent
+pour tous les visiteurs non connectés. Une fois une boutique chargée
+(premier paiement, réabonnement), `--accent` reprend la couleur choisie
+par le commerçant (voir « Mode sombre » plus bas pour `--accent` vs
+`--accent-soft`/`--accent-deep`), donc le dégradé s'adapte automatiquement
+— clair ou sombre, aucune redéfinition spécifique à ce fond n'était
+nécessaire pour les deux modes.
+
+**« Changer ma formule »** (`app/(app)/parametres/formule/page.js`) reste
+dans le shell applicatif (sidebar visible), contrairement aux quatre
+autres écrans qui remplacent tout l'écran — le même traitement plein écran
+n'aurait pas eu de sens là. La classe `.sb-formule-glow` reprend le même
+principe (deux taches floues, mêmes animations, contenues cette fois à la
+zone de contenu de la page plutôt qu'au viewport) pour rester dans la même
+famille visuelle sans modifier le shell.
+
+**Badge de confiance** (`.sb-trust-badge`, `components/PaiementAbonnement.js`
+— cadenas/bouclier `ShieldCheck` + « Paiement sécurisé ») : affiché une
+seule fois au montage du composant (fondu + léger mouvement vers le haut,
+`animation: ... both` sans `infinite`, donc pas de répétition), uniquement
+sur les écrans de paiement — jamais sur connexion/inscription, où un badge
+de paiement n'aurait pas de sens. Comme `PaiementAbonnement.js` est
+partagé par les trois écrans de paiement (premier paiement, réabonnement,
+changement de formule) et par la carte « Abonnement » de Paramètres
+(renouvellement anticipé), le badge apparaît aussi là par cohérence.
+
 ## Centre de notifications
 
 Une cloche (badge = nombre de notifications non lues) ouvre un panneau
