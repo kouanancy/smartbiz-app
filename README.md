@@ -131,7 +131,16 @@ nécessite `supabase-admin-reject-payment-migration.sql`), et enfin
 un déclencheur qui notifie de la même façon le commerçant à l'envoi d'un
 renouvellement anticipé, pendant du côté « envoi » de ce même point 10 ;
 nécessite `supabase-notifications-migration.sql` et
-`supabase-admin-reject-payment-anticipe-migration.sql`).
+`supabase-admin-reject-payment-anticipe-migration.sql`), et enfin
+`supabase-validation-paiement-installation-migration.sql` (remplace
+`admin_mark_subscription_paid` : calcule désormais la nouvelle date
+d'expiration côté serveur plutôt que de faire confiance à une valeur
+transmise par le client, fait passer le justificatif associé à `reussi`
+dans la même opération atomique, et ajoute le suivi des frais
+d'installation de la formule Clé en main — voir « Espace Administration »
+et « Paiement manuel vérifié » plus bas ; nécessite
+`supabase-admin-scope-abonnement-migration.sql` et
+`supabase-paiements-manuels-migration.sql`).
 
 ## Variables d'environnement
 
@@ -936,20 +945,33 @@ les autres pages de détail) :
 
 - **Marquer comme payé** (masqué sur les lignes déjà admin, dont
   l'abonnement n'a pas d'effet sur l'accès) : `subscription_status →
-  'actif'` et `subscription_expires_at →` aujourd'hui + 1 mois, quel que
-  soit le statut ou la date précédente — le pendant manuel de ce que fera
-  le webhook CinetPay plus tard, via `admin_mark_subscription_paid`. Si un
-  justificatif est en attente pour ce commerçant, il passe aussi à
-  `reussi`.
+  'actif'`, le pendant manuel de ce que fera le webhook CinetPay plus
+  tard, via `admin_mark_subscription_paid`
+  (`supabase-validation-paiement-installation-migration.sql`).
+  `subscription_expires_at` est calculée **côté serveur**, jamais transmise
+  par le client : prolonge depuis l'échéance existante si elle n'est pas
+  encore passée (un commerçant qui paie en avance ne perd jamais les jours
+  déjà payés), repart d'aujourd'hui sinon, puis + 1 mois dans les deux cas
+  — cette règle est ainsi garantie identique à chaque validation, quel que
+  soit l'appelant (avant, elle était calculée en JS et transmise en
+  paramètre, sans aucune vérification côté serveur). Si un justificatif
+  est en attente pour ce commerçant, la fonction le fait aussi passer à
+  `reussi` dans la **même opération atomique** (avant : un second appel
+  séparé côté client, avec un risque réel d'incohérence si celui-ci
+  échouait après le premier — compte déjà actif mais justificatif resté
+  `en_attente` indéfiniment) ; si ce justificatif incluait les frais
+  d'installation de la formule Clé en main, `businesses.frais_installation_payes`
+  passe aussi à `true` dans la foulée — voir « Frais d'installation (formule
+  Clé en main) » plus bas.
 - **Rejeter** (visible seulement s'il y a un justificatif en attente)
   ouvre une modale demandant une raison, affichée au commerçant — voir
   « Paiement manuel vérifié » plus bas. Fait aussi repasser
   `subscription_status` à un état bloqué (`admin_reject_payment`) : `actif
   → expire`, `essai → en_attente_paiement`, inchangé s'il était déjà
-  bloqué — sinon un commerçant qui avait envoyé un justificatif de
-  renouvellement anticipé en étant encore actif/en essai gardait un accès
-  complet même après le rejet de ce justificatif, seul
-  `paiements_abonnement.statut` changeait.
+  bloqué **ou** si l'accès reste valide (renouvellement anticipé rejeté
+  avant l'échéance réelle — voir le point 10 de « Fonctionnement du compte
+  / abonnement » plus haut, qui notifie alors le commerçant via le centre
+  de notifications plutôt que de couper son accès).
 - **Donner/Retirer les droits admin** (`admin_set_is_admin`) : toujours
   actif, y compris sur sa propre ligne.
 
@@ -1018,12 +1040,15 @@ boutiques.
 **Date de validation, distincte de la date d'envoi du justificatif.**
 `paiements_abonnement.created_at` correspond à l'envoi du justificatif par
 le commerçant, pas à sa validation par l'administratrice — d'où la
-nouvelle colonne `valide_at`, renseignée par `marquerPaye()` au moment où
-un paiement passe à `reussi` (`supabase-revenus-admin-migration.sql`, qui
-rétro-remplit aussi `valide_at = created_at` pour les paiements déjà
-validés avant cette migration). Aucune policy RLS supplémentaire n'est
-nécessaire : la policy admin existante sur `paiements_abonnement` (`for
-all`, `is_admin_user()`) couvre déjà cette colonne.
+nouvelle colonne `valide_at`, renseignée au moment où un paiement passe à
+`reussi` (`supabase-revenus-admin-migration.sql`, qui rétro-remplit aussi
+`valide_at = created_at` pour les paiements déjà validés avant cette
+migration) — désormais posée par `admin_mark_subscription_paid` elle-même
+(`supabase-validation-paiement-installation-migration.sql`), plus par un
+update séparé côté client (voir « Espace Administration » plus haut).
+Aucune policy RLS supplémentaire n'est nécessaire : la policy admin
+existante sur `paiements_abonnement` (`for all`, `is_admin_user()`) couvre
+déjà cette colonne.
 
 ## Paiement manuel vérifié
 
@@ -1092,6 +1117,40 @@ vérification » (message exact demandé : « Merci ! Ton paiement est en
 cours de vérification, l'activation peut prendre jusqu'à 1 heure. ») s'il
 est `en_attente`, la raison du rejet s'il est `echoue`, rien s'il est
 `reussi` ou s'il n'y a encore aucun envoi.
+
+**Frais d'installation (formule Clé en main)** : `PLAN_PRICES.cle_en_main`
+(`lib/constants.js`) porte, en plus du prix mensuel, un frais
+d'installation ponctuel (15 000 FCFA) — dû une seule fois par compte,
+jamais deux fois, quel que soit le nombre de changements de formule
+ultérieurs (`businesses.frais_installation_payes`, colonne posée par
+`supabase-validation-paiement-installation-migration.sql`, jamais écrite
+directement par le client — voir point 9 de « Fonctionnement du compte /
+abonnement » : une colonne ajoutée après coup n'est, par défaut, dans
+aucune liste de colonnes regrantées à `authenticated`). Tant que ces frais
+restent dus (`installationRestante = montantInstallation > 0 &&
+!business.frais_installation_payes`) :
+
+- si l'abonnement en cours **n'est pas encore expiré**
+  (`accesDejaValide()`, lib/paiements.js — même notion que pour le point 10
+  ci-dessus) au moment de l'envoi, seuls les frais d'installation sont
+  facturés (le mois en cours reste déjà couvert par ailleurs) — l'écran
+  affiche alors `paiement.montantAPayerInstallationSeule` plutôt que le
+  libellé habituel ;
+- sinon (abonnement déjà expiré, ou tout premier paiement jamais fait), le
+  mois et les frais d'installation sont facturés ensemble, comme avant.
+
+Une fois les frais d'installation déjà payés (`frais_installation_payes =
+true`), seul le montant mensuel est facturé à chaque renouvellement
+suivant, qu'il soit anticipé ou non — plus jamais les frais d'installation.
+Ce booléen `installation_incluse` est posé sur la ligne
+`paiements_abonnement` elle-même à l'envoi (même modèle de confiance que
+la colonne `montant`, déjà fournie par le client et vérifiée visuellement
+par l'administratrice avant validation — aucune restriction de grant
+supplémentaire nécessaire), puis lu par `admin_mark_subscription_paid` au
+moment de la validation pour, le cas échéant, faire passer
+`frais_installation_payes` à `true` (voir « Espace Administration » plus
+haut). Les formules Autonome et Premium (aucun frais d'installation dans
+`PLAN_PRICES`) ne sont pas concernées : leur facturation reste inchangée.
 
 **Validation explicite avant envoi** : l'upload de la photo
 (`ImageUploadField.onChange`) ne fait plus qu'enregistrer l'URL en
