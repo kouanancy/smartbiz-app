@@ -175,25 +175,6 @@ a {
   overflow-y: auto;
   max-height: 100vh;
 }
-/* Information non bloquante sur un renouvellement anticipé (en attente de
-   vérification ou rejeté) pendant que le compte a déjà un accès valide en
-   cours — voir app/(app)/layout.js. Jamais un écran de blocage : juste un
-   bandeau au-dessus du contenu normal de la page. */
-.sb-info-banner {
-  margin-bottom: 16px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 12.5px;
-  font-weight: 600;
-}
-.sb-info-banner-amber {
-  background: var(--amber-bg);
-  color: var(--amber);
-}
-.sb-info-banner-coral {
-  background: var(--coral-bg);
-  color: var(--coral);
-}
 .sb-menu-toggle {
   display: none;
   background: transparent;

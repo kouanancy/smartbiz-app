@@ -123,19 +123,7 @@ export default function AppLayout({ children }) {
     <NotificationsProvider businessId={business.id}>
       <div className="sb-root">
         <Sidebar business={business} onSignOut={signOut} onChangeMode={changerModeAffichage} />
-        <main className="sb-main">
-          {/* Ici, l'accès n'est jamais bloqué (voir la condition
-              ci-dessus) : si paiementInfo.statut est quand même renseigné,
-              c'est forcément un renouvellement anticipé en attente ou
-              rejeté pendant que le compte a encore un accès valide en
-              cours — jamais bloquant, juste une information visible. */}
-          {!business.is_admin && paiementInfo.statut && (
-            <div className={`sb-info-banner ${paiementInfo.statut === "echoue" ? "sb-info-banner-coral" : "sb-info-banner-amber"}`}>
-              {t(`renouvellementAnticipe.${paiementInfo.statut === "echoue" ? "echoue" : "enAttente"}`)}
-            </div>
-          )}
-          {children}
-        </main>
+        <main className="sb-main">{children}</main>
       </div>
     </NotificationsProvider>
   );

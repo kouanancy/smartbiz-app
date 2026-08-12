@@ -124,8 +124,14 @@ nécessite `supabase-businesses-admin-migration.sql` et
 `supabase-admin-reject-payment-anticipe-migration.sql` (remplace
 `admin_reject_payment` pour qu'un rejet ne coupe plus un accès déjà
 valide — renouvellement anticipé rejeté avant l'échéance réelle en
-cours ; voir le point 10 de « Fonctionnement du compte / abonnement »
-plus bas ; nécessite `supabase-admin-reject-payment-migration.sql`).
+cours — et notifie alors le commerçant via le centre de notifications ;
+voir le point 10 de « Fonctionnement du compte / abonnement » plus bas ;
+nécessite `supabase-admin-reject-payment-migration.sql`), et enfin
+`supabase-notifications-renouvellement-anticipe-migration.sql` (ajoute
+un déclencheur qui notifie de la même façon le commerçant à l'envoi d'un
+renouvellement anticipé, pendant du côté « envoi » de ce même point 10 ;
+nécessite `supabase-notifications-migration.sql` et
+`supabase-admin-reject-payment-anticipe-migration.sql`).
 
 ## Variables d'environnement
 
@@ -297,30 +303,38 @@ bas) — sans elles, le reste de l'application fonctionne normalement.
     par cohérence : les deux formulaires de renouvellement anticipé sont
     accessibles depuis les deux statuts). Dans ce cas précis,
     `dernierPaiementBlocage()` renvoie toujours `statut` (`'en_attente'`
-    ou `'echoue'`, pour l'affichage) mais force `bloquant` à `false` — le
-    commerçant garde un accès normal jusqu'à sa vraie date d'expiration.
-    `app/(app)/layout.js` affiche alors, au-dessus du contenu normal de la
-    page (jamais un écran de blocage dédié), un bandeau non bloquant
-    (`.sb-info-banner`, ambre pour `en_attente` via
-    `renouvellementAnticipe.enAttente`, corail pour `echoue` via
-    `renouvellementAnticipe.echoue`) — visible tant que ce paiement
-    anticipé reste le plus récent de la boutique. S'il est ensuite validé
-    par l'administratrice (point 5, `admin_mark_subscription_paid`), la
+    ou `'echoue'`) mais force `bloquant` à `false` — le commerçant garde un
+    accès normal jusqu'à sa vraie date d'expiration, sans aucun écran de
+    blocage. L'information reste néanmoins visible, mais via le centre de
+    notifications existant (`NotificationBell.js`, voir « Centre de
+    notifications » plus bas) plutôt qu'un bandeau dédié dans
+    `app/(app)/layout.js` : deux nouveaux déclencheurs `SECURITY DEFINER`
+    insèrent chacun une notification pour le commerçant lui-même (jamais
+    pour l'administratrice, à la différence du trigger déjà existant sur
+    tout nouveau justificatif) —
+    `notifier_commercant_renouvellement_anticipe()`
+    (`supabase-notifications-renouvellement-anticipe-migration.sql`,
+    déclenché à l'insertion d'un paiement `en_attente`, condition identique
+    à `accesDejaValide()`) au moment de l'envoi, et une insertion
+    équivalente ajoutée dans `admin_reject_payment`
+    (`supabase-admin-reject-payment-anticipe-migration.sql`) au moment du
+    rejet, dans les deux cas seulement si l'accès reste valide — sinon rien
+    de plus que le trigger existant (accès bloqué, écran dédié avec le
+    message adapté, voir point 8). S'il est ensuite validé par
+    l'administratrice (point 5, `admin_mark_subscription_paid`), la
     prolongation part déjà de la date d'expiration existante plutôt que de
     la date du jour (voir « Paiement manuel vérifié » plus bas) — un
     renouvellement anticipé ne fait donc jamais perdre de jours payés.
-    S'il est rejeté, `admin_reject_payment`
-    (`supabase-admin-reject-payment-anticipe-migration.sql`, remplace la
-    fonction du point 6) applique désormais la même nuance côté serveur :
-    il ne fait plus basculer `subscription_status` vers `'expire'`/
-    `'en_attente_paiement'` quand l'échéance en cours n'est pas encore
-    passée, pour la même raison que côté client — sans ce correctif, le
+    S'il est rejeté, `admin_reject_payment` applique la même nuance côté
+    statut que côté notification : il ne fait plus basculer
+    `subscription_status` vers `'expire'`/`'en_attente_paiement'` quand
+    l'échéance en cours n'est pas encore passée — sans ce correctif, le
     rejet aurait lui-même déclenché le blocage du point 7
     (`statutBloquant`, basé sur `subscription_status`) chez un commerçant
     dont l'accès payé restait pourtant valide ; seul le justificatif
-    (`paiements_abonnement.statut = 'echoue'`) reflète alors le rejet, via
-    le bandeau corail ci-dessus, jusqu'à un nouvel envoi ou l'échéance
-    réelle.
+    (`paiements_abonnement.statut = 'echoue'`) reflète alors le rejet,
+    signalé par la notification ci-dessus, jusqu'à un nouvel envoi ou
+    l'échéance réelle.
 
 ## Formule (plan)
 
@@ -1207,7 +1221,7 @@ la partie visuelle, montée deux fois dans `Sidebar.js` (une seule visible à
 la fois selon la largeur d'écran, l'autre masquée en CSS) pour partager le
 même état sans dupliquer les requêtes.
 
-**Trois types de notifications**, générées uniquement côté base (jamais
+**Cinq types de notifications**, générées uniquement côté base (jamais
 insérées depuis le client — voir RLS plus bas) :
 
 - **`abonnement_expire`** (commerçant) : dès que `subscription_expires_at`
@@ -1252,6 +1266,27 @@ insérées depuis le client — voir RLS plus bas) :
   d'inscription elle-même. Mentionne elle aussi la formule choisie. Pas
   d'e-mail pour ce cas (aucun mécanisme d'e-mail n'existait déjà pour les
   inscriptions).
+- **`renouvellement_anticipe_en_attente`** (commerçant) : créée
+  immédiatement par un déclencheur SQL dédié
+  (`trg_notifier_commercant_renouvellement_anticipe`,
+  `supabase-notifications-renouvellement-anticipe-migration.sql`) dès
+  qu'une ligne `paiements_abonnement` est insérée avec
+  `statut = 'en_attente'` **et** que la boutique a déjà un accès valide en
+  cours (`actif`/`essai` avec `subscription_expires_at` dans le futur) —
+  un renouvellement anticipé, jamais bloquant (voir le point 10 de
+  « Fonctionnement du compte / abonnement » ci-dessus). Contrairement à
+  `paiement_a_verifier`, cette notification vise la boutique elle-même,
+  pas l'administratrice — un déclencheur séparé plutôt qu'ajouté à
+  `notifier_admins_nouveau_justificatif`, puisque les deux visent des
+  boutiques différentes.
+- **`renouvellement_anticipe_rejete`** (commerçant) : insérée directement
+  par `admin_reject_payment`
+  (`supabase-admin-reject-payment-anticipe-migration.sql`, pas un
+  déclencheur séparé puisque la fonction gère déjà tout le rejet) au
+  moment où l'administratrice rejette un justificatif, uniquement si la
+  boutique a — là aussi — déjà un accès valide en cours, même logique que
+  ci-dessus. Sans cette notification, un rejet qui ne bloque rien (accès
+  déjà valide, voir point 10) serait passé complètement inaperçu.
 
 Le libellé + prix de chaque formule utilisé dans ces messages est
 centralisé dans `libelle_formule(plan)` côté SQL
@@ -1277,7 +1312,10 @@ Administration »), jamais directement depuis le client.
 
 Nécessite `supabase-notifications-migration.sql` (voir Démarrage), à
 exécuter après `supabase-businesses-admin-migration.sql` et
-`supabase-paiements-manuels-migration.sql`. Le rappel d'expiration
+`supabase-paiements-manuels-migration.sql` — et, pour les deux derniers
+types ci-dessus,
+`supabase-notifications-renouvellement-anticipe-migration.sql` et
+`supabase-admin-reject-payment-anticipe-migration.sql`. Le rappel d'expiration
 planifié nécessite en plus `SUPABASE_SERVICE_ROLE_KEY` et `CRON_SECRET`
 (voir `.env.local.example`) — sans elles, la route cron refuse de
 s'exécuter (500) plutôt que de tourner sans protection ou sans les droits
