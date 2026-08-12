@@ -942,7 +942,16 @@ sans-serif` directement sur `.sb-pending-screen`, même principe que
   de justificatif (`PaiementAbonnement.js`) fait retomber ce dernier
   paiement à `en_attente` et appelle lui-même `refreshBusiness()` : le
   message générique (premier paiement/réabonnement) réapparaît aussitôt,
-  sans attendre une navigation, en attendant la vérification.
+  sans attendre une navigation, en attendant la vérification. Un seul
+  bouton de confirmation dans tout le parcours, sur les deux écrans :
+  celui d'envoi du justificatif, dans FormuleEtPaiement/PaiementAbonnement
+  — pas de bouton « J'ai payé, vérifier mon statut » séparé, qui faisait
+  doublon (même sens que « Envoyer pour vérification ») et n'avait de
+  toute façon pas sa place tant qu'aucune formule n'est choisie (étape
+  liste des formules). `refreshBusiness()` est de toute façon déjà rappelé
+  à chaque navigation (`app/(app)/layout.js`), donc retirer ce bouton ne
+  retire aucune capacité de rafraîchissement — voir le point 8 de
+  « Fonctionnement du compte / abonnement » plus haut.
 - **Carte « Abonnement » de `parametres/page.js`** : pour un renouvellement
   anticipé pendant que le compte est encore `actif` ou en `essai` (page
   seulement accessible dans ce cas, donc jamais en double avec l'écran de
@@ -1021,38 +1030,47 @@ Connexion/inscription, premier paiement, réabonnement et changement de
 formule partagent la même identité visuelle : un fond en dégradé animé,
 très discret, derrière une carte à fond opaque — jamais l'inverse.
 
-**Le fond animé** (`app/globals.css`, sélecteurs `.sb-auth-screen` et
-`.sb-pending-screen`) : deux taches floues (`filter: blur`, `border-radius:
-50%`) aux couleurs `--accent`/`--accent-soft` du thème, positionnées à
-cheval sur les coins opposés de l'écran et animées en boucle
-(`sb-glow-drift-a`/`-b`, 22-26s, `ease-in-out infinite alternate`) —
-suffisamment lent pour ne jamais distraire. Toujours en `z-index: 0`,
-`overflow: hidden` sur le conteneur pour éviter tout scroll parasite ; la
-carte (`.sb-auth-card`/`.sb-pending-card`) est explicitement passée en
-`z-index: 1` au-dessus, avec son propre fond opaque (`var(--card)`) — le
-texte et les boutons ne bougent jamais, seul l'arrière-plan est concerné.
+**Le fond animé** (`app/globals.css`, sélecteurs `.sb-auth-screen`,
+`.sb-pending-screen` et `.sb-formule-screen`) : deux taches floues
+(`filter: blur`, `border-radius: 50%`) aux couleurs `--accent`/
+`--accent-soft` du thème, positionnées à cheval sur les coins opposés de
+l'écran et animées en boucle (`sb-glow-drift-a`/`-b`, 22-26s, `ease-in-out
+infinite alternate`) — suffisamment lent pour ne jamais distraire.
+Toujours en `z-index: 0`, `overflow: hidden` sur le conteneur pour éviter
+tout scroll parasite ; la carte (`.sb-auth-card`/`.sb-pending-card`, ou le
+contenu direct de `.sb-formule-screen`) est explicitement passée en
+`z-index: 1` au-dessus, avec son propre fond opaque — le texte et les
+boutons ne bougent jamais, seul l'arrière-plan est concerné.
 `@media (prefers-reduced-motion: reduce)` coupe l'animation pour les
-comptes qui la désactivent au niveau système. Comme ces deux classes sont
-déjà utilisées par `CompteSuspendu.js`, ce fond s'applique aussi à cet
-écran par la même occasion (pas de classe séparée à dupliquer pour un
-quatrième écran de blocage).
+comptes qui la désactivent au niveau système. Comme `.sb-auth-screen`/
+`.sb-pending-screen` sont déjà utilisées par `CompteSuspendu.js`, ce fond
+s'applique aussi à cet écran par la même occasion (pas de classe séparée à
+dupliquer pour un cinquième écran de blocage).
 
 Avant la connexion (page `/login`), aucune boutique n'est encore chargée
 donc `--accent` reste la couleur par défaut du thème (orange) — cohérent
 pour tous les visiteurs non connectés. Une fois une boutique chargée
-(premier paiement, réabonnement), `--accent` reprend la couleur choisie
-par le commerçant (voir « Mode sombre » plus bas pour `--accent` vs
-`--accent-soft`/`--accent-deep`), donc le dégradé s'adapte automatiquement
-— clair ou sombre, aucune redéfinition spécifique à ce fond n'était
-nécessaire pour les deux modes.
+(premier paiement, réabonnement, changement de formule), `--accent`
+reprend la couleur choisie par le commerçant (voir « Mode sombre » plus
+bas pour `--accent` vs `--accent-soft`/`--accent-deep`), donc le dégradé
+s'adapte automatiquement — clair ou sombre, aucune redéfinition
+spécifique à ce fond n'était nécessaire pour les deux modes.
 
-**« Changer ma formule »** (`app/(app)/parametres/formule/page.js`) reste
-dans le shell applicatif (sidebar visible), contrairement aux quatre
-autres écrans qui remplacent tout l'écran — le même traitement plein écran
-n'aurait pas eu de sens là. La classe `.sb-formule-glow` reprend le même
-principe (deux taches floues, mêmes animations, contenues cette fois à la
-zone de contenu de la page plutôt qu'au viewport) pour rester dans la même
-famille visuelle sans modifier le shell.
+**« Changer ma formule »** (`app/(app)/parametres/formule/page.js`,
+`.sb-formule-screen`) passe en plein écran (`position: fixed; inset: 0`),
+sidebar masquée — même sensation d'écran d'entrée à part entière que les
+quatre autres, plutôt que de rester dans le contenu de `.sb-main`. La
+sidebar reste techniquement montée derrière (même route, même garde
+d'authentification que le reste de `app/(app)/layout.js`, aucune
+restructuration du shell), simplement recouverte par cet écran tant qu'il
+est affiché. `z-index: 70`, au même niveau que `.sb-modal-overlay` — au-
+dessus du menu mobile coulissant (`.sb-nav`, `z-index: 60` sous 860px).
+`overflow-y: auto` (pas `hidden` comme les quatre autres écrans) : le
+contenu (grille des 3 formules, détail, paiement) peut dépasser la
+hauteur de l'écran sur les petits écrans. `.sb-formule-inner` (max-width
+860px, centré) évite que ce contenu ne s'étire sur toute la largeur d'un
+grand écran, faute de la contrainte de largeur qu'apportait auparavant la
+sidebar.
 
 **Badge de confiance** (`.sb-trust-badge`, `components/PaiementAbonnement.js`
 — cadenas/bouclier `ShieldCheck` + « Paiement sécurisé ») : affiché une

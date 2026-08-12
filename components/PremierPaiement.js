@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, LogOut, RefreshCw } from "lucide-react";
+import { Sparkles, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { t as tBase } from "@/lib/i18n";
 import FormuleEtPaiement from "@/components/FormuleEtPaiement";
@@ -18,18 +18,16 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 // distingué ici via paiementRejete (calculé dans AuthProvider à partir du
 // dernier paiement en date, pas via le statut) plutôt que via le statut,
 // pour un message encore différent des deux autres (ni accueil, ni
-// réabonnement).
+// réabonnement). Un seul bouton de confirmation dans tout le parcours :
+// celui d'envoi du justificatif, dans FormuleEtPaiement/PaiementAbonnement
+// — pas de bouton "vérifier mon statut" séparé (n'a pas de sens tant
+// qu'aucune formule n'est choisie, et fait doublon avec "Envoyer pour
+// vérification" une fois sur l'écran de paiement ; refreshBusiness est de
+// toute façon déjà rappelé à chaque navigation, voir app/(app)/layout.js).
 export default function PremierPaiement({ business, paiementRejete }) {
-  const { refreshBusiness, signOut } = useAuth();
-  const [checking, setChecking] = useState(false);
+  const { signOut } = useAuth();
   const [confirmLogout, setConfirmLogout] = useState(false);
   const t = (key, vars) => tBase(business?.langue, key, vars);
-
-  async function handleRefresh() {
-    setChecking(true);
-    await refreshBusiness();
-    setChecking(false);
-  }
 
   return (
     <div className="sb-pending-screen">
@@ -47,9 +45,6 @@ export default function PremierPaiement({ business, paiementRejete }) {
         <FormuleEtPaiement business={business} activeLabel={t("premierPaiement.formuleActuelleLabel")} />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20, maxWidth: 320, marginLeft: "auto", marginRight: "auto" }}>
-          <button className="sb-btn sb-btn-primary" style={{ justifyContent: "center" }} onClick={handleRefresh} disabled={checking}>
-            <RefreshCw size={14} /> {checking ? t("pending.checking") : t("pending.checkStatus")}
-          </button>
           <button className="sb-btn sb-btn-ghost" style={{ justifyContent: "center" }} onClick={() => setConfirmLogout(true)}>
             <LogOut size={14} /> {t("pending.logout")}
           </button>
