@@ -13,7 +13,7 @@ import Reabonnement from "@/components/Reabonnement";
 import CompteSuspendu from "@/components/CompteSuspendu";
 
 export default function AppLayout({ children }) {
-  const { session, business, setBusiness, signOut, refreshBusiness } = useAuth();
+  const { session, business, setBusiness, signOut, refreshBusiness, paiementRejete } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const t = (key) => tBase(business?.langue, key);
@@ -87,17 +87,30 @@ export default function AppLayout({ children }) {
   // dépassée), donc arriver ici avec 'essai' signifie qu'il reste du temps.
   // Un compte administrateur garde un accès complet quel que soit son
   // subscription_status : le blocage automatique à l'expiration ne
-  // concerne que les comptes commerçants classiques.
-  if (!business.is_admin && business.subscription_status !== "actif" && business.subscription_status !== "essai") {
+  // concerne que les comptes commerçants classiques. paiementRejete
+  // (lib/AuthProvider.js, recalculé à chaque connexion et à chaque
+  // revérification de navigation ci-dessus) bloque en plus l'accès même si
+  // subscription_status vaut encore 'actif'/'essai' : deuxième vérification
+  // indépendante du statut du compte, sur le dernier paiement en date —
+  // un rejet doit bloquer quoi qu'il arrive à subscription_status par
+  // ailleurs (admin_reject_payment le met déjà à jour au moment du rejet,
+  // mais ce n'est pas la seule chose qui fait foi).
+  const statutBloquant = business.subscription_status !== "actif" && business.subscription_status !== "essai";
+  if (!business.is_admin && (statutBloquant || paiementRejete)) {
     // Trois écrans distincts, jamais le même texte entre eux (voir
     // PremierPaiement.js et Reabonnement.js) : 'en_attente_paiement' ne
     // se produit qu'après un essai jamais payé (premier paiement),
     // 'expire' qu'après un abonnement actif retombé (réabonnement) — voir
     // EXPIRATION_SUIVANTE dans lib/AuthProvider.js. 'suspendu' n'a pas de
     // flux de paiement (pas forcément lié à un problème de paiement).
-    if (business.subscription_status === "expire") return <Reabonnement business={business} />;
+    // paiementRejete peut déclencher ce blocage même quand
+    // subscription_status ne le fait pas lui-même (encore 'actif'/'essai') :
+    // dans ce cas il n'y a pas d'écran dédié, on retombe sur
+    // PremierPaiement.js, qui affiche déjà le message de rejet dès que la
+    // prop paiementRejete est vraie.
+    if (business.subscription_status === "expire") return <Reabonnement business={business} paiementRejete={paiementRejete} />;
     if (business.subscription_status === "suspendu") return <CompteSuspendu business={business} />;
-    return <PremierPaiement business={business} />;
+    return <PremierPaiement business={business} paiementRejete={paiementRejete} />;
   }
 
   return (
