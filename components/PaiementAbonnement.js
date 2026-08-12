@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Send } from "lucide-react";
+import { Send, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
@@ -138,6 +138,10 @@ export default function PaiementAbonnement({ business, plan }) {
 
   return (
     <div>
+      <div className="sb-trust-badge">
+        <ShieldCheck size={14} /> {t("paiement.securise")}
+      </div>
+
       {/* Un seul message à la fois, dans cet ordre de priorité : une erreur
           (validation avant envoi ou échec de l'envoi lui-même) prime sur la
           confirmation de succès, qui prime elle-même sur les statuts

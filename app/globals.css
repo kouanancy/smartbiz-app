@@ -1808,6 +1808,86 @@ a {
   font-size: 13.5px;
 }
 
+/* Fond animé partagé par tous les écrans d'entrée (connexion/inscription,
+   premier paiement, réabonnement, compte suspendu — tous montés via
+   .sb-auth-screen ou .sb-pending-screen) : deux taches floues de la
+   couleur d'accent du thème (celle par défaut avant connexion, celle
+   choisie par le commerçant une fois sa boutique chargée), qui dérivent
+   très lentement en boucle. Toujours derrière le contenu (z-index) et
+   toujours sous une carte à fond opaque (.sb-auth-card/.sb-pending-card),
+   donc sans aucun effet sur la lisibilité du texte — seul l'arrière-plan
+   bouge. object-position/overflow hidden évite tout scroll parasite créé
+   par les taches, volontairement positionnées à cheval sur les bords.
+   prefers-reduced-motion coupe l'animation sans rien changer au rendu. */
+.sb-auth-screen,
+.sb-pending-screen {
+  position: relative;
+  overflow: hidden;
+}
+.sb-auth-screen::before,
+.sb-auth-screen::after,
+.sb-pending-screen::before,
+.sb-pending-screen::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.3;
+  z-index: 0;
+  pointer-events: none;
+}
+.sb-auth-screen::before,
+.sb-pending-screen::before {
+  width: 46vw;
+  height: 46vw;
+  min-width: 340px;
+  min-height: 340px;
+  background: var(--accent-soft);
+  top: -14vw;
+  left: -12vw;
+  animation: sb-glow-drift-a 22s ease-in-out infinite alternate;
+}
+.sb-auth-screen::after,
+.sb-pending-screen::after {
+  width: 40vw;
+  height: 40vw;
+  min-width: 300px;
+  min-height: 300px;
+  background: var(--accent);
+  bottom: -16vw;
+  right: -12vw;
+  animation: sb-glow-drift-b 26s ease-in-out infinite alternate;
+}
+.sb-auth-card,
+.sb-pending-card {
+  position: relative;
+  z-index: 1;
+}
+@keyframes sb-glow-drift-a {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(4vw, 3vw) scale(1.12);
+  }
+}
+@keyframes sb-glow-drift-b {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-3vw, -3vw) scale(1.08);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-auth-screen::before,
+  .sb-auth-screen::after,
+  .sb-pending-screen::before,
+  .sb-pending-screen::after {
+    animation: none;
+  }
+}
+
 .sb-auth-screen {
   min-height: 100vh;
   display: flex;
@@ -2028,6 +2108,91 @@ a {
   align-items: center;
   justify-content: center;
   margin: 0 auto 16px;
+}
+
+/* Badge de confiance (cadenas/bouclier) affiché une seule fois au montage,
+   sur les écrans de paiement uniquement (components/PaiementAbonnement.js,
+   partagé par premier paiement, réabonnement et changement de formule —
+   jamais sur la connexion/inscription, où un badge "paiement sécurisé"
+   n'a pas de sens). Une seule apparition (fondu + léger mouvement vers le
+   haut) grâce à `both` sans `infinite` : l'animation joue une fois au
+   montage du composant puis reste sur son état final, jamais de boucle. */
+.sb-trust-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  color: var(--accent-text);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  animation: sb-trust-badge-in 0.6s ease-out both;
+}
+@keyframes sb-trust-badge-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-trust-badge {
+    animation: none;
+  }
+}
+
+/* Même fond animé que .sb-auth-screen/.sb-pending-screen, mais contenu à
+   la zone de contenu de la page "Changer ma formule"
+   (app/(app)/parametres/formule/page.js) plutôt qu'au plein écran : cette
+   page reste dans le shell applicatif (sidebar visible), contrairement
+   aux quatre autres écrans de cette famille visuelle qui remplacent tout
+   l'écran. */
+.sb-formule-glow {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  padding: 4px;
+  margin: -4px;
+}
+.sb-formule-glow::before,
+.sb-formule-glow::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.25;
+  z-index: 0;
+  pointer-events: none;
+}
+.sb-formule-glow::before {
+  width: 320px;
+  height: 320px;
+  background: var(--accent-soft);
+  top: -120px;
+  left: -100px;
+  animation: sb-glow-drift-a 22s ease-in-out infinite alternate;
+}
+.sb-formule-glow::after {
+  width: 280px;
+  height: 280px;
+  background: var(--accent);
+  bottom: -120px;
+  right: -80px;
+  animation: sb-glow-drift-b 26s ease-in-out infinite alternate;
+}
+.sb-formule-glow > * {
+  position: relative;
+  z-index: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-formule-glow::before,
+  .sb-formule-glow::after {
+    animation: none;
+  }
 }
 
 /* ------------------------------------------------------------------ */

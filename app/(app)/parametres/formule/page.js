@@ -40,7 +40,7 @@ export default function ChangerFormulePage() {
   }
 
   return (
-    <div>
+    <div className="sb-formule-glow">
       <button
         className="sb-back-link"
         onClick={() => (etape === "liste" ? router.push("/parametres") : setEtape(etape === "paiement" ? "detail" : "liste"))}
