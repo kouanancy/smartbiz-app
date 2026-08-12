@@ -197,6 +197,30 @@ bas) — sans elles, le reste de l'application fonctionne normalement.
    `SUPABASE_SERVICE_ROLE_KEY` et, la révocation d'un jeton Supabase déjà
    émis n'étant pas instantanée, ne garantirait de toute façon pas un
    blocage plus immédiat que cette revérification par navigation.
+8. **Deuxième ligne de défense, indépendante de `subscription_status`**
+   (`lib/AuthProvider.js`, state `paiementRejete`) : le point 6
+   (`admin_reject_payment`) met déjà `subscription_status` à jour au
+   moment du rejet, mais un commerçant a pu malgré tout garder l'accès
+   après un rejet — la cause exacte n'a pas pu être confirmée sans accès
+   aux données de production, donc plutôt que de se fier uniquement à
+   `subscription_status` (qui peut, par un chemin non prévu ou une
+   manipulation manuelle en base, ne pas refléter un rejet), l'accès est
+   maintenant aussi conditionné, indépendamment, au dernier
+   `paiements_abonnement` de la boutique : s'il est au statut `echoue`,
+   l'accès est bloqué **quelle que soit la valeur de
+   `subscription_status`** — y compris `actif` ou `essai`. Recalculé dans
+   `ensureBusiness` (donc à chaque connexion, chaque `getSession()` au
+   chargement de l'app, et chaque `refreshBusiness()` — voir point 7 pour
+   la revérification par navigation), jamais uniquement de façon
+   différée. Sans écran de blocage dédié pour ce cas précis (`expire`/
+   `suspendu` restent decidés par `subscription_status` seul quand ils
+   s'appliquent), l'accès retombe sur `PremierPaiement.js`, qui affiche le
+   message dédié au rejet (voir plus bas) dès que `paiementRejete` est
+   vrai. Un nouvel envoi de justificatif (`PaiementAbonnement.js`) devient
+   aussitôt le paiement le plus récent (`statut = 'en_attente'`) et
+   déclenche lui-même un `refreshBusiness()` pour faire retomber
+   `paiementRejete` à `false` sans attendre la prochaine navigation ; la
+   validation par l'administratrice réactive ensuite le compte normalement.
 
 ## Formule (plan)
 
@@ -905,22 +929,20 @@ sans-serif` directement sur `.sb-pending-screen`, même principe que
 
 - **`PremierPaiement.js`/`Reabonnement.js`** (écrans de blocage, via
   `FormuleEtPaiement.js` — voir « Formule (plan) » plus haut) : seuls
-  endroits accessibles à un compte dont le statut n'est ni `actif` ni
-  `essai` (le shell normal de l'app, sidebar comprise, ne se rend pas du
-  tout dans ce cas), donc c'est là que doit vivre le flux complet pour un
-  compte bloqué. Absent pour un compte `suspendu`
+  endroits accessibles à un compte dont l'accès est bloqué (voir le point 8
+  de « Fonctionnement du compte / abonnement » plus haut — statut ou
+  dernier paiement rejeté), donc c'est là que doit vivre le flux complet
+  pour un compte bloqué. Absent pour un compte `suspendu`
   (`CompteSuspendu.js` — une suspension n'est pas forcément liée à un
   impayé). Titre/texte remplacés par un troisième message dédié
-  (`paiementRejete.title`/`.text`, `lib/paiements.js`,
-  `dernierPaiementRejete`) quand le blocage vient du rejet d'un
-  justificatif plutôt que d'un premier paiement ou d'une expiration
-  classique : `subscription_status` (`en_attente_paiement`/`expire`) est
-  identique dans les deux cas (voir `admin_reject_payment` plus haut), donc
-  la distinction se fait en regardant si le dernier `paiements_abonnement`
-  de la boutique est au statut `echoue`. Un nouvel envoi de justificatif
-  fait retomber ce dernier paiement à `en_attente` : le message générique
-  (premier paiement/réabonnement) réapparaît en attendant la vérification,
-  exactement comme n'importe quel autre envoi.
+  (`paiementRejete.title`/`.text`, prop `paiementRejete` transmise depuis
+  `app/(app)/layout.js`, elle-même dérivée du state `paiementRejete` de
+  `AuthProvider`) quand le blocage vient du rejet d'un justificatif plutôt
+  que d'un premier paiement ou d'une expiration classique. Un nouvel envoi
+  de justificatif (`PaiementAbonnement.js`) fait retomber ce dernier
+  paiement à `en_attente` et appelle lui-même `refreshBusiness()` : le
+  message générique (premier paiement/réabonnement) réapparaît aussitôt,
+  sans attendre une navigation, en attendant la vérification.
 - **Carte « Abonnement » de `parametres/page.js`** : pour un renouvellement
   anticipé pendant que le compte est encore `actif` ou en `essai` (page
   seulement accessible dans ce cas, donc jamais en double avec l'écran de

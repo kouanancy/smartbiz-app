@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Clock, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { t as tBase } from "@/lib/i18n";
-import { dernierPaiementRejete } from "@/lib/paiements";
 import FormuleEtPaiement from "@/components/FormuleEtPaiement";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
@@ -19,24 +18,14 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 // circuit de justificatif. 'expire' peut aussi venir du rejet d'un
 // justificatif de renouvellement anticipé envoyé pendant que le compte
 // était encore actif (voir admin_reject_payment) — même statut qu'une
-// expiration classique, donc distingué ici via le dernier paiement plutôt
-// que via le statut, pour un message encore différent des deux autres.
-export default function Reabonnement({ business }) {
+// expiration classique, donc distingué ici via paiementRejete (calculé
+// dans AuthProvider à partir du dernier paiement en date, pas via le
+// statut) plutôt que via le statut, pour un message encore différent des
+// deux autres.
+export default function Reabonnement({ business, paiementRejete }) {
   const { signOut } = useAuth();
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const [rejete, setRejete] = useState(false);
   const t = (key, vars) => tBase(business?.langue, key, vars);
-
-  useEffect(() => {
-    if (!business?.id) return;
-    let active = true;
-    dernierPaiementRejete(business.id).then((r) => {
-      if (active) setRejete(r);
-    });
-    return () => {
-      active = false;
-    };
-  }, [business?.id]);
 
   return (
     <div className="sb-pending-screen">
@@ -45,10 +34,10 @@ export default function Reabonnement({ business }) {
           <Clock size={24} />
         </div>
         <h1 className="sb-h1" style={{ textAlign: "center", marginBottom: 8 }}>
-          {rejete ? t("paiementRejete.title") : t("reabonnement.title")}
+          {paiementRejete ? t("paiementRejete.title") : t("reabonnement.title")}
         </h1>
         <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", margin: "0 auto 24px", maxWidth: 480 }}>
-          {rejete ? t("paiementRejete.text") : t("reabonnement.text")}
+          {paiementRejete ? t("paiementRejete.text") : t("reabonnement.text")}
         </p>
 
         <FormuleEtPaiement business={business} activeLabel={t("reabonnement.formuleActuelleLabel")} />

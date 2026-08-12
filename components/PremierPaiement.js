@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Sparkles, LogOut, RefreshCw } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { t as tBase } from "@/lib/i18n";
-import { dernierPaiementRejete } from "@/lib/paiements";
 import FormuleEtPaiement from "@/components/FormuleEtPaiement";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
@@ -16,25 +15,15 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 // (components/FormuleEtPaiement.js). 'en_attente_paiement' peut aussi
 // venir du rejet d'un justificatif envoyé pendant l'essai (voir
 // admin_reject_payment) — même statut que la fin d'essai classique, donc
-// distingué ici via le dernier paiement plutôt que via le statut, pour un
-// message encore différent des deux autres (ni accueil, ni réabonnement).
-export default function PremierPaiement({ business }) {
+// distingué ici via paiementRejete (calculé dans AuthProvider à partir du
+// dernier paiement en date, pas via le statut) plutôt que via le statut,
+// pour un message encore différent des deux autres (ni accueil, ni
+// réabonnement).
+export default function PremierPaiement({ business, paiementRejete }) {
   const { refreshBusiness, signOut } = useAuth();
   const [checking, setChecking] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const [rejete, setRejete] = useState(false);
   const t = (key, vars) => tBase(business?.langue, key, vars);
-
-  useEffect(() => {
-    if (!business?.id) return;
-    let active = true;
-    dernierPaiementRejete(business.id).then((r) => {
-      if (active) setRejete(r);
-    });
-    return () => {
-      active = false;
-    };
-  }, [business?.id]);
 
   async function handleRefresh() {
     setChecking(true);
@@ -49,10 +38,10 @@ export default function PremierPaiement({ business }) {
           <Sparkles size={24} />
         </div>
         <h1 className="sb-h1" style={{ textAlign: "center", marginBottom: 8 }}>
-          {rejete ? t("paiementRejete.title") : t("premierPaiement.title")}
+          {paiementRejete ? t("paiementRejete.title") : t("premierPaiement.title")}
         </h1>
         <p style={{ fontSize: 13, color: "var(--muted)", textAlign: "center", margin: "0 auto 24px", maxWidth: 480 }}>
-          {rejete ? t("paiementRejete.text") : t("premierPaiement.text")}
+          {paiementRejete ? t("paiementRejete.text") : t("premierPaiement.text")}
         </p>
 
         <FormuleEtPaiement business={business} activeLabel={t("premierPaiement.formuleActuelleLabel")} />

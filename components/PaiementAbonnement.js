@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Send } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 import { PLAN_PRICES } from "@/lib/constants";
@@ -24,6 +25,7 @@ const STATUT_BADGE_CLASS = {
 // précise plutôt que du prix global de parametres_globaux.abonnement_prix
 // (renouvellement générique, sans formule en jeu).
 export default function PaiementAbonnement({ business, plan }) {
+  const { refreshBusiness } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const prixPlan = plan ? PLAN_PRICES[plan] : null;
@@ -97,6 +99,13 @@ export default function PaiementAbonnement({ business, plan }) {
     setUploadMsg(t("paiement.submitSuccess"));
     setJustificatifDraft("");
     setUploadKey((k) => k + 1);
+
+    // Ce nouvel envoi devient le paiement le plus récent : sans ce
+    // refreshBusiness, le message "ton dernier paiement n'a pas pu être
+    // validé" (paiementRejete, lib/AuthProvider.js) resterait affiché en
+    // haut de l'écran de blocage jusqu'à la prochaine navigation, alors que
+    // ce nouvel envoi est justement la réponse à ce message.
+    refreshBusiness();
 
     // Best effort : l'échec de la notification ne doit jamais empêcher le
     // commerçant de considérer son envoi comme réussi.
