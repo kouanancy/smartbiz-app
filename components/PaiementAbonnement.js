@@ -135,14 +135,12 @@ export default function PaiementAbonnement({ business, plan }) {
     // voir trg_notifier_commercant_renouvellement_anticipe,
     // supabase-notifications-renouvellement-anticipe-migration.sql).
     //
-    // L'e-mail d'alerte à l'administratrice (jadis envoyé ici par un
-    // fetch() vers /api/notify-admin-payment) part désormais depuis la
-    // base elle-même, au moment même de l'insertion ci-dessus
+    // La notification à l'administratrice (aujourd'hui une notification
+    // push, voir README « Notifications push (Web Push) » — deux
+    // mécanismes e-mail successifs avant, jamais fiabilisés) part depuis
+    // la base elle-même, au moment même de l'insertion ci-dessus
     // (notifier_admins_nouveau_justificatif, pg_net, voir
-    // supabase-alerte-paiement-serveur-migration.sql) — ce fetch()
-    // pouvait être bloqué en silence par un bloqueur de pub avant même de
-    // quitter le navigateur du commerçant (URL contenant "notify"), sans
-    // laisser aucune trace côté serveur ; rien à faire ici désormais.
+    // supabase-push-notifications-migration.sql) : rien à faire ici.
     refreshBusiness();
   }
 
