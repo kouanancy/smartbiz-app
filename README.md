@@ -156,7 +156,15 @@ les secrets Vault de l'ancien mécanisme devenus inutiles ; nécessite
 `supabase-confirmation-paiement-migration.sql` (remplace
 `admin_mark_subscription_paid` une troisième fois pour ajouter une
 notification 🔔 au commerçant quand son paiement est validé ; nécessite
-`supabase-validation-paiement-installation-migration.sql`).
+`supabase-validation-paiement-installation-migration.sql`), et enfin
+`supabase-admin-liste-paiements-migration.sql` (ajoute `plan` au retour
+de `admin_list_businesses`, pour afficher la formule dans la nouvelle
+liste des paiements en attente et sur la page de détail — voir « Espace
+Administration » plus bas ; et fait passer `business_id` dans le payload
+push, pour que la notification emmène directement sur le paiement
+concerné — voir « Notifications push (Web Push) » plus bas ; nécessite
+`supabase-admin-scope-abonnement-migration.sql` et
+`supabase-push-notifications-migration.sql`).
 
 ## Variables d'environnement
 
@@ -957,17 +965,32 @@ voir plus bas). Une ligne entièrement cliquable (`.sb-row-clickable`, même
 principe que Commandes/Articles/Clients) ouvre une page de détail dédiée
 (`app/(app)/admin/commercants/[id]/page.js`) plutôt que d'entasser des
 boutons d'action sur chaque ligne de la liste — celle-ci se limite donc
-aux colonnes Boutique/E-mail/Statut/Expiration, avec un badge « X
-justificatif(s) à vérifier » au-dessus du tableau (compteur global, sans
-avoir à ouvrir chaque fiche). La page de détail affiche le justificatif en
-attente (le cas échéant, en image directement, plus de modale) et
-regroupe les actions, bien espacées (`.sb-detail-actions`, même style que
-les autres pages de détail) :
+aux colonnes Boutique/E-mail/Statut/Expiration.
 
-- **Marquer comme payé** (masqué sur les lignes déjà admin, dont
-  l'abonnement n'a pas d'effet sur l'accès) : `subscription_status →
-  'actif'`, le pendant manuel de ce que fera le webhook CinetPay plus
-  tard, via `admin_mark_subscription_paid`
+**Paiements en attente** : carte dédiée juste au-dessus du tableau des
+comptes (visible seulement s'il y a au moins un paiement `en_attente`),
+plutôt qu'un simple badge de comptage — chaque ligne (Boutique / Formule /
+Montant / Date de soumission, avec « depuis N jour(s) » à côté de la date)
+mène, elle aussi, à la page de détail correspondante. Triée par
+`created_at` croissant (déjà l'ordre de la requête de chargement) : **les
+paiements les plus anciens en premier**, pour qu'aucun ne reste oublié en
+bas d'une longue liste.
+
+La page de détail affiche le justificatif en attente (le cas échéant),
+avec sa formule et sa date d'envoi juste au-dessus — l'image, cliquable,
+s'agrandit dans une visionneuse plein écran (`.sb-modal-overlay`, clic
+n'importe où pour refermer) pour vérifier un montant ou une référence pas
+toujours lisibles en aperçu. Deux boutons dédiés à la vérification,
+nettement plus grands et mieux espacés que les actions secondaires
+ci-dessous (`.sb-verification-actions`/`.sb-btn-verification`), juste sous
+la photo :
+
+- **Valider** (« Marquer comme payé » quand il n'y a pas de justificatif
+  en attente — même bouton, `marquerPaye()`, seul le libellé change selon
+  le contexte ; masqué sur les lignes déjà admin, dont l'abonnement n'a
+  pas d'effet sur l'accès) : `subscription_status → 'actif'`, le pendant
+  manuel de ce que fera le webhook CinetPay plus tard, via
+  `admin_mark_subscription_paid`
   (`supabase-validation-paiement-installation-migration.sql`).
   `subscription_expires_at` est calculée **côté serveur**, jamais transmise
   par le client : prolonge depuis l'échéance existante si elle n'est pas
@@ -1003,7 +1026,9 @@ les autres pages de détail) :
 
 La page de détail réutilise `admin_list_businesses()` (filtrée côté client
 sur l'identifiant de la fiche) plutôt qu'une nouvelle fonction SQL dédiée
-— même périmètre de colonnes, aucune migration supplémentaire nécessaire.
+— même périmètre de colonnes (plus `plan` depuis
+`supabase-admin-liste-paiements-migration.sql`, nécessaire pour afficher
+la formule).
 
 **Compte admin = accès permanent à l'application.** `subscription_status`
 et `subscription_expires_at` n'ont aucun effet sur un compte
@@ -1257,7 +1282,11 @@ push :
    ensuite.
 3. Le service worker (`public/sw.js`, minimal — uniquement l'écoute
    `push`/`notificationclick`, pas de cache offline) affiche la
-   notification et ramène sur `/admin` au clic.
+   notification et ramène au clic sur `/admin/commercants/<business_id>`
+   (la fiche du paiement concerné, `business_id` inclus dans le payload
+   depuis `supabase-admin-liste-paiements-migration.sql`) plutôt que sur
+   `/admin` en général — l'administratrice n'a alors plus jamais à
+   chercher où aller après avoir reçu l'alerte.
 
 **Abonnement** (Paramètres, carte « Notifications push », visible
 uniquement si `business.is_admin`) : le bouton « Activer les
@@ -1320,7 +1349,9 @@ fonctionner — seule la notification push reste ignorée.
 4. Une notification push doit apparaître sur l'appareil où l'étape 1 a
    été faite, dans les quelques secondes — même si l'onglet Doka est
    fermé (c'est tout l'intérêt du service worker). Le clic dessus doit
-   ouvrir/ramener sur `/admin`.
+   ouvrir/ramener directement sur la fiche de la boutique concernée
+   (`/admin/commercants/<id>`, photo du justificatif + boutons Valider/
+   Rejeter déjà visibles), jamais sur le tableau de bord général.
 5. En cas d'échec, consulter les logs de fonction Vercel pour
    `/api/push-admin-paiement` — mêmes principes de diagnostic que
    documentés précédemment pour l'e-mail (jeton attendu vs reçu, etc., si

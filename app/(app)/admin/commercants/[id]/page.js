@@ -28,6 +28,7 @@ export default function CommercantDetailPage() {
   const [msg, setMsg] = useState("");
   const [rejetOpen, setRejetOpen] = useState(false);
   const [raisonRejet, setRaisonRejet] = useState("");
+  const [zoomOpen, setZoomOpen] = useState(false);
 
   useEffect(() => {
     if (!moi?.is_admin || !params.id) return;
@@ -160,6 +161,12 @@ export default function CommercantDetailPage() {
           </div>
           <div>
             <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
+              {t("admin.colFormule")}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t(`common.plans.${commercant.plan || "autonome"}.nom`)}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
               {t("admin.colJustificatif")}
             </div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>
@@ -169,31 +176,53 @@ export default function CommercantDetailPage() {
         </div>
 
         {paiementEnAttente && (
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 6 }}>
+              {t("admin.colDateSoumission")}
+            </div>
+            <div className="sb-mono" style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+              {new Date(paiementEnAttente.created_at).toLocaleString(dateLocale(moi?.langue), {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </div>
+
+            {/* Cliquable pour zoomer — un commerçant peut envoyer une photo
+                prise de loin ou peu lisible en aperçu, l'administratrice doit
+                pouvoir vérifier le montant/la référence sans avoir à deviner. */}
             <img
               src={paiementEnAttente.justificatif_url}
               alt=""
-              style={{ width: "100%", maxWidth: 320, borderRadius: 10, border: "1px solid var(--line)" }}
+              onClick={() => setZoomOpen(true)}
+              style={{ width: "100%", maxWidth: 480, borderRadius: 10, border: "1px solid var(--line)", cursor: "zoom-in" }}
             />
+            <p style={{ fontSize: 11.5, color: "var(--text-faint)", margin: "6px 2px 0" }}>{t("admin.justificatifZoomHint")}</p>
+
+            <div className="sb-verification-actions">
+              <button className="sb-btn sb-btn-emerald sb-btn-verification" onClick={marquerPaye}>
+                <CheckCircle2 size={17} /> {t("admin.valider")}
+              </button>
+              <button
+                className="sb-btn sb-btn-verification"
+                style={{ background: "var(--coral)", color: "#fff" }}
+                onClick={() => {
+                  setRejetOpen(true);
+                  setRaisonRejet("");
+                }}
+              >
+                <XCircle size={17} /> {t("admin.rejeter")}
+              </button>
+            </div>
           </div>
         )}
 
         <div className="sb-detail-actions">
-          {!commercant.is_admin && (
+          {!commercant.is_admin && !paiementEnAttente && (
             <button className="sb-btn sb-btn-emerald" onClick={marquerPaye}>
               <CheckCircle2 size={15} /> {t("admin.marquerPaye")}
-            </button>
-          )}
-          {paiementEnAttente && (
-            <button
-              className="sb-btn sb-btn-ghost"
-              style={{ color: "var(--coral)" }}
-              onClick={() => {
-                setRejetOpen(true);
-                setRaisonRejet("");
-              }}
-            >
-              <XCircle size={15} /> {t("admin.rejeter")}
             </button>
           )}
           <button className="sb-btn sb-btn-ghost" onClick={toggleAdmin}>
@@ -202,6 +231,17 @@ export default function CommercantDetailPage() {
           </button>
         </div>
       </div>
+
+      {zoomOpen && paiementEnAttente && (
+        <div className="sb-modal-overlay" onClick={() => setZoomOpen(false)}>
+          <img
+            src={paiementEnAttente.justificatif_url}
+            alt=""
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "95vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 10 }}
+          />
+        </div>
+      )}
 
       {rejetOpen && (
         <div className="sb-modal-overlay" onClick={() => setRejetOpen(false)}>

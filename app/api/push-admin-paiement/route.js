@@ -37,7 +37,7 @@ export async function POST(request) {
     return Response.json({ sent: 0, reason: "missing_service_role_key" });
   }
 
-  const { businessName } = await request.json().catch(() => ({}));
+  const { businessName, businessId } = await request.json().catch(() => ({}));
   console.log(`[push-admin-paiement] appel reçu — boutique="${businessName || "?"}"`);
 
   webpush.setVapidDetails(VAPID_SUBJECT, vapidPublicKey, vapidPrivateKey);
@@ -59,10 +59,14 @@ export async function POST(request) {
     return Response.json({ sent: 0, reason: "db_error" }, { status: 500 });
   }
 
+  // Emmène directement sur la fiche du paiement concerné plutôt que sur
+  // le tableau de bord général quand on connaît la boutique (toujours le
+  // cas ici, businessId vient de new.business_id côté trigger) — voir
+  // README, « Notifications push (Web Push) ».
   const payload = JSON.stringify({
     title: "Nouveau paiement à vérifier",
     body: `${businessName || "Une boutique"} a envoyé un justificatif de paiement à vérifier.`,
-    url: "/admin",
+    url: businessId ? `/admin/commercants/${businessId}` : "/admin",
   });
 
   let envoyes = 0;
