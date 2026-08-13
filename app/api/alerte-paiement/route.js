@@ -1,6 +1,14 @@
+import { createHash } from "node:crypto";
 import { PLANS, PLAN_PRICES } from "@/lib/constants";
 import { t } from "@/lib/i18n";
 import { fmt } from "@/lib/format";
+
+// Empreinte courte et non réversible d'une chaîne — sert uniquement au
+// diagnostic ci-dessous (comparer deux secrets sans jamais les faire
+// apparaître en clair dans les logs Vercel).
+function empreinte(valeur) {
+  return createHash("sha256").update(valeur).digest("hex").slice(0, 8);
+}
 
 const ADMIN_EMAIL = "koua.nancy@gmail.com";
 
@@ -36,7 +44,20 @@ export async function POST(request) {
     console.error("[alerte-paiement] PAYMENT_ALERT_SECRET absente : route désactivée.");
     return Response.json({ sent: false, reason: "missing_alert_secret" }, { status: 500 });
   }
-  if (request.headers.get("authorization") !== `Bearer ${alertSecret}`) {
+  const enTete = request.headers.get("authorization") || "";
+  if (enTete !== `Bearer ${alertSecret}`) {
+    // Diagnostic temporaire (voir README, « Notification e-mail :
+    // déclenchement serveur ») : longueur + empreinte sha256 tronquée de
+    // chaque côté, jamais le secret en clair — permet de confirmer si la
+    // différence vient d'un espace superflu, d'une valeur vraiment
+    // différente, ou d'un format d'en-tête inattendu (ex. sans "Bearer ").
+    const recu = enTete.startsWith("Bearer ") ? enTete.slice(7) : enTete;
+    console.error(
+      `[alerte-paiement] 401 : en-tête reçu commence par "Bearer "=${enTete.startsWith("Bearer ")}, ` +
+        `attendu(len=${alertSecret.length}, empreinte=${empreinte(alertSecret)}) vs ` +
+        `reçu(len=${recu.length}, empreinte=${empreinte(recu)}), ` +
+        `identique après trim=${alertSecret.trim() === recu.trim()}`
+    );
     return Response.json({ sent: false, reason: "unauthorized" }, { status: 401 });
   }
 
