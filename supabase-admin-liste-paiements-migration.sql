@@ -12,8 +12,13 @@
 -- boutique -- nécessaire pour afficher "Boutique / Formule / Montant /
 -- Date de soumission" dans la nouvelle liste des paiements en attente
 -- (app/(app)/admin/page.js), sans quoi il aurait fallu une requête
--- séparée par boutique.
-create or replace function admin_list_businesses()
+-- séparée par boutique. Postgres refuse un simple `create or replace`
+-- quand la liste des colonnes de retour change (ERROR 42P13) -- il faut
+-- d'abord supprimer l'ancienne version, ce qui retire au passage le
+-- grant existant (ré-accordé explicitement plus bas).
+drop function if exists admin_list_businesses();
+
+create function admin_list_businesses()
 returns table (
   id uuid,
   owner_id uuid,
@@ -38,6 +43,8 @@ begin
     from businesses b;
 end;
 $$;
+
+grant execute on function admin_list_businesses() to authenticated;
 
 -- notifier_admins_nouveau_justificatif() : inclut désormais business_id
 -- dans le payload envoyé à app/api/push-admin-paiement, pour que la
