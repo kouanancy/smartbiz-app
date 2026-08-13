@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, FileText, Palette, Plus, Truck, X } from "lucide-react";
+import { Bell, CheckCircle2, FileText, Palette, Plus, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
+import { activerNotificationsPush } from "@/lib/push";
 import { fmt as fmtBase } from "@/lib/format";
 import { THEMES, MODES_AFFICHAGE } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
@@ -21,6 +22,24 @@ export default function ParametresPage() {
   const [confirmationEmail, setConfirmationEmail] = useState(business?.confirmation_email || false);
   const [savedMsg, setSavedMsg] = useState("");
   const [notifMsg, setNotifMsg] = useState("");
+  const [pushMsg, setPushMsg] = useState({ texte: "", ok: false });
+  const [pushEnCours, setPushEnCours] = useState(false);
+
+  // Réservé au compte admin (bouton masqué ci-dessous pour les autres) —
+  // voir lib/push.js et README, section « Notifications push (Web Push) ».
+  async function onClickActiverPush() {
+    setPushMsg({ texte: "", ok: false });
+    setPushEnCours(true);
+    const resultat = await activerNotificationsPush(business.id);
+    setPushEnCours(false);
+    if (resultat.ok) {
+      setPushMsg({ texte: t("parametres.pushActive"), ok: true });
+      return;
+    }
+    if (resultat.reason === "unsupported") setPushMsg({ texte: t("parametres.pushUnsupported"), ok: false });
+    else if (resultat.reason === "permission_denied") setPushMsg({ texte: t("parametres.pushPermissionRefusee"), ok: false });
+    else setPushMsg({ texte: t("parametres.pushErreur", { message: resultat.message || resultat.reason }), ok: false });
+  }
 
   const [zones, setZones] = useState([]);
   const [zoneForm, setZoneForm] = useState({ zone: "", frais: "" });
@@ -311,6 +330,29 @@ export default function ParametresPage() {
           <p style={{ fontSize: 11, color: "var(--text-faint)", margin: "12px 2px 0" }}>{t("parametres.emailRequiredNote")}</p>
         )}
       </div>
+
+      {/* Réservé aux comptes admin : c'est l'administratrice qui doit être
+          alertée d'un nouveau justificatif à vérifier, jamais un
+          commerçant ordinaire — voir push_subscriptions (RLS) et
+          app/api/push-admin-paiement. */}
+      {business?.is_admin && (
+        <div className="sb-card" style={{ marginBottom: 16 }}>
+          <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Bell size={15} /> {t("parametres.pushTitle")}
+          </div>
+          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.pushSub")}</p>
+
+          {pushMsg.texte && (
+            <div className={`sb-badge ${pushMsg.ok ? "sb-badge-emerald" : "sb-badge-coral"}`} style={{ display: "block", marginBottom: 12, fontSize: 12.5, padding: "8px 12px" }}>
+              {pushMsg.texte}
+            </div>
+          )}
+
+          <button className="sb-btn sb-btn-primary" onClick={onClickActiverPush} disabled={pushEnCours}>
+            <Bell size={14} /> {pushEnCours ? t("parametres.pushActivating") : t("parametres.pushActiverBtn")}
+          </button>
+        </div>
+      )}
 
       {/* L'abonnement/la formule ne concernent jamais un compte
           administrateur — accès permanent, aucun paiement à faire (voir
