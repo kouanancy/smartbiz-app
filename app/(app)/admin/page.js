@@ -209,6 +209,10 @@ export default function AdminPage() {
     return businesses.find((x) => x.id === businessId)?.name || t("common.defaultBusinessName");
   }
 
+  function formuleBoutique(businessId) {
+    return businesses.find((x) => x.id === businessId)?.plan || "autonome";
+  }
+
   const maintenant = new Date();
   const revenuTotal = paiementsReussis.reduce((s, p) => s + p.montant, 0);
   const revenuMoisCourant = paiementsReussis
@@ -491,6 +495,44 @@ export default function AdminPage() {
           {t("parametres.enregistrer")}
         </button>
       </div>
+
+      {/* Les plus anciens en premier (paiementsEnAttente est déjà trié par
+          created_at croissant, voir le chargement plus haut) : c'est
+          justement ceux-là qu'il ne faut pas laisser traîner. */}
+      {paiementsEnAttente.length > 0 && (
+        <div className="sb-card" style={{ marginBottom: 16 }}>
+          <div className="sb-section-title">{t("admin.paiementsEnAttenteTitle")}</div>
+          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("admin.paiementsEnAttenteSub")}</p>
+          <div className="sb-table-scroll">
+            <table className="sb-table">
+              <thead>
+                <tr>
+                  <th>{t("admin.colBoutique")}</th>
+                  <th>{t("admin.colFormule")}</th>
+                  <th>{t("paiement.colMontant")}</th>
+                  <th>{t("admin.colDateSoumission")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paiementsEnAttente.map((p) => {
+                  const jours = Math.floor((maintenant - new Date(p.created_at)) / (1000 * 60 * 60 * 24));
+                  return (
+                    <tr key={p.id} className="sb-row-clickable" onClick={() => router.push(`/admin/commercants/${p.business_id}`)}>
+                      <td>{nomBoutique(p.business_id)}</td>
+                      <td>{t(`common.plans.${formuleBoutique(p.business_id)}.nom`)}</td>
+                      <td className="sb-mono">{fmt(p.montant)}</td>
+                      <td>
+                        {new Date(p.created_at).toLocaleDateString(dateLocale(business?.langue))}{" "}
+                        <span style={{ color: "var(--text-faint)", fontSize: 12 }}>({t("admin.depuisNJours", { n: jours })})</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {businesses.length === 0 ? (
         <p style={{ fontSize: 13, color: "var(--muted)" }}>{t("admin.aucunCommercant")}</p>
