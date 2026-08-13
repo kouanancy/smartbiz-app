@@ -1873,54 +1873,54 @@ a {
 }
 .sb-blob {
   position: absolute;
-  border-radius: 42% 58% 63% 37% / 45% 40% 60% 55%;
-  filter: blur(60px);
-  opacity: 0.32;
+  border-radius: 42% 58% 66% 34% / 62% 39% 61% 38%;
+  filter: blur(16px);
+  opacity: 0.62;
   will-change: transform, border-radius;
 }
 .sb-blob-1 {
-  width: 46vw;
-  height: 46vw;
-  min-width: 320px;
-  min-height: 320px;
-  top: -16vw;
-  left: -12vw;
-  background: linear-gradient(135deg, #f2984a, #e07a29);
+  width: 34vw;
+  height: 34vw;
+  min-width: 260px;
+  min-height: 260px;
+  top: -11vw;
+  left: -9vw;
+  background: radial-gradient(circle at 32% 28%, #ffb37c 0%, #f2984a 45%, #e07a29 75%, #c7601a 100%);
   animation: sb-blob-drift-1 21s ease-in-out infinite alternate;
   animation-delay: -4s;
 }
 .sb-blob-2 {
-  width: 40vw;
-  height: 40vw;
-  min-width: 280px;
-  min-height: 280px;
-  bottom: -18vw;
-  right: -10vw;
-  background: linear-gradient(135deg, #6e6b68, #4a4745);
+  width: 30vw;
+  height: 30vw;
+  min-width: 230px;
+  min-height: 230px;
+  bottom: -12vw;
+  right: -7vw;
+  background: radial-gradient(circle at 32% 28%, #c9c5c0 0%, #8a8682 45%, #6e6b68 75%, #4a4745 100%);
   animation: sb-blob-drift-2 27s ease-in-out infinite alternate;
   animation-delay: -11s;
 }
 .sb-blob-3 {
-  width: 30vw;
-  height: 30vw;
-  min-width: 210px;
-  min-height: 210px;
-  top: -6vw;
-  right: -9vw;
-  opacity: 0.24;
-  background: linear-gradient(135deg, #c7601a, #e07a29);
+  width: 22vw;
+  height: 22vw;
+  min-width: 170px;
+  min-height: 170px;
+  top: -4vw;
+  right: -6vw;
+  opacity: 0.52;
+  background: radial-gradient(circle at 30% 25%, #ffcb9e 0%, #e8944a 50%, #c7601a 100%);
   animation: sb-blob-drift-3 18s ease-in-out infinite alternate;
   animation-delay: -7s;
 }
 .sb-blob-4 {
-  width: 32vw;
-  height: 32vw;
-  min-width: 230px;
-  min-height: 230px;
-  bottom: -8vw;
-  left: -9vw;
-  opacity: 0.24;
-  background: linear-gradient(135deg, #8a8682, #4a4745);
+  width: 24vw;
+  height: 24vw;
+  min-width: 185px;
+  min-height: 185px;
+  bottom: -5vw;
+  left: -6vw;
+  opacity: 0.52;
+  background: radial-gradient(circle at 30% 25%, #cfcbc6 0%, #8a8682 50%, #4a4745 100%);
   animation: sb-blob-drift-4 30s ease-in-out infinite alternate;
   animation-delay: -16s;
 }
@@ -1930,68 +1930,73 @@ a {
   position: relative;
   z-index: 1;
 }
+/* Chaque étape combine une forme très asymétrique (border-radius) avec un
+   scale à deux valeurs (X/Y différents, jamais un simple zoom uniforme) :
+   la bulle s'étire en montant, s'aplatit en changeant de direction, comme
+   une goutte de cire — l'ingrédient qui manquait pour un vrai effet lampe
+   à lave plutôt que des ronds qui se baladent. */
 @keyframes sb-blob-drift-1 {
   0% {
-    transform: translate(0, 0) scale(1);
-    border-radius: 42% 58% 63% 37% / 45% 40% 60% 55%;
+    transform: translate(0, 0) scale(1, 1) rotate(0deg);
+    border-radius: 42% 58% 66% 34% / 62% 39% 61% 38%;
   }
   33% {
-    transform: translate(9vw, 12vh) scale(1.1);
-    border-radius: 55% 45% 40% 60% / 60% 45% 55% 40%;
+    transform: translate(8vw, -6vh) scale(0.82, 1.28) rotate(10deg);
+    border-radius: 68% 32% 28% 72% / 42% 68% 32% 58%;
   }
   66% {
-    transform: translate(3vw, 22vh) scale(0.94);
-    border-radius: 38% 62% 55% 45% / 40% 60% 40% 60%;
+    transform: translate(12vw, 14vh) scale(1.25, 0.8) rotate(-8deg);
+    border-radius: 28% 72% 68% 32% / 68% 28% 72% 32%;
   }
   100% {
-    transform: translate(15vw, 9vh) scale(1.05);
-    border-radius: 60% 40% 45% 55% / 50% 55% 45% 50%;
+    transform: translate(16vw, 9vh) scale(1.05, 0.95) rotate(-4deg);
+    border-radius: 55% 45% 60% 40% / 48% 58% 42% 52%;
   }
 }
 @keyframes sb-blob-drift-2 {
   0% {
-    transform: translate(0, 0) scale(1);
+    transform: translate(0, 0) scale(1, 1) rotate(0deg);
     border-radius: 55% 45% 35% 65% / 40% 55% 45% 60%;
   }
   33% {
-    transform: translate(-10vw, -8vh) scale(0.92);
-    border-radius: 40% 60% 55% 45% / 60% 40% 60% 40%;
+    transform: translate(-9vw, -10vh) scale(1.22, 0.8) rotate(-9deg);
+    border-radius: 30% 70% 65% 35% / 65% 30% 70% 35%;
   }
   66% {
-    transform: translate(-4vw, -18vh) scale(1.08);
-    border-radius: 62% 38% 45% 55% / 45% 55% 40% 60%;
+    transform: translate(-5vw, -20vh) scale(0.8, 1.25) rotate(7deg);
+    border-radius: 68% 32% 30% 70% / 35% 65% 30% 70%;
   }
   100% {
-    transform: translate(-16vw, -6vh) scale(1);
+    transform: translate(-17vw, -6vh) scale(1, 1.05) rotate(-3deg);
     border-radius: 45% 55% 60% 40% / 55% 45% 55% 45%;
   }
 }
 @keyframes sb-blob-drift-3 {
   0% {
-    transform: translate(0, 0) scale(1);
+    transform: translate(0, 0) scale(1, 1) rotate(0deg);
     border-radius: 60% 40% 45% 55% / 50% 60% 40% 50%;
   }
   50% {
-    transform: translate(-8vw, 14vh) scale(1.12);
-    border-radius: 40% 60% 55% 45% / 45% 40% 60% 55%;
+    transform: translate(-9vw, 15vh) scale(1.28, 0.78) rotate(-10deg);
+    border-radius: 30% 70% 65% 35% / 65% 32% 68% 35%;
   }
   100% {
-    transform: translate(-13vw, 4vh) scale(0.96);
-    border-radius: 50% 50% 40% 60% / 60% 50% 50% 40%;
+    transform: translate(-14vw, 4vh) scale(0.9, 1.1) rotate(6deg);
+    border-radius: 55% 45% 35% 65% / 40% 60% 45% 55%;
   }
 }
 @keyframes sb-blob-drift-4 {
   0% {
-    transform: translate(0, 0) scale(1);
+    transform: translate(0, 0) scale(1, 1) rotate(0deg);
     border-radius: 45% 55% 60% 40% / 55% 45% 65% 35%;
   }
   50% {
-    transform: translate(10vw, -13vh) scale(0.9);
-    border-radius: 62% 38% 40% 60% / 40% 60% 45% 55%;
+    transform: translate(11vw, -14vh) scale(0.78, 1.28) rotate(9deg);
+    border-radius: 68% 32% 30% 70% / 32% 68% 35% 65%;
   }
   100% {
-    transform: translate(17vw, -3vh) scale(1.08);
-    border-radius: 40% 60% 55% 45% / 55% 45% 40% 60%;
+    transform: translate(18vw, -3vh) scale(1.1, 0.9) rotate(-6deg);
+    border-radius: 38% 62% 55% 45% / 55% 45% 40% 60%;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -1370,22 +1370,30 @@ fond opaque — jamais l'inverse.
 par écran juste après `.sb-auth-screen`/`.sb-pending-screen`/
 `.sb-formule-screen` ; styles dans `app/globals.css`, sélecteurs
 `.sb-blob-field`/`.sb-blob-1` à `-4`) : quatre formes floues (`filter:
-blur`), aux couleurs **fixes** de la marque — deux orangées, deux grises —
-volontairement indépendantes de `--accent` (la couleur de thème
+blur(16px)`, volontairement net, pas un dégradé délavé), aux couleurs
+**fixes** de la marque — deux orangées, deux grises, en `radial-gradient`
+excentré (pas un simple aplat) pour un reflet façon cire éclairée, plutôt
+qu'un disque plat — indépendantes de `--accent` (la couleur de thème
 personnalisée par le commerçant, voir « Mode sombre » plus bas) : ces
 écrans précèdent ou entourent le compte, l'identité doit rester celle de
 Doka, jamais celle, potentiellement bleue ou verte, choisie par tel ou tel
 commerçant. Rendues en DOM réel plutôt qu'en pseudo-éléments `::before`/
 `::after` — un pseudo-élément est limité à deux par écran, insuffisant
 pour un mouvement vraiment désynchronisé. Chaque bulle a son propre cycle
-(18 à 30s, `ease-in-out infinite alternate`, `animation-delay` négatif et
-distinct pour démarrer déjà déphasée plutôt que les quatre ensemble à
-l'écran 0) et anime `transform` (translation sur toute la largeur/hauteur
-de l'écran + léger zoom) et `border-radius` (percentages asymétriques qui
-changent à chaque étape du keyframe) pour un contour qui se déforme en
-dérivant, jamais un simple cercle qui grossit. Seules ces deux propriétés
-plus `opacity` animent (jamais une propriété qui déclenche un reflow), pour
-rester fluide sur mobile sans recourir à du JavaScript.
+(18 à 30s, `ease-in-out infinite alternate` — l'aller-retour de
+`alternate` correspond bien à la métaphore : la bulle « monte » puis «
+redescend », comme la cire d'une vraie lampe à lave — `animation-delay`
+négatif et distinct pour démarrer déjà déphasée plutôt que les quatre
+ensemble à l'écran 0) et anime, à chaque étape du keyframe, trois
+propriétés ensemble : `border-radius` (percentages très asymétriques,
+jusqu'à 70/30) pour un contour qui passe de goutte à galet à ovale plutôt
+que de rester un cercle qui grossit ; `scale(x, y)` à deux valeurs
+distinctes (jamais un zoom uniforme) pour un étirement/aplatissement façon
+cire qui s'allonge en montant puis s'écrase en changeant de direction ; et
+une légère `rotate()` pour achever l'impression organique. Seuls
+`transform` et `border-radius` (plus `opacity`) animent — jamais une
+propriété qui déclenche un reflow — pour rester fluide sur mobile sans
+recourir à du JavaScript.
 
 Toujours en `z-index: 0`, dans un conteneur `overflow: hidden` (le champ de
 bulles lui-même, en plus de l'écran englobant) pour éviter tout scroll
@@ -1393,8 +1401,7 @@ parasite malgré une amplitude de déplacement volontairement large ; la
 carte (`.sb-auth-card`/`.sb-pending-card`/`.sb-formule-inner`) est
 explicitement passée en `z-index: 1` au-dessus, avec son propre fond
 opaque — le texte et les boutons ne bougent jamais, seul l'arrière-plan
-est concerné, quel que soit le niveau de flou ou d'opacité (volontairement
-faibles) choisi pour les bulles. `@media (prefers-reduced-motion: reduce)`
+est concerné. `@media (prefers-reduced-motion: reduce)`
 coupe l'animation pour les comptes qui la désactivent au niveau système.
 Comme `.sb-auth-screen`/`.sb-pending-screen` sont déjà utilisées par
 `CompteSuspendu.js`, ce fond s'applique aussi à cet écran par la même
