@@ -551,6 +551,24 @@ a {
 .sb-btn-primary:hover {
   background: linear-gradient(135deg, var(--accent-deep), var(--ink));
 }
+/* Bouton d'accès permanent aux paiements en attente (espace
+   Administration) : toujours visible, contrairement à l'ancienne carte
+   conditionnelle qu'il remplace. */
+.sb-paiements-attente-btn {
+  margin-bottom: 16px;
+}
+.sb-btn-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  font-weight: 700;
+}
 .sb-btn-emerald {
   background: var(--emerald);
   color: #fff;
