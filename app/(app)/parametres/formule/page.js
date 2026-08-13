@@ -10,6 +10,8 @@ import { t as tBase } from "@/lib/i18n";
 import { PLAN_PRICES } from "@/lib/constants";
 import PlanGrid from "@/components/PlanGrid";
 import PaiementAbonnement from "@/components/PaiementAbonnement";
+import FloatingBlobs from "@/components/FloatingBlobs";
+import PlatformLogo from "@/components/PlatformLogo";
 
 // Parcours à trois étapes (liste des formules -> détail de la formule
 // choisie -> paiement), avec un bouton retour à chaque étape — jamais
@@ -41,7 +43,9 @@ export default function ChangerFormulePage() {
 
   return (
     <div className="sb-formule-screen">
+      <FloatingBlobs />
       <div className="sb-formule-inner">
+        <PlatformLogo />
         <button
           className="sb-back-link"
           onClick={() => (etape === "liste" ? router.push("/parametres") : setEtape(etape === "paiement" ? "detail" : "liste"))}

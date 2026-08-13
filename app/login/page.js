@@ -8,6 +8,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { PLANS } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
+import FloatingBlobs from "@/components/FloatingBlobs";
+import PlatformLogo from "@/components/PlatformLogo";
 
 // Page de connexion/inscription affichée avant qu'une boutique (et donc une
 // langue) ne soit chargée — toujours en français, comme le reste de cette
@@ -27,25 +29,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
-  const [platformLogo, setPlatformLogo] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
     if (session) router.replace("/dashboard");
   }, [session, router]);
-
-  // Logo Doka choisi par l'administratrice : lecture publique (aucune
-  // session à ce stade), affiché ici pour les comptes qui n'ont pas encore
-  // personnalisé leur propre logo de boutique (celui-là s'affiche dans le
-  // dashboard/reçus une fois connecté, pas ici).
-  useEffect(() => {
-    supabase
-      .from("parametres_globaux")
-      .select("logo_url")
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => setPlatformLogo(data?.logo_url || ""));
-  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -95,14 +83,9 @@ export default function LoginPage() {
 
   return (
     <div className="sb-auth-screen">
+      <FloatingBlobs />
       <div className="sb-auth-card">
-        {platformLogo ? (
-          <img src={platformLogo} alt="Doka" style={{ height: 40, marginBottom: 4 }} />
-        ) : (
-          <div className="sb-auth-brand">
-            <span>Doka</span>
-          </div>
-        )}
+        <PlatformLogo />
         <p className="sb-auth-sub">Pilotez votre commerce, simplement.</p>
 
         <div className="sb-auth-tabs">

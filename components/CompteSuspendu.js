@@ -5,6 +5,8 @@ import { ShieldOff, LogOut, RefreshCw } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { t as tBase } from "@/lib/i18n";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import FloatingBlobs from "@/components/FloatingBlobs";
+import PlatformLogo from "@/components/PlatformLogo";
 
 // Compte suspendu par l'équipe Doka — pas forcément lié à un problème de
 // paiement, donc aucun flux de paiement ici (contrairement à
@@ -23,7 +25,11 @@ export default function CompteSuspendu({ business }) {
 
   return (
     <div className="sb-pending-screen">
+      <FloatingBlobs />
       <div className="sb-pending-card">
+        <div style={{ marginBottom: 4 }}>
+          <PlatformLogo />
+        </div>
         <div className="sb-pending-icon">
           <ShieldOff size={24} />
         </div>

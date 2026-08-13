@@ -1361,35 +1361,53 @@ fonctionner — seule la notification push reste ignorée.
 
 ## Fond animé des écrans d'entrée
 
-Connexion/inscription, premier paiement, réabonnement et changement de
-formule partagent la même identité visuelle : un fond en dégradé animé,
-très discret, derrière une carte à fond opaque — jamais l'inverse.
+Connexion/inscription, premier paiement, réabonnement, compte suspendu et
+changement de formule partagent la même identité visuelle : un fond animé
+façon lampe à lave, aux couleurs de la marque Doka, derrière une carte à
+fond opaque — jamais l'inverse.
 
-**Le fond animé** (`app/globals.css`, sélecteurs `.sb-auth-screen`,
-`.sb-pending-screen` et `.sb-formule-screen`) : deux taches floues
-(`filter: blur`, `border-radius: 50%`) aux couleurs `--accent`/
-`--accent-soft` du thème, positionnées à cheval sur les coins opposés de
-l'écran et animées en boucle (`sb-glow-drift-a`/`-b`, 22-26s, `ease-in-out
-infinite alternate`) — suffisamment lent pour ne jamais distraire.
-Toujours en `z-index: 0`, `overflow: hidden` sur le conteneur pour éviter
-tout scroll parasite ; la carte (`.sb-auth-card`/`.sb-pending-card`, ou le
-contenu direct de `.sb-formule-screen`) est explicitement passée en
-`z-index: 1` au-dessus, avec son propre fond opaque — le texte et les
-boutons ne bougent jamais, seul l'arrière-plan est concerné.
-`@media (prefers-reduced-motion: reduce)` coupe l'animation pour les
-comptes qui la désactivent au niveau système. Comme `.sb-auth-screen`/
-`.sb-pending-screen` sont déjà utilisées par `CompteSuspendu.js`, ce fond
-s'applique aussi à cet écran par la même occasion (pas de classe séparée à
-dupliquer pour un cinquième écran de blocage).
+**Les bulles flottantes** (`components/FloatingBlobs.js`, monté une fois
+par écran juste après `.sb-auth-screen`/`.sb-pending-screen`/
+`.sb-formule-screen` ; styles dans `app/globals.css`, sélecteurs
+`.sb-blob-field`/`.sb-blob-1` à `-4`) : quatre formes floues (`filter:
+blur`), aux couleurs **fixes** de la marque — deux orangées, deux grises —
+volontairement indépendantes de `--accent` (la couleur de thème
+personnalisée par le commerçant, voir « Mode sombre » plus bas) : ces
+écrans précèdent ou entourent le compte, l'identité doit rester celle de
+Doka, jamais celle, potentiellement bleue ou verte, choisie par tel ou tel
+commerçant. Rendues en DOM réel plutôt qu'en pseudo-éléments `::before`/
+`::after` — un pseudo-élément est limité à deux par écran, insuffisant
+pour un mouvement vraiment désynchronisé. Chaque bulle a son propre cycle
+(18 à 30s, `ease-in-out infinite alternate`, `animation-delay` négatif et
+distinct pour démarrer déjà déphasée plutôt que les quatre ensemble à
+l'écran 0) et anime `transform` (translation sur toute la largeur/hauteur
+de l'écran + léger zoom) et `border-radius` (percentages asymétriques qui
+changent à chaque étape du keyframe) pour un contour qui se déforme en
+dérivant, jamais un simple cercle qui grossit. Seules ces deux propriétés
+plus `opacity` animent (jamais une propriété qui déclenche un reflow), pour
+rester fluide sur mobile sans recourir à du JavaScript.
 
-Avant la connexion (page `/login`), aucune boutique n'est encore chargée
-donc `--accent` reste la couleur par défaut du thème (orange) — cohérent
-pour tous les visiteurs non connectés. Une fois une boutique chargée
-(premier paiement, réabonnement, changement de formule), `--accent`
-reprend la couleur choisie par le commerçant (voir « Mode sombre » plus
-bas pour `--accent` vs `--accent-soft`/`--accent-deep`), donc le dégradé
-s'adapte automatiquement — clair ou sombre, aucune redéfinition
-spécifique à ce fond n'était nécessaire pour les deux modes.
+Toujours en `z-index: 0`, dans un conteneur `overflow: hidden` (le champ de
+bulles lui-même, en plus de l'écran englobant) pour éviter tout scroll
+parasite malgré une amplitude de déplacement volontairement large ; la
+carte (`.sb-auth-card`/`.sb-pending-card`/`.sb-formule-inner`) est
+explicitement passée en `z-index: 1` au-dessus, avec son propre fond
+opaque — le texte et les boutons ne bougent jamais, seul l'arrière-plan
+est concerné, quel que soit le niveau de flou ou d'opacité (volontairement
+faibles) choisi pour les bulles. `@media (prefers-reduced-motion: reduce)`
+coupe l'animation pour les comptes qui la désactivent au niveau système.
+Comme `.sb-auth-screen`/`.sb-pending-screen` sont déjà utilisées par
+`CompteSuspendu.js`, ce fond s'applique aussi à cet écran par la même
+occasion (pas de classe séparée à dupliquer pour un cinquième écran de
+blocage).
+
+**Le logo Doka** (`components/PlatformLogo.js`, monté en haut de chaque
+écran, net et jamais animé — contrairement au fond derrière lui) lit
+`parametres_globaux.logo_url` (lecture publique, aucune session requise à
+ce stade) : le même logo déjà uploadable depuis Administration (voir
+`components/LogoPlatformUpload.js`, aucune nouvelle étape manuelle) est
+donc réutilisé tel quel sur les cinq écrans, avec un repli textuel («
+Doka », `.sb-auth-brand`) tant qu'aucun logo n'a encore été uploadé.
 
 **« Changer ma formule »** (`app/(app)/parametres/formule/page.js`,
 `.sb-formule-screen`) passe en plein écran (`position: fixed; inset: 0`),
@@ -1745,6 +1763,7 @@ components/
   Sidebar.js, Receipt.js, ImageUploadField.js, PlanGrid.js,
   FormuleEtPaiement.js, PremierPaiement.js, Reabonnement.js, CompteSuspendu.js,
   PaiementAbonnement.js   flux de paiement Wave (montant, QR/tél., upload, historique)
+  FloatingBlobs.js, PlatformLogo.js   fond animé + logo partagés par les écrans d'entrée (voir « Fond animé des écrans d'entrée »)
 lib/
   supabaseClient.js        client Supabase (browser)
   AuthProvider.js          contexte auth + création automatique de la ligne business
