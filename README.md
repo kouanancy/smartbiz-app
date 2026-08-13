@@ -1369,11 +1369,11 @@ fond opaque — jamais l'inverse.
 **Les bulles flottantes** (`components/FloatingBlobs.js`, monté une fois
 par écran juste après `.sb-auth-screen`/`.sb-pending-screen`/
 `.sb-formule-screen` ; styles dans `app/globals.css`, sélecteurs
-`.sb-blob-field`/`.sb-blob-1` à `-4`) : quatre formes floues (`filter:
-blur(16px)`, volontairement net, pas un dégradé délavé), aux couleurs
-**fixes** de la marque — deux orangées, deux grises, en `radial-gradient`
-excentré (pas un simple aplat) pour un reflet façon cire éclairée, plutôt
-qu'un disque plat — indépendantes de `--accent` (la couleur de thème
+`.sb-blob-field`/`.sb-blob-1` à `-6`) : six formes (`filter: blur(6px)`,
+un contour net plutôt qu'un dégradé délavé) aux couleurs **fixes** de la
+marque — trois orangées, trois grises, en `radial-gradient` excentré (pas
+un simple aplat) pour un reflet façon cire éclairée, plutôt qu'un disque
+plat — indépendantes de `--accent` (la couleur de thème
 personnalisée par le commerçant, voir « Mode sombre » plus bas) : ces
 écrans précèdent ou entourent le compte, l'identité doit rester celle de
 Doka, jamais celle, potentiellement bleue ou verte, choisie par tel ou tel
@@ -1383,7 +1383,7 @@ pour un mouvement vraiment désynchronisé. Chaque bulle a son propre cycle
 (18 à 30s, `ease-in-out infinite alternate` — l'aller-retour de
 `alternate` correspond bien à la métaphore : la bulle « monte » puis «
 redescend », comme la cire d'une vraie lampe à lave — `animation-delay`
-négatif et distinct pour démarrer déjà déphasée plutôt que les quatre
+négatif et distinct pour démarrer déjà déphasée plutôt que les six
 ensemble à l'écran 0) et anime, à chaque étape du keyframe, trois
 propriétés ensemble : `border-radius` (percentages très asymétriques,
 jusqu'à 70/30) pour un contour qui passe de goutte à galet à ovale plutôt

@@ -1844,7 +1844,7 @@ a {
 /* Fond animé partagé par tous les écrans d'entrée (connexion/inscription,
    premier paiement, réabonnement, compte suspendu, changement de formule —
    montés via .sb-auth-screen, .sb-pending-screen ou .sb-formule-screen),
-   façon lampe à lave : quatre bulles floues aux couleurs de la marque Doka
+   façon lampe à lave : six bulles nettes aux couleurs de la marque Doka
    (orange / gris, jamais la couleur de thème choisie par le commerçant —
    ces écrans précèdent ou sortent du compte, l'identité doit rester celle
    de Doka, pas personnalisée), rendues en DOM réel (components/
@@ -1874,7 +1874,7 @@ a {
 .sb-blob {
   position: absolute;
   border-radius: 42% 58% 66% 34% / 62% 39% 61% 38%;
-  filter: blur(16px);
+  filter: blur(6px);
   opacity: 0.62;
   will-change: transform, border-radius;
 }
@@ -1923,6 +1923,30 @@ a {
   background: radial-gradient(circle at 30% 25%, #cfcbc6 0%, #8a8682 50%, #4a4745 100%);
   animation: sb-blob-drift-4 30s ease-in-out infinite alternate;
   animation-delay: -16s;
+}
+.sb-blob-5 {
+  width: 20vw;
+  height: 20vw;
+  min-width: 150px;
+  min-height: 150px;
+  top: 30%;
+  left: -9vw;
+  opacity: 0.46;
+  background: radial-gradient(circle at 30% 25%, #ffcb9e 0%, #f2984a 50%, #e07a29 100%);
+  animation: sb-blob-drift-5 24s ease-in-out infinite alternate;
+  animation-delay: -19s;
+}
+.sb-blob-6 {
+  width: 21vw;
+  height: 21vw;
+  min-width: 160px;
+  min-height: 160px;
+  top: 34%;
+  right: -9vw;
+  opacity: 0.46;
+  background: radial-gradient(circle at 30% 25%, #c9c5c0 0%, #8a8682 50%, #6e6b68 100%);
+  animation: sb-blob-drift-6 25s ease-in-out infinite alternate;
+  animation-delay: -9s;
 }
 .sb-auth-card,
 .sb-pending-card,
@@ -1997,6 +2021,42 @@ a {
   100% {
     transform: translate(18vw, -3vh) scale(1.1, 0.9) rotate(-6deg);
     border-radius: 38% 62% 55% 45% / 55% 45% 40% 60%;
+  }
+}
+@keyframes sb-blob-drift-5 {
+  0% {
+    transform: translate(0, 0) scale(1, 1) rotate(0deg);
+    border-radius: 65% 35% 40% 60% / 45% 65% 35% 55%;
+  }
+  33% {
+    transform: translate(10vw, 16vh) scale(1.22, 0.82) rotate(-11deg);
+    border-radius: 32% 68% 70% 30% / 62% 30% 68% 38%;
+  }
+  66% {
+    transform: translate(5vw, 30vh) scale(0.8, 1.24) rotate(7deg);
+    border-radius: 68% 32% 30% 70% / 35% 68% 30% 65%;
+  }
+  100% {
+    transform: translate(14vw, 20vh) scale(1.08, 0.92) rotate(-5deg);
+    border-radius: 50% 50% 55% 45% / 55% 45% 55% 45%;
+  }
+}
+@keyframes sb-blob-drift-6 {
+  0% {
+    transform: translate(0, 0) scale(1, 1) rotate(0deg);
+    border-radius: 38% 62% 55% 45% / 60% 40% 65% 35%;
+  }
+  33% {
+    transform: translate(-11vw, -14vh) scale(0.8, 1.25) rotate(10deg);
+    border-radius: 70% 30% 32% 68% / 35% 68% 32% 65%;
+  }
+  66% {
+    transform: translate(-6vw, -26vh) scale(1.24, 0.8) rotate(-8deg);
+    border-radius: 30% 70% 68% 32% / 65% 30% 70% 35%;
+  }
+  100% {
+    transform: translate(-15vw, -18vh) scale(0.94, 1.08) rotate(5deg);
+    border-radius: 55% 45% 45% 55% / 45% 55% 45% 55%;
   }
 }
 @media (prefers-reduced-motion: reduce) {
