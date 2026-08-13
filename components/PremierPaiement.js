@@ -6,6 +6,8 @@ import { useAuth } from "@/lib/AuthProvider";
 import { t as tBase } from "@/lib/i18n";
 import FormuleEtPaiement from "@/components/FormuleEtPaiement";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import FloatingBlobs from "@/components/FloatingBlobs";
+import PlatformLogo from "@/components/PlatformLogo";
 
 // Écran affiché à la toute première échéance de paiement (essai gratuit
 // de 7 jours terminé, jamais encore payé — subscription_status =
@@ -36,7 +38,11 @@ export default function PremierPaiement({ business, paiementBlocage }) {
 
   return (
     <div className="sb-pending-screen">
+      <FloatingBlobs />
       <div className="sb-pending-card" style={{ maxWidth: 720, textAlign: "left" }}>
+        <div style={{ textAlign: "center", marginBottom: 4 }}>
+          <PlatformLogo />
+        </div>
         <div className="sb-pending-icon" style={{ margin: "0 auto 16px" }}>
           <Sparkles size={24} />
         </div>

@@ -1843,15 +1843,20 @@ a {
 
 /* Fond animé partagé par tous les écrans d'entrée (connexion/inscription,
    premier paiement, réabonnement, compte suspendu, changement de formule —
-   montés via .sb-auth-screen, .sb-pending-screen ou .sb-formule-screen) :
-   deux taches floues de la couleur d'accent du thème (celle par défaut
-   avant connexion, celle choisie par le commerçant une fois sa boutique
-   chargée), qui dérivent très lentement en boucle. Toujours derrière le
-   contenu (z-index) et toujours sous une carte à fond opaque
-   (.sb-auth-card/.sb-pending-card ou les .sb-card de la page formule),
-   donc sans aucun effet sur la lisibilité du texte — seul l'arrière-plan
-   bouge. overflow hidden/masqué évite tout scroll parasite créé par les
-   taches, volontairement positionnées à cheval sur les bords.
+   montés via .sb-auth-screen, .sb-pending-screen ou .sb-formule-screen),
+   façon lampe à lave : quatre bulles floues aux couleurs de la marque Doka
+   (orange / gris, jamais la couleur de thème choisie par le commerçant —
+   ces écrans précèdent ou sortent du compte, l'identité doit rester celle
+   de Doka, pas personnalisée), rendues en DOM réel (components/
+   FloatingBlobs.js) plutôt qu'en pseudo-éléments ::before/::after — deux
+   pseudo-éléments ne suffisent qu'à deux formes, jamais assez pour un
+   mouvement désynchronisé et organique. Toujours derrière le contenu
+   (z-index) et toujours sous une carte à fond opaque (.sb-auth-card/
+   .sb-pending-card ou .sb-formule-inner), donc sans aucun effet sur la
+   lisibilité ni le clic. overflow hidden (x et y) évite tout scroll
+   parasite créé par les bulles, qui dérivent largement au-delà des bords
+   de l'écran. Seuls transform/border-radius/opacity animent (jamais de
+   propriété qui déclenche un reflow) pour rester fluide sur mobile.
    prefers-reduced-motion coupe l'animation sans rien changer au rendu. */
 .sb-auth-screen,
 .sb-pending-screen,
@@ -1859,76 +1864,138 @@ a {
   position: relative;
   overflow: hidden;
 }
-.sb-auth-screen::before,
-.sb-auth-screen::after,
-.sb-pending-screen::before,
-.sb-pending-screen::after,
-.sb-formule-screen::before,
-.sb-formule-screen::after {
-  content: "";
+.sb-blob-field {
   position: absolute;
-  border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.3;
+  inset: 0;
+  overflow: hidden;
   z-index: 0;
   pointer-events: none;
 }
-.sb-auth-screen::before,
-.sb-pending-screen::before,
-.sb-formule-screen::before {
+.sb-blob {
+  position: absolute;
+  border-radius: 42% 58% 63% 37% / 45% 40% 60% 55%;
+  filter: blur(60px);
+  opacity: 0.32;
+  will-change: transform, border-radius;
+}
+.sb-blob-1 {
   width: 46vw;
   height: 46vw;
-  min-width: 340px;
-  min-height: 340px;
-  background: var(--accent-soft);
-  top: -14vw;
+  min-width: 320px;
+  min-height: 320px;
+  top: -16vw;
   left: -12vw;
-  animation: sb-glow-drift-a 22s ease-in-out infinite alternate;
+  background: linear-gradient(135deg, #f2984a, #e07a29);
+  animation: sb-blob-drift-1 21s ease-in-out infinite alternate;
+  animation-delay: -4s;
 }
-.sb-auth-screen::after,
-.sb-pending-screen::after,
-.sb-formule-screen::after {
+.sb-blob-2 {
   width: 40vw;
   height: 40vw;
-  min-width: 300px;
-  min-height: 300px;
-  background: var(--accent);
-  bottom: -16vw;
-  right: -12vw;
-  animation: sb-glow-drift-b 26s ease-in-out infinite alternate;
+  min-width: 280px;
+  min-height: 280px;
+  bottom: -18vw;
+  right: -10vw;
+  background: linear-gradient(135deg, #6e6b68, #4a4745);
+  animation: sb-blob-drift-2 27s ease-in-out infinite alternate;
+  animation-delay: -11s;
+}
+.sb-blob-3 {
+  width: 30vw;
+  height: 30vw;
+  min-width: 210px;
+  min-height: 210px;
+  top: -6vw;
+  right: -9vw;
+  opacity: 0.24;
+  background: linear-gradient(135deg, #c7601a, #e07a29);
+  animation: sb-blob-drift-3 18s ease-in-out infinite alternate;
+  animation-delay: -7s;
+}
+.sb-blob-4 {
+  width: 32vw;
+  height: 32vw;
+  min-width: 230px;
+  min-height: 230px;
+  bottom: -8vw;
+  left: -9vw;
+  opacity: 0.24;
+  background: linear-gradient(135deg, #8a8682, #4a4745);
+  animation: sb-blob-drift-4 30s ease-in-out infinite alternate;
+  animation-delay: -16s;
 }
 .sb-auth-card,
-.sb-pending-card {
+.sb-pending-card,
+.sb-formule-inner {
   position: relative;
   z-index: 1;
 }
-.sb-formule-screen > * {
-  position: relative;
-  z-index: 1;
-}
-@keyframes sb-glow-drift-a {
-  from {
+@keyframes sb-blob-drift-1 {
+  0% {
     transform: translate(0, 0) scale(1);
+    border-radius: 42% 58% 63% 37% / 45% 40% 60% 55%;
   }
-  to {
-    transform: translate(4vw, 3vw) scale(1.12);
+  33% {
+    transform: translate(9vw, 12vh) scale(1.1);
+    border-radius: 55% 45% 40% 60% / 60% 45% 55% 40%;
+  }
+  66% {
+    transform: translate(3vw, 22vh) scale(0.94);
+    border-radius: 38% 62% 55% 45% / 40% 60% 40% 60%;
+  }
+  100% {
+    transform: translate(15vw, 9vh) scale(1.05);
+    border-radius: 60% 40% 45% 55% / 50% 55% 45% 50%;
   }
 }
-@keyframes sb-glow-drift-b {
-  from {
+@keyframes sb-blob-drift-2 {
+  0% {
     transform: translate(0, 0) scale(1);
+    border-radius: 55% 45% 35% 65% / 40% 55% 45% 60%;
   }
-  to {
-    transform: translate(-3vw, -3vw) scale(1.08);
+  33% {
+    transform: translate(-10vw, -8vh) scale(0.92);
+    border-radius: 40% 60% 55% 45% / 60% 40% 60% 40%;
+  }
+  66% {
+    transform: translate(-4vw, -18vh) scale(1.08);
+    border-radius: 62% 38% 45% 55% / 45% 55% 40% 60%;
+  }
+  100% {
+    transform: translate(-16vw, -6vh) scale(1);
+    border-radius: 45% 55% 60% 40% / 55% 45% 55% 45%;
+  }
+}
+@keyframes sb-blob-drift-3 {
+  0% {
+    transform: translate(0, 0) scale(1);
+    border-radius: 60% 40% 45% 55% / 50% 60% 40% 50%;
+  }
+  50% {
+    transform: translate(-8vw, 14vh) scale(1.12);
+    border-radius: 40% 60% 55% 45% / 45% 40% 60% 55%;
+  }
+  100% {
+    transform: translate(-13vw, 4vh) scale(0.96);
+    border-radius: 50% 50% 40% 60% / 60% 50% 50% 40%;
+  }
+}
+@keyframes sb-blob-drift-4 {
+  0% {
+    transform: translate(0, 0) scale(1);
+    border-radius: 45% 55% 60% 40% / 55% 45% 65% 35%;
+  }
+  50% {
+    transform: translate(10vw, -13vh) scale(0.9);
+    border-radius: 62% 38% 40% 60% / 40% 60% 45% 55%;
+  }
+  100% {
+    transform: translate(17vw, -3vh) scale(1.08);
+    border-radius: 40% 60% 55% 45% / 55% 45% 40% 60%;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sb-auth-screen::before,
-  .sb-auth-screen::after,
-  .sb-pending-screen::before,
-  .sb-pending-screen::after,
-  .sb-formule-screen::before,
-  .sb-formule-screen::after {
+  .sb-blob {
     animation: none;
   }
 }
@@ -1952,6 +2019,7 @@ a {
   inset: 0;
   z-index: 70;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--paper);
   font-family: "Inter", sans-serif;
   color: var(--ink);
@@ -1988,6 +2056,15 @@ a {
 }
 .sb-auth-brand span {
   color: var(--accent);
+}
+/* Logo Doka (components/PlatformLogo.js), toujours net et jamais animé —
+   contrairement au fond derrière lui. */
+.sb-entry-logo {
+  height: 40px;
+  width: auto;
+  margin-bottom: 6px;
+  position: relative;
+  z-index: 1;
 }
 .sb-auth-sub {
   font-size: 13px;
