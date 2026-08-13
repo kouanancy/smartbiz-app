@@ -1874,52 +1874,52 @@ a {
 .sb-blob {
   position: absolute;
   border-radius: 42% 58% 63% 37% / 45% 40% 60% 55%;
-  filter: blur(60px);
-  opacity: 0.32;
+  filter: blur(18px);
+  opacity: 0.6;
   will-change: transform, border-radius;
 }
 .sb-blob-1 {
-  width: 46vw;
-  height: 46vw;
-  min-width: 320px;
-  min-height: 320px;
-  top: -16vw;
-  left: -12vw;
+  width: 34vw;
+  height: 34vw;
+  min-width: 260px;
+  min-height: 260px;
+  top: -11vw;
+  left: -9vw;
   background: linear-gradient(135deg, #f2984a, #e07a29);
   animation: sb-blob-drift-1 21s ease-in-out infinite alternate;
   animation-delay: -4s;
 }
 .sb-blob-2 {
-  width: 40vw;
-  height: 40vw;
-  min-width: 280px;
-  min-height: 280px;
-  bottom: -18vw;
-  right: -10vw;
+  width: 30vw;
+  height: 30vw;
+  min-width: 230px;
+  min-height: 230px;
+  bottom: -12vw;
+  right: -7vw;
   background: linear-gradient(135deg, #6e6b68, #4a4745);
   animation: sb-blob-drift-2 27s ease-in-out infinite alternate;
   animation-delay: -11s;
 }
 .sb-blob-3 {
-  width: 30vw;
-  height: 30vw;
-  min-width: 210px;
-  min-height: 210px;
-  top: -6vw;
-  right: -9vw;
-  opacity: 0.24;
+  width: 22vw;
+  height: 22vw;
+  min-width: 170px;
+  min-height: 170px;
+  top: -4vw;
+  right: -6vw;
+  opacity: 0.5;
   background: linear-gradient(135deg, #c7601a, #e07a29);
   animation: sb-blob-drift-3 18s ease-in-out infinite alternate;
   animation-delay: -7s;
 }
 .sb-blob-4 {
-  width: 32vw;
-  height: 32vw;
-  min-width: 230px;
-  min-height: 230px;
-  bottom: -8vw;
-  left: -9vw;
-  opacity: 0.24;
+  width: 24vw;
+  height: 24vw;
+  min-width: 185px;
+  min-height: 185px;
+  bottom: -5vw;
+  left: -6vw;
+  opacity: 0.5;
   background: linear-gradient(135deg, #8a8682, #4a4745);
   animation: sb-blob-drift-4 30s ease-in-out infinite alternate;
   animation-delay: -16s;

@@ -1393,8 +1393,10 @@ parasite malgré une amplitude de déplacement volontairement large ; la
 carte (`.sb-auth-card`/`.sb-pending-card`/`.sb-formule-inner`) est
 explicitement passée en `z-index: 1` au-dessus, avec son propre fond
 opaque — le texte et les boutons ne bougent jamais, seul l'arrière-plan
-est concerné, quel que soit le niveau de flou ou d'opacité (volontairement
-faibles) choisi pour les bulles. `@media (prefers-reduced-motion: reduce)`
+est concerné, quel que soit le niveau de flou ou d'opacité choisi pour les
+bulles (volontairement net — `blur(18px)`, pas un simple dégradé délavé —
+pour que l'effet lampe à lave reste bien visible plutôt que de se fondre
+en un vague nuage de couleur). `@media (prefers-reduced-motion: reduce)`
 coupe l'animation pour les comptes qui la désactivent au niveau système.
 Comme `.sb-auth-screen`/`.sb-pending-screen` sont déjà utilisées par
 `CompteSuspendu.js`, ce fond s'applique aussi à cet écran par la même
