@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createPortal } from "react-dom";
-import { ArrowUpDown, FileSpreadsheet, Printer, Trash2 } from "lucide-react";
+import { ArrowUpDown, Bell, FileSpreadsheet, Printer, Trash2 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
@@ -209,10 +210,6 @@ export default function AdminPage() {
     return businesses.find((x) => x.id === businessId)?.name || t("common.defaultBusinessName");
   }
 
-  function formuleBoutique(businessId) {
-    return businesses.find((x) => x.id === businessId)?.plan || "autonome";
-  }
-
   const maintenant = new Date();
   const revenuTotal = paiementsReussis.reduce((s, p) => s + p.montant, 0);
   const revenuMoisCourant = paiementsReussis
@@ -265,6 +262,16 @@ export default function AdminPage() {
     <div>
       <h1 className="sb-h1">{t("admin.title")}</h1>
       <p className="sb-sub">{t("admin.subtitleCount", { n: businesses.length })}</p>
+
+      {/* Accès permanent (toujours visible, pas seulement quand il y a
+          quelque chose à vérifier) — aussi la cible de la notification
+          push reçue à chaque nouveau justificatif, quand elle ne peut pas
+          pointer directement sur la fiche concernée (voir
+          app/api/push-admin-paiement). */}
+      <Link href="/admin/paiements" className="sb-btn sb-btn-primary sb-paiements-attente-btn">
+        <Bell size={15} /> {t("admin.paiementsEnAttenteTitle")}
+        {paiementsEnAttente.length > 0 && <span className="sb-btn-count-badge">{paiementsEnAttente.length}</span>}
+      </Link>
 
       {msg && (
         <div className="sb-badge sb-badge-emerald" style={{ marginBottom: 12, fontSize: 12.5, padding: "6px 10px" }}>
@@ -496,57 +503,12 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {/* Les plus anciens en premier (paiementsEnAttente est déjà trié par
-          created_at croissant, voir le chargement plus haut) : c'est
-          justement ceux-là qu'il ne faut pas laisser traîner. */}
-      {paiementsEnAttente.length > 0 && (
-        <div className="sb-card" style={{ marginBottom: 16 }}>
-          <div className="sb-section-title">{t("admin.paiementsEnAttenteTitle")}</div>
-          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("admin.paiementsEnAttenteSub")}</p>
-          <div className="sb-table-scroll">
-            <table className="sb-table">
-              <thead>
-                <tr>
-                  <th>{t("admin.colBoutique")}</th>
-                  <th>{t("admin.colFormule")}</th>
-                  <th>{t("paiement.colMontant")}</th>
-                  <th>{t("admin.colDateSoumission")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paiementsEnAttente.map((p) => {
-                  const jours = Math.floor((maintenant - new Date(p.created_at)) / (1000 * 60 * 60 * 24));
-                  return (
-                    <tr key={p.id} className="sb-row-clickable" onClick={() => router.push(`/admin/commercants/${p.business_id}`)}>
-                      <td>{nomBoutique(p.business_id)}</td>
-                      <td>{t(`common.plans.${formuleBoutique(p.business_id)}.nom`)}</td>
-                      <td className="sb-mono">{fmt(p.montant)}</td>
-                      <td>
-                        {new Date(p.created_at).toLocaleDateString(dateLocale(business?.langue))}{" "}
-                        <span style={{ color: "var(--text-faint)", fontSize: 12 }}>({t("admin.depuisNJours", { n: jours })})</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
       {businesses.length === 0 ? (
         <p style={{ fontSize: 13, color: "var(--muted)" }}>{t("admin.aucunCommercant")}</p>
       ) : (
         <div className="sb-card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
-            <div className="sb-section-title" style={{ margin: 0 }}>
-              {t("admin.title")}
-            </div>
-            {paiementsEnAttente.length > 0 && (
-              <span className="sb-badge sb-badge-amber" style={{ fontSize: 12.5, padding: "6px 10px" }}>
-                {t("admin.nbJustificatifsEnAttente", { n: paiementsEnAttente.length })}
-              </span>
-            )}
+          <div className="sb-section-title" style={{ marginBottom: 12 }}>
+            {t("admin.title")}
           </div>
           <div className="sb-table-scroll">
             <table className="sb-table">

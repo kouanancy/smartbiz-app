@@ -967,14 +967,16 @@ principe que Commandes/Articles/Clients) ouvre une page de détail dédiée
 boutons d'action sur chaque ligne de la liste — celle-ci se limite donc
 aux colonnes Boutique/E-mail/Statut/Expiration.
 
-**Paiements en attente** : carte dédiée juste au-dessus du tableau des
-comptes (visible seulement s'il y a au moins un paiement `en_attente`),
-plutôt qu'un simple badge de comptage — chaque ligne (Boutique / Formule /
+**Paiements en attente** : accès **permanent**, pas seulement un badge de
+comptage conditionnel — un bouton (`.sb-paiements-attente-btn`) juste sous
+le titre de l'espace Administration, toujours visible, affichant le nombre
+en attente dans un badge (`.sb-btn-count-badge`) uniquement quand il y en a
+au moins un. Il mène à une page dédiée
+(`app/(app)/admin/paiements/page.js`) où chaque ligne (Boutique / Formule /
 Montant / Date de soumission, avec « depuis N jour(s) » à côté de la date)
 mène, elle aussi, à la page de détail correspondante. Triée par
-`created_at` croissant (déjà l'ordre de la requête de chargement) : **les
-paiements les plus anciens en premier**, pour qu'aucun ne reste oublié en
-bas d'une longue liste.
+`created_at` croissant : **les paiements les plus anciens en premier**,
+pour qu'aucun ne reste oublié en bas d'une longue liste.
 
 La page de détail affiche le justificatif en attente (le cas échéant),
 avec sa formule et sa date d'envoi juste au-dessus — l'image, cliquable,
@@ -1736,6 +1738,7 @@ app/
   (app)/aide/              support (WhatsApp / e-mail)
   (app)/admin/             espace Administration (visible si is_admin, portée limitée à l'abonnement)
   (app)/admin/commercants/[id]/   page de détail d'un commerçant (justificatif, actions)
+  (app)/admin/paiements/   liste dédiée des paiements en attente (accès permanent, bouton + badge sur /admin)
   api/push-admin-paiement/    route serveur : notification push (web-push), appelée depuis Supabase (pg_net) à la soumission d'un justificatif
   api/cron/expiration-reminders/   route serveur : rappel d'abonnement qui expire (Vercel Cron)
 components/
