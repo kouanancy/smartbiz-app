@@ -146,7 +146,15 @@ et « Paiement manuel vérifié » plus bas ; nécessite
 directement depuis la base, via `pg_net`, plutôt que depuis le navigateur
 du commerçant — voir « Notification e-mail : déclenchement serveur » plus
 bas, qui détaille aussi les étapes manuelles de configuration
-supplémentaires ; nécessite `supabase-notifications-migration.sql`).
+supplémentaires ; nécessite `supabase-notifications-migration.sql`), et
+enfin `supabase-alerte-paiement-formule-fix-migration.sql` (corrige une
+régression de la migration précédente, qui avait fait disparaître par
+erreur la mention de la formule du message de la notification 🔔 admin en
+repartant de l'ancienne version de la fonction plutôt que de celle déjà
+enrichie par `supabase-notifications-formule-migration.sql` — devient la
+version canonique et définitive de la fonction ; nécessite
+`supabase-alerte-paiement-serveur-migration.sql` et
+`supabase-notifications-formule-migration.sql`).
 
 ## Variables d'environnement
 
@@ -1243,25 +1251,48 @@ pour `app/api/cron/expiration-reminders` (en-tête `Authorization: Bearer
 incorrect, la route répond respectivement `500`/`401` plutôt que
 d'accepter n'importe quel appelant).
 
-**⚠️ Étapes manuelles requises, dans l'ordre :**
+**⚠️ Liste complète et à jour des étapes manuelles, dans l'ordre — à
+suivre intégralement en cas de doute sur ce qui a déjà été fait :**
 
-1. Exécuter `supabase-alerte-paiement-serveur-migration.sql` dans
-   l'éditeur SQL Supabase (active les extensions `pg_net` et
-   `supabase_vault` si besoin, puis remplace la fonction).
-2. Choisir une chaîne aléatoire longue et la renseigner à deux endroits :
-   - dans les variables d'environnement du projet Vercel,
-     `PAYMENT_ALERT_SECRET` (voir `.env.local.example`) ;
-   - dans Supabase, éditeur SQL, en créant le secret Vault correspondant :
+1. Prérequis (normalement déjà en place depuis des cycles antérieurs) :
+   `supabase-notifications-migration.sql` et
+   `supabase-notifications-formule-migration.sql` déjà exécutées dans
+   l'éditeur SQL Supabase.
+2. Exécuter `supabase-alerte-paiement-serveur-migration.sql` (active les
+   extensions `pg_net` et `supabase_vault` si besoin, branche l'appel
+   e-mail), **puis** `supabase-alerte-paiement-formule-fix-migration.sql`
+   (corrige une régression de la migration précédente qui avait fait
+   disparaître la mention de la formule du message 🔔 admin — voir
+   Démarrage). Rejouable sans risque même si la première a déjà été
+   exécutée : chacune remplace entièrement la fonction précédente.
+3. Choisir une chaîne aléatoire longue (un seul jeton, à ne générer
+   qu'une fois) et la renseigner à deux endroits, en s'assurant qu'elle
+   est **rigoureusement identique** aux deux (aucun espace, aucun
+   guillemet copié par erreur) :
+   - variable d'environnement du projet Vercel, `PAYMENT_ALERT_SECRET`
+     (voir `.env.local.example`) ;
+   - secret Vault Supabase nommé `payment_alert_secret`. À la création :
      `select vault.create_secret('<la-meme-chaine>', 'payment_alert_secret');`
-3. Créer le second secret Vault avec l'URL complète de la route sur le
-   déploiement de production (à adapter au domaine réel) :
+     Pour corriger une valeur déjà créée (ne jamais rejouer `create_secret`
+     avec le même nom, ça crée une deuxième ligne au lieu de remplacer —
+     vérifier d'abord avec `select id, name from vault.secrets where name
+     = 'payment_alert_secret';`) : `select
+     vault.update_secret('<id-trouve-ci-dessus>', '<la-meme-chaine>');`
+4. Secret Vault `payment_alert_url`, avec l'URL complète de la route sur
+   le domaine de production réel (même remarque : `update_secret` plutôt
+   que `create_secret` pour corriger une valeur existante) :
    `select vault.create_secret('https://<ton-domaine>/api/alerte-paiement', 'payment_alert_url');`
+5. **Redéployer le projet sur Vercel** après toute modification de
+   `PAYMENT_ALERT_SECRET` — Vercel ne recharge pas les variables
+   d'environnement dans les fonctions déjà déployées ; un changement de
+   valeur sans redéploiement laisse tourner l'ancienne.
 
-Sans ces trois étapes, le justificatif s'enregistre normalement et la
+Sans ces étapes, le justificatif s'enregistre normalement et la
 notification dans le centre de notifications (badge cloche) continue de
 fonctionner — seul l'envoi de l'e-mail reste ignoré (`v_secret`/`v_url`
 restent `null` côté fonction SQL, `perform net.http_post` n'est alors
-jamais appelé).
+jamais appelé) ou échoue avec `401` (jeton `PAYMENT_ALERT_SECRET` et
+secret Vault différents).
 
 ## Fond animé des écrans d'entrée
 
