@@ -49,16 +49,41 @@ export default function LoginPage() {
         const trimmedBusinessName = businessName.trim();
         const metadata = { plan: selectedPlan };
         if (trimmedBusinessName) metadata.business_name = trimmedBusinessName;
+        console.log("[signup] Appel de supabase.auth.signUp()", { email, plan: selectedPlan });
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: { data: metadata },
         });
-        if (signUpError) throw signUpError;
+        if (signUpError) {
+          console.error("[signup] supabase.auth.signUp() a échoué :", signUpError);
+          throw signUpError;
+        }
+
+        // Le point exact qui distingue les deux scénarios possibles pour
+        // "pas d'e-mail de confirmation reçu" : si hasSession est true, la
+        // confirmation par e-mail est désactivée côté Supabase (Auth →
+        // Providers → Email → "Confirm email") — aucun e-mail n'est censé
+        // partir, ce n'est pas un bug. Si hasSession est false, Supabase a
+        // accepté d'envoyer un e-mail de confirmation ; s'il n'arrive
+        // jamais malgré ça, la cause est à chercher côté Supabase
+        // (Authentication → Rate Limits, ou Authentication → Emails → SMTP
+        // si un fournisseur personnalisé comme Resend est censé être
+        // configuré) — rien dans le code de ce dépôt n'envoie cet e-mail,
+        // il est entièrement géré par Supabase Auth.
+        console.log("[signup] Résultat de signUp() :", {
+          userId: data.user?.id ?? null,
+          userConfirmedAt: data.user?.confirmed_at ?? null,
+          hasSession: !!data.session,
+        });
 
         if (data.session) {
           router.replace("/dashboard");
         } else {
+          console.log(
+            "[signup] Pas de session immédiate : confirmation par e-mail requise côté Supabase. " +
+              "Si aucun e-mail n'arrive, vérifier Authentication → Rate Limits et Authentication → Emails (SMTP) dans le dashboard Supabase — ce dépôt n'envoie pas cet e-mail lui-même."
+          );
           setInfo(
             "Compte créé ! Vérifie ta boîte e-mail pour confirmer ton adresse, puis connecte-toi ci-dessous."
           );
