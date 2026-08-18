@@ -1,25 +1,13 @@
 import Link from "next/link";
-import {
-  LayoutDashboard,
-  ShoppingCart,
-  ClipboardList,
-  Wallet,
-  Package,
-  Users,
-  LayoutGrid,
-  Lock,
-  ShieldCheck,
-  MessageCircle,
-  Tag,
-  Palette,
-  Sparkles,
-  Mail,
-} from "lucide-react";
+import { Lock, ShieldCheck, MessageCircle, Tag, Palette, Sparkles, Mail } from "lucide-react";
 import { fmt as fmtBase } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 import PlanGrid from "@/components/PlanGrid";
 import FloatingBlobs from "@/components/FloatingBlobs";
 import PlatformLogo from "@/components/PlatformLogo";
+import ModuleMockup from "@/components/ModuleMockup";
+import Reveal from "@/components/Reveal";
+import Counter from "@/components/Counter";
 
 // Site vitrine public (/) — jamais connecté à une boutique précise (aucune
 // session à ce stade), donc toujours en français comme app/login/page.js,
@@ -28,13 +16,13 @@ const t = (key, vars) => tBase("fr", key, vars);
 const fmt = (n) => fmtBase(n);
 
 const MODULES = [
-  { key: "dashboard", icon: LayoutDashboard, titre: t("sidebar.nav.dashboard"), texte: t("dashboard.subtitle") },
-  { key: "nouvelle", icon: ShoppingCart, titre: t("sidebar.nav.nouvelle"), texte: t("nouvelle.subtitle") },
-  { key: "articles", icon: Package, titre: t("sidebar.nav.articles"), texte: "Suis ton stock article par article, avec une alerte avant la rupture." },
-  { key: "clients", icon: Users, titre: t("sidebar.nav.clients"), texte: "Une fiche par cliente : coordonnées, historique de commandes et total des achats." },
-  { key: "commandes", icon: ClipboardList, titre: t("sidebar.nav.commandes"), texte: "L'historique complet de tes commandes, du statut à la livraison." },
-  { key: "catalogue", icon: LayoutGrid, titre: t("sidebar.nav.catalogue"), texte: "Ton catalogue de produits, prêt à partager sur WhatsApp ou Instagram." },
-  { key: "tresorerie", icon: Wallet, titre: t("sidebar.nav.tresorerie"), texte: t("tresorerie.subtitle") },
+  { key: "dashboard", titre: t("sidebar.nav.dashboard"), texte: t("dashboard.subtitle") },
+  { key: "nouvelle", titre: t("sidebar.nav.nouvelle"), texte: t("nouvelle.subtitle") },
+  { key: "articles", titre: t("sidebar.nav.articles"), texte: "Suis ton stock article par article, avec une alerte avant la rupture." },
+  { key: "clients", titre: t("sidebar.nav.clients"), texte: "Une fiche par cliente : coordonnées, historique de commandes et total des achats." },
+  { key: "commandes", titre: t("sidebar.nav.commandes"), texte: "L'historique complet de tes commandes, du statut à la livraison." },
+  { key: "catalogue", titre: t("sidebar.nav.catalogue"), texte: "Ton catalogue de produits, prêt à partager sur WhatsApp ou Instagram." },
+  { key: "tresorerie", titre: t("sidebar.nav.tresorerie"), texte: t("tresorerie.subtitle") },
 ];
 
 const AVANTAGES = [
@@ -69,6 +57,8 @@ const AVANTAGES = [
     texte: "Une prise en main immédiate, sans jargon ni formation nécessaire.",
   },
 ];
+
+const TECHS = ["Next.js", "Supabase", "Vercel"];
 
 export default function LandingPage() {
   return (
@@ -112,74 +102,144 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="sb-landing-constat">
-        <div className="sb-landing-section" style={{ paddingTop: 48, paddingBottom: 48 }}>
+      <section className="sb-landing-constat sb-landing-blobby-section">
+        <FloatingBlobs count={2} subtle />
+        <Reveal className="sb-landing-blobby-content">
+          <div className="sb-landing-section" style={{ paddingTop: 48, paddingBottom: 48 }}>
+            <div className="sb-landing-section-head">
+              <h2 className="sb-landing-section-title">Gérer un commerce ne devrait pas rimer avec cahier et calculs à la main</h2>
+            </div>
+            <div className="sb-landing-constat-text">
+              <p>
+                Beaucoup de commerçantes et commerçants suivent encore leurs commandes sur WhatsApp, leur stock sur
+                un cahier, et leur trésorerie... nulle part. Résultat : des ruptures de stock qui arrivent sans
+                prévenir, une marge réelle impossible à connaître, et des heures perdues chaque semaine à tout
+                recalculer à la main.
+              </p>
+              <p>Doka réunit ces informations dans un seul outil pensé pour rester simple — même sans connaissances techniques.</p>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      <section className="sb-landing-histoire sb-landing-blobby-section" id="histoire">
+        <FloatingBlobs count={2} subtle />
+        <Reveal className="sb-landing-blobby-content">
+          <div className="sb-landing-section" style={{ paddingTop: 48, paddingBottom: 48 }}>
+            <div className="sb-landing-section-head">
+              <h2 className="sb-landing-section-title">Notre histoire</h2>
+            </div>
+            <div className="sb-landing-histoire-text">
+              <p>
+                Doka est né d&apos;un vrai besoin, pas d&apos;une idée en l&apos;air. Avant d&apos;être un produit,
+                c&apos;était un problème que je vivais moi-même : gérer mon activité de vente de perruques et mèches,
+                entre le suivi du stock, les commandes clientes et le calcul de ma vraie marge. J&apos;ai d&apos;abord
+                bricolé mes propres outils pour m&apos;en sortir — jusqu&apos;à ce que je réalise que ce besoin
+                n&apos;était pas juste le mien : des dizaines de petits commerçants autour de moi vivaient exactement
+                la même chose, avec les mêmes cahiers, les mêmes tableurs, et les mêmes ERP trop chers pour leur
+                taille. Doka est né de cette conviction simple : un petit commerce mérite un outil aussi sérieux
+                qu&apos;une grande entreprise, sans la complexité ni le prix qui vont avec.
+              </p>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      <section className="sb-landing-section sb-landing-blobby-section" id="modules">
+        <FloatingBlobs count={2} subtle />
+        <Reveal className="sb-landing-blobby-content">
           <div className="sb-landing-section-head">
-            <h2 className="sb-landing-section-title">Gérer un commerce ne devrait pas rimer avec cahier et calculs à la main</h2>
+            <h2 className="sb-landing-section-title">Tout Doka, module par module</h2>
           </div>
-          <div className="sb-landing-constat-text">
-            <p>
-              Beaucoup de commerçantes et commerçants suivent encore leurs commandes sur WhatsApp, leur stock sur un
-              cahier, et leur trésorerie... nulle part. Résultat : des ruptures de stock qui arrivent sans prévenir,
-              une marge réelle impossible à connaître, et des heures perdues chaque semaine à tout recalculer à la
-              main.
-            </p>
-            <p>Doka réunit ces informations dans un seul outil pensé pour rester simple — même sans connaissances techniques.</p>
+          <div className="sb-landing-grid">
+            {MODULES.map(({ key, titre, texte }) => (
+              <div className="sb-landing-card" key={key}>
+                <ModuleMockup type={key} />
+                <div className="sb-landing-card-title">{titre}</div>
+                <p className="sb-landing-card-text">{texte}</p>
+              </div>
+            ))}
           </div>
-        </div>
+        </Reveal>
       </section>
 
-      <section className="sb-landing-section" id="modules">
-        <div className="sb-landing-section-head">
-          <h2 className="sb-landing-section-title">Tout Doka, module par module</h2>
-        </div>
-        <div className="sb-landing-grid">
-          {MODULES.map(({ key, icon: Icon, titre, texte }) => (
-            <div className="sb-landing-card" key={key}>
-              <div className="sb-landing-card-icon">
-                <Icon size={19} />
+      <section className="sb-landing-section sb-landing-avantages sb-landing-blobby-section" id="avantages">
+        <FloatingBlobs count={2} subtle />
+        <Reveal className="sb-landing-blobby-content">
+          <div className="sb-landing-section-head">
+            <h2 className="sb-landing-section-title">Pourquoi Doka plutôt qu&apos;autre chose ?</h2>
+          </div>
+          <div className="sb-landing-grid">
+            {AVANTAGES.map(({ icon: Icon, titre, texte }) => (
+              <div className="sb-landing-card" key={titre}>
+                <div className="sb-landing-card-icon">
+                  <Icon size={19} />
+                </div>
+                <div className="sb-landing-card-title">{titre}</div>
+                <p className="sb-landing-card-text">{texte}</p>
               </div>
-              <div className="sb-landing-card-title">{titre}</div>
-              <p className="sb-landing-card-text">{texte}</p>
+            ))}
+          </div>
+        </Reveal>
+      </section>
+
+      <section className="sb-landing-stats">
+        <Reveal>
+          <div className="sb-landing-stats-grid">
+            <div>
+              <div className="sb-landing-stat-value">
+                <Counter to={7} />
+              </div>
+              <p className="sb-landing-stat-label">jours d&apos;essai gratuit</p>
             </div>
+            <div>
+              <div className="sb-landing-stat-value">
+                <Counter to={3} />
+              </div>
+              <p className="sb-landing-stat-label">formules adaptées à chaque commerce</p>
+            </div>
+            <div>
+              <div className="sb-landing-stat-value">
+                <Counter to={100} suffix="%" />
+              </div>
+              <p className="sb-landing-stat-label">des données isolées par boutique</p>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      <div className="sb-landing-tech">
+        <p className="sb-landing-tech-label">Construit avec des technologies fiables</p>
+        <div className="sb-landing-tech-badges">
+          {TECHS.map((nom) => (
+            <span className="sb-landing-tech-badge" key={nom}>
+              <span className="sb-landing-tech-badge-dot" />
+              {nom}
+            </span>
           ))}
         </div>
-      </section>
+      </div>
 
-      <section className="sb-landing-section sb-landing-avantages" id="avantages">
-        <div className="sb-landing-section-head">
-          <h2 className="sb-landing-section-title">Pourquoi Doka plutôt qu&apos;autre chose ?</h2>
-        </div>
-        <div className="sb-landing-grid">
-          {AVANTAGES.map(({ icon: Icon, titre, texte }) => (
-            <div className="sb-landing-card" key={titre}>
-              <div className="sb-landing-card-icon">
-                <Icon size={19} />
-              </div>
-              <div className="sb-landing-card-title">{titre}</div>
-              <p className="sb-landing-card-text">{texte}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="sb-landing-section" id="tarifs">
-        <div className="sb-landing-section-head">
-          <h2 className="sb-landing-section-title">Une formule pour chaque commerce</h2>
-          <p className="sb-landing-section-sub">{t("parametres.formuleSub")}</p>
-        </div>
-        <PlanGrid
-          t={t}
-          fmt={fmt}
-          planActuel={null}
-          disableActive={false}
-          activeLabel={t("parametres.formuleActive")}
-          chooseLabel={t("parametres.formuleChoisir")}
-          onChoose={() => {
-            window.location.href = "/login#signup";
-          }}
-        />
-        <p className="sb-landing-tarifs-note">{`Formule Clé en main : ${fmt(15000)} à l'installation, en plus de l'abonnement mensuel.`}</p>
+      <section className="sb-landing-section sb-landing-blobby-section" id="tarifs">
+        <FloatingBlobs count={2} subtle />
+        <Reveal className="sb-landing-blobby-content">
+          <div className="sb-landing-section-head">
+            <h2 className="sb-landing-section-title">Une formule pour chaque commerce</h2>
+            <p className="sb-landing-section-sub">{t("parametres.formuleSub")}</p>
+          </div>
+          <PlanGrid
+            t={t}
+            fmt={fmt}
+            planActuel={null}
+            disableActive={false}
+            activeLabel={t("parametres.formuleActive")}
+            chooseLabel={t("parametres.formuleChoisir")}
+            onChoose={() => {
+              window.location.href = "/login#signup";
+            }}
+          />
+          <p className="sb-landing-tarifs-note">{`Formule Clé en main : ${fmt(15000)} à l'installation, en plus de l'abonnement mensuel.`}</p>
+        </Reveal>
       </section>
 
       <section className="sb-landing-cta-section">

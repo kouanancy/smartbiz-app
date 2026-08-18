@@ -1861,7 +1861,8 @@ a {
 .sb-auth-screen,
 .sb-pending-screen,
 .sb-formule-screen,
-.sb-landing-hero {
+.sb-landing-hero,
+.sb-landing-blobby-section {
   position: relative;
   overflow: hidden;
 }
@@ -1952,7 +1953,8 @@ a {
 .sb-auth-card,
 .sb-pending-card,
 .sb-formule-inner,
-.sb-landing-hero-content {
+.sb-landing-hero-content,
+.sb-landing-blobby-content {
   position: relative;
   z-index: 1;
 }
@@ -2677,4 +2679,328 @@ a {
 .sb-landing-footer-brand {
   font-size: 12px;
   color: var(--text-faint);
+}
+
+/* Bulles réduites/atténuées pour les sections secondaires du site vitrine
+   (voir components/FloatingBlobs.js, prop subtle) : une simple opacité sur
+   le conteneur entier — s'applique uniformément aux six bulles (chacune a
+   déjà sa propre opacité de base) sans avoir à dupliquer une règle par
+   bulle. */
+.sb-blob-field-subtle {
+  opacity: 0.32;
+}
+
+/* Révélation au défilement (components/Reveal.js) : fondu + léger
+   mouvement vers le haut, une seule fois par section (jamais de
+   réapparition en remontant). prefers-reduced-motion coupe la transition
+   — la classe "visible" est quand même posée par l'IntersectionObserver,
+   le contenu reste donc bien affiché, juste sans animation. */
+.sb-reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.sb-reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-reveal {
+    transition: none;
+  }
+}
+
+/* Légère élévation au survol des cartes module/avantage — jamais sur les
+   cartes tarifs (.sb-plan-card, réutilisées telles quelles depuis
+   PlanGrid.js, gardent leur propre style, inchangé). */
+.sb-landing-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.sb-landing-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 28px rgba(27, 26, 24, 0.1);
+  border-color: var(--accent-soft);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Maquettes de module (components/ModuleMockup.js) — remplacent la      */
+/*  simple icône sur les cartes module du site vitrine : construites en   */
+/*  CSS pur avec les mêmes couleurs/rôles que les vrais écrans (accent,   */
+/*  emerald = OK, amber = alerte), plutôt qu'une icône statique ou une    */
+/*  vraie capture d'écran (jamais à jour, plus lourde).                   */
+/* ------------------------------------------------------------------ */
+.sb-mockup {
+  height: 92px;
+  border-radius: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 12px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+.sb-mockup-stats {
+  display: flex;
+  gap: 6px;
+}
+.sb-mockup-stat {
+  flex: 1;
+  height: 14px;
+  border-radius: 4px;
+}
+.sb-mockup-stat-accent {
+  background: var(--accent-soft);
+}
+.sb-mockup-stat-emerald {
+  background: var(--emerald-bg);
+}
+.sb-mockup-stat-gray {
+  background: var(--line);
+}
+.sb-mockup-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 34px;
+}
+.sb-mockup-bars i {
+  flex: 1;
+  display: block;
+  background: linear-gradient(180deg, var(--accent-soft), var(--accent));
+  border-radius: 3px 3px 0 0;
+}
+.sb-mockup-stepper {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.sb-mockup-step {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--line);
+  flex-shrink: 0;
+}
+.sb-mockup-step-done {
+  background: var(--emerald);
+}
+.sb-mockup-step-active {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.sb-mockup-step-line {
+  width: 20px;
+  height: 2px;
+  background: var(--line);
+  flex-shrink: 0;
+}
+.sb-mockup-step-line-done {
+  background: var(--emerald);
+}
+.sb-mockup-rows {
+  gap: 10px;
+}
+.sb-mockup-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-mockup-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--line);
+  display: block;
+}
+.sb-mockup-pill {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.sb-mockup-pill-ok {
+  background: var(--emerald);
+}
+.sb-mockup-pill-warn {
+  background: var(--amber);
+}
+.sb-mockup-people {
+  gap: 8px;
+}
+.sb-mockup-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-mockup-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  flex-shrink: 0;
+}
+.sb-mockup-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.sb-mockup-lines i {
+  height: 6px;
+  width: 85%;
+  border-radius: 3px;
+  background: var(--line);
+  display: block;
+}
+.sb-mockup-table {
+  gap: 6px;
+}
+.sb-mockup-thead {
+  height: 5px;
+  width: 40%;
+  border-radius: 3px;
+  background: var(--line);
+}
+.sb-mockup-trow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-mockup-cell {
+  height: 7px;
+  border-radius: 3px;
+  background: var(--line);
+  display: block;
+}
+.sb-mockup-catalogue {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.sb-mockup-thumb {
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--line));
+}
+.sb-mockup-chart-svg {
+  width: 100%;
+  height: 46px;
+  overflow: visible;
+}
+.sb-mockup-chart-svg polyline {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sb-mockup-tresorerie-stats {
+  display: flex;
+  gap: 6px;
+}
+.sb-mockup-tresorerie-stats .sb-mockup-bar {
+  height: 8px;
+  background: var(--accent-soft);
+}
+.sb-mockup-tresorerie-stats .sb-mockup-bar-light {
+  background: var(--line);
+}
+
+/* ------------------------------------------------------------------ */
+/*  « Notre histoire » — entre le constat et les modules.                */
+/* ------------------------------------------------------------------ */
+.sb-landing-histoire-text {
+  max-width: 720px;
+  margin: 0 auto;
+  font-size: 14.5px;
+  line-height: 1.75;
+  border-left: 3px solid var(--accent);
+  padding-left: 20px;
+}
+.sb-landing-histoire-text p {
+  margin: 0 0 14px;
+}
+.sb-landing-histoire-text p:last-child {
+  margin-bottom: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Chiffres clés (compteurs animés, components/Counter.js) — jamais des  */
+/*  statistiques inventées : reprend le vrai essai gratuit (7 jours), le   */
+/*  vrai nombre de formules (3) et la vraie isolation des données (100%,   */
+/*  RLS par boutique — voir « Données cloisonnées » plus haut).           */
+/* ------------------------------------------------------------------ */
+.sb-landing-stats {
+  padding: 12px 24px 56px;
+}
+.sb-landing-stats-grid {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  text-align: center;
+}
+@media (max-width: 860px) {
+  .sb-landing-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.sb-landing-stat-value {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: clamp(30px, 5vw, 40px);
+  color: var(--accent-deep);
+}
+.sb-landing-stat-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Bandeau technologies — sobre, jamais envahissant : simples badges     */
+/*  texte (aucun logo de marque tierce dans ce dépôt, et les récupérer     */
+/*  depuis une source externe à chaque chargement ajouterait une           */
+/*  dépendance réseau pour un simple bandeau de crédibilité).              */
+/* ------------------------------------------------------------------ */
+.sb-landing-tech {
+  text-align: center;
+  padding: 32px 24px 8px;
+}
+.sb-landing-tech-label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+.sb-landing-tech-badges {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sb-landing-tech-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 7px 14px;
+  border-radius: 20px;
+}
+.sb-landing-tech-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
 }
