@@ -1455,6 +1455,62 @@ partagé par les trois écrans de paiement (premier paiement, réabonnement,
 changement de formule) et par la carte « Abonnement » de Paramètres
 (renouvellement anticipé), le badge apparaît aussi là par cohérence.
 
+## Site vitrine public
+
+`/` (`app/page.js`, `components/LandingPage.js`) est un vrai site vitrine
+public, accessible sans connexion — plus de redirection automatique vers
+`/login` pour un visiteur non connecté (seul un compte déjà connecté qui
+atterrit sur `/` est renvoyé vers `/dashboard`, la page vitrine s'affiche
+donc immédiatement pour tout le monde, sans attendre la résolution de la
+session). Boutons « Se connecter » (→ `/login`) et « Commencer l'essai
+gratuit » (→ `/login#signup`, voir plus bas) en en-tête, dans le héros et
+dans l'appel à l'action final.
+
+**Identité visuelle** : entièrement reprise de l'application plutôt que
+recréée — mêmes variables de couleur (`--accent`/`--accent-deep`/
+`--muted`/`--line`...), mêmes polices (Space Grotesk pour les titres,
+Inter pour le texte, déjà chargées par `app/layout.js`), le même fond
+animé façon lampe à lave que les écrans d'entrée
+(`components/FloatingBlobs.js`, voir « Fond animé des écrans d'entrée » —
+dans le héros uniquement) et le même logo Doka
+(`components/PlatformLogo.js`). Les cartes tarifs réutilisent directement
+`components/PlanGrid.js` (mêmes 3 formules, mêmes prix, même liste
+d'avantages que partout ailleurs dans l'app) plutôt que d'en recréer une
+version dédiée — seul `onChoose` change : redirige vers `/login#signup`
+au lieu de changer de formule pour une boutique déjà existante. Seules les
+classes de mise en page propres à cette page (`.sb-landing-*`,
+`app/globals.css`) sont nouvelles ; aucune nouvelle couleur ni police.
+
+**Contenu** : en-tête (logo + « Pilotez votre commerce, simplement. »,
+texte identique à la page de connexion), constat (pourquoi Doka existe),
+7 modules (Dashboard, Nouvelle commande, Stock, Clients, Commandes,
+Catalogue, Trésorerie) avec icône (les mêmes que `components/Sidebar.js`)
+et description — reprises telles quelles quand une description existait
+déjà dans `lib/i18n/fr.js` (`dashboard.subtitle`, `nouvelle.subtitle`,
+`tresorerie.subtitle`), sinon rédigées à partir des fonctionnalités
+réelles plutôt qu'inventées (ex. seuil d'alerte de stock, fiche client).
+6 avantages (données cloisonnées, confidentialité réelle, accompagnement
+humain, prix accessible, personnalisable, simple), directement étayés par
+le fonctionnement réel de l'app plutôt que des arguments marketing
+génériques — l'isolation des données et la portée limitée de l'accès
+administrateur reprennent presque mot pour mot `doka-politique-
+confidentialite.md` (§3.1/§3.2). Appel à l'action final, puis pied de
+page (`/cgu`, `/confidentialite`, `/mentions-legales`, `contact@doka.ci`
+— même adresse que `app/(app)/aide/page.js`).
+
+**`/login#signup`** : `app/login/page.js` lit `window.location.hash` une
+fois au montage (dans un `useEffect`, jamais dans l'initialiseur de
+`useState` — lire le hash dès l'initialiseur produirait un rendu client
+initial différent du HTML serveur, un vrai mismatch d'hydratation, pas
+juste un avertissement cosmétique) pour ouvrir directement l'onglet «
+Créer un compte » plutôt que de forcer un clic supplémentaire depuis la
+page vitrine.
+
+**Responsive** : mêmes classes de grille que le reste de l'app
+(`.sb-landing-grid`, `repeat(3, 1fr)` → une colonne sous 860px, identique
+à `.sb-plan-grid`) — un seul point de rupture, cohérent avec toutes les
+autres grilles de l'application plutôt que d'en introduire un nouveau.
+
 ## Centre de notifications
 
 Une cloche (badge = nombre de notifications non lues) ouvre un panneau
@@ -1760,7 +1816,7 @@ simple : pas de formulaire de ticket, seulement deux moyens de contact.
 ```
 app/
   layout.js               root layout (police, AuthProvider)
-  page.js                 redirection selon l'état de connexion
+  page.js                 site vitrine public (components/LandingPage.js) si non connecté, sinon redirection vers /dashboard
   login/page.js            inscription / connexion
   cgu/, confidentialite/, mentions-legales/   pages légales publiques
   (app)/layout.js          shell protégé : auth + gate d'abonnement + sidebar
@@ -1784,6 +1840,7 @@ components/
   FormuleEtPaiement.js, PremierPaiement.js, Reabonnement.js, CompteSuspendu.js,
   PaiementAbonnement.js   flux de paiement Wave (montant, QR/tél., upload, historique)
   FloatingBlobs.js, PlatformLogo.js   fond animé + logo partagés par les écrans d'entrée (voir « Fond animé des écrans d'entrée »)
+  LandingPage.js           site vitrine public (voir « Site vitrine public » ci-dessous)
 lib/
   supabaseClient.js        client Supabase (browser)
   AuthProvider.js          contexte auth + création automatique de la ligne business
