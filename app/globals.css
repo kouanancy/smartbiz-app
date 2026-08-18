@@ -1860,7 +1860,9 @@ a {
    prefers-reduced-motion coupe l'animation sans rien changer au rendu. */
 .sb-auth-screen,
 .sb-pending-screen,
-.sb-formule-screen {
+.sb-formule-screen,
+.sb-landing-hero,
+.sb-landing-blobby-section {
   position: relative;
   overflow: hidden;
 }
@@ -1950,7 +1952,9 @@ a {
 }
 .sb-auth-card,
 .sb-pending-card,
-.sb-formule-inner {
+.sb-formule-inner,
+.sb-landing-hero-content,
+.sb-landing-blobby-content {
   position: relative;
   z-index: 1;
 }
@@ -2443,4 +2447,652 @@ a {
   border: none;
   border-top: 1px solid var(--line);
   margin: 20px 0;
+}
+
+
+/* ------------------------------------------------------------------ */
+/*  Site vitrine public (app/page.js, components/LandingPage.js) —      */
+/*  réutilise le système de design existant (variables de couleur,      */
+/*  polices, .sb-btn/.sb-card/.sb-badge/.sb-plan-grid via PlanGrid.js,  */
+/*  FloatingBlobs et PlatformLogo) : seule la mise en page propre à     */
+/*  cette page (structure des sections) est ajoutée ici, jamais une     */
+/*  nouvelle palette ou une nouvelle police.                            */
+/*                                                                        */
+/*  Fond sombre permanent, propre à cette page (pas le mode sombre de   */
+/*  l'app, réservé aux comptes connectés qui le choisissent) : les       */
+/*  mêmes valeurs déjà définies pour :root[data-theme="dark"] sont       */
+/*  simplement redéclarées ici sur .sb-landing — tout ce qui est déjà    */
+/*  construit avec ces variables sémantiques (.sb-btn, .sb-card,        */
+/*  .sb-badge, .sb-plan-card via PlanGrid.js...) en hérite automatique-  */
+/*  ment, sans qu'aucun de ces composants n'ait besoin d'être modifié.   */
+/*  --accent/--accent-deep/--accent-soft restent les couleurs de marque  */
+/*  fixes (jamais la couleur de thème personnalisée d'un commerçant,     */
+/*  comme pour les bulles flottantes) ; --accent-text bascule sur        */
+/*  --accent-soft, plus lisible en texte sur fond sombre que             */
+/*  --accent-deep (calibré pour du texte sur fond blanc).                */
+/* ------------------------------------------------------------------ */
+.sb-landing {
+  --ink: #f2f0ed;
+  --paper: #181716;
+  --card: #232220;
+  --card-soft: #2b2926;
+  --line: #3a3835;
+  --muted: #a6a29c;
+  --text-faint: #8f8b85;
+  --emerald: #3ecf9a;
+  --emerald-bg: rgba(62, 207, 154, 0.16);
+  --amber: #e3ab5c;
+  --amber-bg: rgba(227, 171, 92, 0.16);
+  --coral: #e5836b;
+  --coral-bg: rgba(229, 131, 107, 0.18);
+  --accent-text: var(--accent-soft);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Inter", sans-serif;
+  min-height: 100vh;
+}
+.sb-landing-nav {
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+}
+.sb-landing-nav-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.sb-landing-nav-brand .sb-entry-logo,
+.sb-landing-nav-brand .sb-auth-brand {
+  margin-bottom: 0;
+}
+.sb-landing-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-landing-nav-link {
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 9px 12px;
+}
+.sb-landing-nav-link:hover {
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Héros — deux colonnes (texte / composition d'appareils) : le texte  */
+/*  n'attend pas le défilement (déjà visible à l'arrivée), donc une      */
+/*  animation d'entrée purement CSS (@keyframes, "both" — joue une       */
+/*  seule fois, jamais en boucle) plutôt que components/Reveal.js         */
+/*  (IntersectionObserver, pensé pour du contenu sous le pli). Chaque     */
+/*  ligne a son propre délai pour un effet en cascade ; le mot « Doka »   */
+/*  a en plus sa propre animation, imbriquée dans celle de sa ligne.      */
+/* ------------------------------------------------------------------ */
+.sb-landing-hero {
+  padding: 56px 24px 72px;
+}
+.sb-landing-hero-grid {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 40px;
+  align-items: center;
+  text-align: left;
+}
+@media (max-width: 860px) {
+  .sb-landing-hero-grid {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+}
+.sb-landing-hero-line {
+  opacity: 0;
+  transform: translateY(26px);
+  animation: sb-landing-hero-line-in 0.8s ease-out both;
+}
+.sb-landing-hero-line-1 {
+  animation-delay: 0.1s;
+}
+.sb-landing-hero-line-2 {
+  animation-delay: 0.55s;
+}
+.sb-landing-hero-line-cta {
+  animation-delay: 0.95s;
+}
+@keyframes sb-landing-hero-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.sb-landing-hero-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: clamp(34px, 5.2vw, 52px);
+  line-height: 1.1;
+  margin: 0 0 16px;
+}
+.sb-landing-doka-word {
+  display: inline-block;
+  color: var(--accent);
+  animation: sb-landing-doka-pop 0.7s 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes sb-landing-doka-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.sb-landing-hero-tagline {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+  font-size: clamp(16px, 2vw, 19px);
+  color: var(--muted);
+  margin: 0 0 28px;
+}
+.sb-landing-hero-ctas {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+@media (max-width: 860px) {
+  .sb-landing-hero-ctas {
+    justify-content: center;
+  }
+}
+.sb-landing-cta-btn {
+  padding: 11px 22px;
+  font-size: 14px;
+}
+.sb-landing-hero-note {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin: 0;
+}
+
+/* Composition d'appareils (ordinateur + téléphone) — aucune capture      */
+/* d'écran réelle disponible dans ce dépôt : construite avec les mêmes    */
+/* maquettes CSS que les cartes module (components/ModuleMockup.js),      */
+/* posées dans un cadre d'appareil, plutôt qu'une photo. */
+.sb-landing-devices {
+  position: relative;
+  min-height: 300px;
+  opacity: 0;
+  animation: sb-landing-hero-line-in 0.9s 0.35s ease-out both;
+}
+.sb-landing-device-laptop {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.4);
+  max-width: 420px;
+  margin: 0 auto;
+}
+.sb-landing-device-topbar {
+  display: flex;
+  gap: 5px;
+  padding: 0 2px 10px;
+}
+.sb-landing-device-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line);
+}
+.sb-landing-device-screen {
+  background: var(--paper);
+  border-radius: 8px;
+  padding: 16px;
+}
+.sb-landing-device-phone {
+  position: absolute;
+  right: 2%;
+  bottom: -10%;
+  width: 38%;
+  min-width: 130px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 12px 10px;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.45);
+}
+@media (max-width: 860px) {
+  .sb-landing-device-phone {
+    right: -4%;
+  }
+}
+.sb-landing-device-notch {
+  width: 32%;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--line);
+  margin: 0 auto 10px;
+}
+.sb-landing-device-laptop .sb-mockup,
+.sb-landing-device-phone .sb-mockup {
+  margin-bottom: 0;
+}
+
+.sb-landing-section {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 56px 24px;
+}
+.sb-landing-section-head {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 32px;
+}
+.sb-landing-section-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: clamp(22px, 3.4vw, 30px);
+  margin: 0 0 8px;
+}
+.sb-landing-section-sub {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.sb-landing-histoire {
+  background: var(--card-soft);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.sb-landing-histoire-text {
+  max-width: 720px;
+  margin: 0 auto;
+  font-size: 14.5px;
+  line-height: 1.75;
+  border-left: 3px solid var(--accent);
+  padding-left: 20px;
+  text-align: left;
+}
+.sb-landing-histoire-text p {
+  margin: 0;
+}
+
+.sb-landing-pourquoi-text {
+  max-width: 680px;
+  margin: 0 auto;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--muted);
+  text-align: center;
+}
+
+.sb-landing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 860px) {
+  .sb-landing-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.sb-landing-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.sb-landing-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+  border-color: var(--accent-soft);
+}
+.sb-landing-card-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+.sb-landing-card-text {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.sb-landing-tarifs-note {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-faint);
+  margin: 24px 0 0;
+}
+
+.sb-landing-footer {
+  border-top: 1px solid var(--line);
+  background: var(--card);
+  padding: 24px;
+}
+.sb-landing-footer-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sb-landing-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.sb-landing-footer-links {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.sb-landing-footer-links a {
+  color: var(--text-faint);
+  text-decoration: underline;
+}
+.sb-landing-footer-links a:hover {
+  color: var(--ink);
+}
+.sb-landing-footer-brand {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.sb-landing-footer-support {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-faint);
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.sb-landing-footer-support a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-faint);
+}
+.sb-landing-footer-support a:hover {
+  color: var(--ink);
+}
+
+/* Bulles réduites/atténuées pour les sections secondaires du site vitrine
+   (voir components/FloatingBlobs.js, prop subtle) : une simple opacité sur
+   le conteneur entier — s'applique uniformément aux six bulles (chacune a
+   déjà sa propre opacité de base) sans avoir à dupliquer une règle par
+   bulle. */
+.sb-blob-field-subtle {
+  opacity: 0.32;
+}
+
+/* Révélation au défilement (components/Reveal.js) : fondu + léger
+   mouvement vers le haut, une seule fois par section (jamais de
+   réapparition en remontant). prefers-reduced-motion coupe la transition
+   — la classe "visible" est quand même posée par l'IntersectionObserver,
+   le contenu reste donc bien affiché, juste sans animation. */
+.sb-reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.sb-reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-reveal,
+  .sb-landing-hero-line,
+  .sb-landing-doka-word,
+  .sb-landing-devices {
+    transition: none;
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Maquettes de module (components/ModuleMockup.js) — remplacent la      */
+/*  simple icône sur les cartes module du site vitrine et servent aussi   */
+/*  d'illustration dans la composition d'appareils du héros : construites */
+/*  en CSS pur avec les mêmes couleurs/rôles que les vrais écrans          */
+/*  (accent, emerald = OK, amber = alerte), plutôt qu'une icône statique   */
+/*  ou une vraie capture d'écran (jamais à jour, plus lourde).             */
+/* ------------------------------------------------------------------ */
+.sb-mockup {
+  height: 92px;
+  border-radius: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 12px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+.sb-mockup-stats {
+  display: flex;
+  gap: 6px;
+}
+.sb-mockup-stat {
+  flex: 1;
+  height: 14px;
+  border-radius: 4px;
+}
+.sb-mockup-stat-accent {
+  background: var(--accent-soft);
+}
+.sb-mockup-stat-emerald {
+  background: var(--emerald-bg);
+}
+.sb-mockup-stat-gray {
+  background: var(--line);
+}
+.sb-mockup-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 34px;
+}
+.sb-mockup-bars i {
+  flex: 1;
+  display: block;
+  background: linear-gradient(180deg, var(--accent-soft), var(--accent));
+  border-radius: 3px 3px 0 0;
+}
+.sb-mockup-stepper {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.sb-mockup-step {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--line);
+  flex-shrink: 0;
+}
+.sb-mockup-step-done {
+  background: var(--emerald);
+}
+.sb-mockup-step-active {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.sb-mockup-step-line {
+  width: 20px;
+  height: 2px;
+  background: var(--line);
+  flex-shrink: 0;
+}
+.sb-mockup-step-line-done {
+  background: var(--emerald);
+}
+.sb-mockup-rows {
+  gap: 10px;
+}
+.sb-mockup-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-mockup-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--line);
+  display: block;
+}
+.sb-mockup-pill {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.sb-mockup-pill-ok {
+  background: var(--emerald);
+}
+.sb-mockup-pill-warn {
+  background: var(--amber);
+}
+.sb-mockup-people {
+  gap: 8px;
+}
+.sb-mockup-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-mockup-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  flex-shrink: 0;
+}
+.sb-mockup-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.sb-mockup-lines i {
+  height: 6px;
+  width: 85%;
+  border-radius: 3px;
+  background: var(--line);
+  display: block;
+}
+.sb-mockup-table {
+  gap: 6px;
+}
+.sb-mockup-thead {
+  height: 5px;
+  width: 40%;
+  border-radius: 3px;
+  background: var(--line);
+}
+.sb-mockup-trow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-mockup-cell {
+  height: 7px;
+  border-radius: 3px;
+  background: var(--line);
+  display: block;
+}
+.sb-mockup-catalogue {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.sb-mockup-thumb {
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--line));
+}
+.sb-mockup-chart-svg {
+  width: 100%;
+  height: 46px;
+  overflow: visible;
+}
+.sb-mockup-chart-svg polyline {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sb-mockup-tresorerie-stats {
+  display: flex;
+  gap: 6px;
+}
+.sb-mockup-tresorerie-stats .sb-mockup-bar {
+  height: 8px;
+  background: var(--accent-soft);
+}
+.sb-mockup-tresorerie-stats .sb-mockup-bar-light {
+  background: var(--line);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Chiffres clés (compteurs animés, components/Counter.js) — jamais des  */
+/*  statistiques inventées : reprend le vrai essai gratuit (7 jours), le   */
+/*  vrai nombre de formules (3) et la vraie isolation des données (100%,   */
+/*  RLS par boutique).                                                     */
+/* ------------------------------------------------------------------ */
+.sb-landing-stats {
+  padding: 12px 24px 56px;
+}
+.sb-landing-stats-grid {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  text-align: center;
+}
+@media (max-width: 860px) {
+  .sb-landing-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.sb-landing-stat-value {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: clamp(30px, 5vw, 40px);
+  color: var(--accent-text);
+}
+.sb-landing-stat-label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
 }

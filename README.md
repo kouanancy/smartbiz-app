@@ -1455,6 +1455,124 @@ partagé par les trois écrans de paiement (premier paiement, réabonnement,
 changement de formule) et par la carte « Abonnement » de Paramètres
 (renouvellement anticipé), le badge apparaît aussi là par cohérence.
 
+## Site vitrine public
+
+`/` (`app/page.js`, `components/LandingPage.js`) est un vrai site vitrine
+public, accessible sans connexion — plus de redirection automatique vers
+`/login` pour un visiteur non connecté (seul un compte déjà connecté qui
+atterrit sur `/` est renvoyé vers `/dashboard`, la page vitrine s'affiche
+donc immédiatement pour tout le monde, sans attendre la résolution de la
+session).
+
+**Fond sombre permanent, propre à cette page** — pas le mode sombre de
+l'app (réservé aux comptes connectés qui le choisissent). Les mêmes
+valeurs déjà définies pour `:root[data-theme="dark"]` (`app/globals.css`)
+sont simplement redéclarées sur `.sb-landing` : tout ce qui est déjà
+construit avec ces variables sémantiques (`.sb-btn`, `.sb-card`,
+`.sb-badge`, `.sb-plan-card` via `PlanGrid.js`...) en hérite
+automatiquement, sans qu'aucun de ces composants n'ait eu besoin d'être
+modifié. `--accent`/`--accent-deep`/`--accent-soft` restent les couleurs
+de marque fixes (jamais la couleur de thème personnalisée d'un
+commerçant, comme pour les bulles) ; `--accent-text` bascule sur
+`--accent-soft`, plus lisible en texte sur fond sombre que `--accent-deep`
+(calibré pour du texte sur fond blanc).
+
+**Bulles flottantes sur toute la page**, pas seulement le héros — même
+composant que les écrans d'entrée (`components/FloatingBlobs.js`, voir
+« Fond animé des écrans d'entrée »), avec deux props : `count` (2 ou 6,
+défaut 6) réduit le nombre de bulles pour les sections secondaires —
+plus léger que le héros sans répéter la même densité partout sur une
+seule page — et `subtle` applique une opacité globale réduite
+(`.sb-blob-field-subtle`) pour ne jamais gêner la lecture, contrairement
+au héros où les bulles sont seules derrière un titre court. Histoire,
+paragraphe « pourquoi Doka te convient », modules, chiffres clés et
+tarifs utilisent chacun `<FloatingBlobs count={2} subtle />`.
+
+**En-tête** : logo/nom Doka en haut à gauche (`components/PlatformLogo.js`
+— police et couleur de marque, jamais animé), trois liens en haut à
+droite — **Accueil** (`/`), **Se connecter** (`/login`), **S'inscrire**
+(`/login#signup`, voir plus bas).
+
+**Héros, en deux colonnes** (une colonne sous 860px) : à gauche, « Découvrez
+Doka » puis « Votre ERP pensé pour les entrepreneurs d'aujourd'hui. » —
+chaque ligne apparaît avec sa propre animation d'entrée au chargement
+(`@keyframes sb-landing-hero-line-in`, translateY + fondu, délais en
+cascade — jamais `components/Reveal.js`/`IntersectionObserver`, inutile
+pour du contenu déjà visible sans défilement) ; le mot « Doka » a en plus
+sa propre animation imbriquée (`sb-landing-doka-pop`, léger effet de
+zoom). À droite, `components/DeviceComposition.js` : une composition
+ordinateur + téléphone (cadres construits en CSS, pas une vraie capture
+d'écran — aucune n'est disponible dans ce dépôt) affichant chacun une
+maquette de module (`components/ModuleMockup.js`, réutilisée telle
+quelle). `prefers-reduced-motion` coupe toutes ces animations d'entrée —
+le contenu reste affiché, juste sans mouvement.
+
+**Notre histoire** : texte fourni tel quel par l'équipe Doka, jamais
+reformulé.
+
+**Pourquoi Doka te convient** : court paragraphe (pas une liste de
+cartes) expliquant pourquoi Doka correspond à ce type de commerçant —
+simplicité, prix accessible, données qui restent les siennes.
+
+**6 modules** (Dashboard, Nouvelle commande, Stock, Clients, Commandes,
+Trésorerie — Catalogue volontairement laissé de côté pour un site plus
+resserré) — chacun avec une petite maquette visuelle de l'écran réel
+(`components/ModuleMockup.js`, construite en CSS pur avec les mêmes
+couleurs/rôles que les vrais écrans : accent pour les graphiques, emerald
+pour « OK », amber pour une alerte de stock — plutôt qu'une icône
+statique ou une vraie capture d'écran, jamais à jour et plus lourde) et
+une description — reprise telle quelle quand elle existait déjà dans
+`lib/i18n/fr.js` (`dashboard.subtitle`, `nouvelle.subtitle`,
+`tresorerie.subtitle`), sinon rédigée à partir des fonctionnalités
+réelles plutôt qu'inventée (ex. seuil d'alerte de stock, fiche client).
+
+**Chiffres clés** animés (`components/Counter.js` — compte de 0 à la
+valeur finale via `requestAnimationFrame` dès l'entrée dans le viewport,
+jamais avant) : 7 jours d'essai gratuit, 3 formules, 100% des données
+isolées par boutique — les trois valeurs réelles déjà utilisées ailleurs
+sur la page, jamais des statistiques inventées (pas de nombre de clients
+ou de volumes fictifs).
+
+**Tarifs** : réutilise directement `components/PlanGrid.js` (mêmes 3
+formules, mêmes prix exacts, même liste d'avantages que partout ailleurs
+dans l'app) plutôt que d'en recréer une version dédiée — seul `onChoose`
+change : redirige vers `/login#signup` au lieu de changer de formule pour
+une boutique déjà existante.
+
+**Pied de page complet** : liens `/cgu`, `/confidentialite`,
+`/mentions-legales`, `contact@doka.ci` (même adresse que
+`app/(app)/aide/page.js`), et `components/FooterSupport.js` — mention du
+support (WhatsApp + e-mail), avec les **mêmes canaux réels** que la page
+Aide (lecture publique de `parametres_globaux.support_telephone`, lien
+WhatsApp affiché seulement si un numéro est configuré), pas une simple
+mention décorative.
+
+**Révélation au défilement** (`components/Reveal.js`) : chaque section
+sous le pli (histoire, paragraphe, modules, chiffres clés, tarifs)
+apparaît avec un fondu + léger mouvement vers le haut la première fois
+qu'elle entre dans le viewport (`IntersectionObserver`, natif, aucune
+dépendance ; se déclenche une seule fois, jamais de réapparition en
+remontant). `prefers-reduced-motion` coupe la transition — le contenu
+reste affiché, juste sans animation. Les cartes module ont en plus une
+légère élévation au survol (`.sb-landing-card:hover` —
+`transform`/`box-shadow`/`border-color`, jamais les cartes tarifs qui
+gardent leur propre style `.sb-plan-card` inchangé).
+
+**`/login#signup`** : `app/login/page.js` lit `window.location.hash` une
+fois au montage (dans un `useEffect`, jamais dans l'initialiseur de
+`useState` — lire le hash dès l'initialiseur produirait un rendu client
+initial différent du HTML serveur, un vrai mismatch d'hydratation, pas
+juste un avertissement cosmétique) pour ouvrir directement l'onglet «
+Créer un compte » plutôt que de forcer un clic supplémentaire depuis la
+page vitrine.
+
+**Responsive** : mêmes classes de grille que le reste de l'app
+(`.sb-landing-grid`, `repeat(3, 1fr)` → une colonne sous 860px, identique
+à `.sb-plan-grid`) — un seul point de rupture, cohérent avec toutes les
+autres grilles de l'application plutôt que d'en introduire un nouveau. La
+composition d'appareils du héros passe en colonne unique (téléphone sous
+l'ordinateur, plus de chevauchement) au même point de rupture.
+
 ## Centre de notifications
 
 Une cloche (badge = nombre de notifications non lues) ouvre un panneau
@@ -1760,7 +1878,7 @@ simple : pas de formulaire de ticket, seulement deux moyens de contact.
 ```
 app/
   layout.js               root layout (police, AuthProvider)
-  page.js                 redirection selon l'état de connexion
+  page.js                 site vitrine public (components/LandingPage.js) si non connecté, sinon redirection vers /dashboard
   login/page.js            inscription / connexion
   cgu/, confidentialite/, mentions-legales/   pages légales publiques
   (app)/layout.js          shell protégé : auth + gate d'abonnement + sidebar
@@ -1784,6 +1902,9 @@ components/
   FormuleEtPaiement.js, PremierPaiement.js, Reabonnement.js, CompteSuspendu.js,
   PaiementAbonnement.js   flux de paiement Wave (montant, QR/tél., upload, historique)
   FloatingBlobs.js, PlatformLogo.js   fond animé + logo partagés par les écrans d'entrée (voir « Fond animé des écrans d'entrée »)
+  LandingPage.js           site vitrine public (voir « Site vitrine public » ci-dessous)
+  ModuleMockup.js, Reveal.js, Counter.js   maquettes de module, révélation au défilement, compteurs animés (site vitrine)
+  DeviceComposition.js, FooterSupport.js   composition ordinateur/téléphone du héros, support WhatsApp/e-mail du pied de page (site vitrine)
 lib/
   supabaseClient.js        client Supabase (browser)
   AuthProvider.js          contexte auth + création automatique de la ligne business

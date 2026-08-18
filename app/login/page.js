@@ -39,6 +39,19 @@ export default function LoginPage() {
     if (session) router.replace("/dashboard");
   }, [session, router]);
 
+  // Permet au site vitrine (app/page.js, components/LandingPage.js) de
+  // pointer directement sur l'onglet inscription (/login#signup) plutôt
+  // que de forcer un clic supplémentaire sur "Créer un compte". Toujours
+  // après le premier rendu (jamais dans l'initialiseur de useState) : le
+  // rendu serveur n'a pas accès à window.location.hash, donc lire le hash
+  // dès l'initialiseur produirait un rendu client initial différent du
+  // HTML serveur (onglet actif, étape affichée) — un vrai mismatch
+  // d'hydratation, pas juste un avertissement cosmétique.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture ponctuelle de window.location au montage, seul moyen sûr d'éviter le mismatch d'hydratation ci-dessus
+    if (window.location.hash === "#signup") setMode("signup");
+  }, []);
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
