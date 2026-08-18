@@ -2245,14 +2245,6 @@ a {
   border-radius: 8px;
   margin-bottom: 14px;
 }
-.sb-auth-info {
-  background: var(--emerald-bg);
-  color: var(--emerald);
-  font-size: 12.5px;
-  padding: 9px 12px;
-  border-radius: 8px;
-  margin-bottom: 14px;
-}
 .sb-auth-footer {
   text-align: center;
   font-size: 11px;

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { PLANS } from "@/lib/constants";
@@ -28,7 +28,11 @@ export default function LoginPage() {
   const [businessName, setBusinessName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
+  // Écran dédié affiché juste après une inscription réussie sans session
+  // immédiate (confirmation e-mail requise côté Supabase) — jamais mélangé
+  // à l'écran de connexion habituel (tabs/formulaire masqués tant que
+  // c'est actif) pour qu'il n'y ait aucune ambiguïté sur l'étape en cours.
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
@@ -38,7 +42,6 @@ export default function LoginPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    setInfo("");
     setLoading(true);
 
     try {
@@ -84,11 +87,7 @@ export default function LoginPage() {
             "[signup] Pas de session immédiate : confirmation par e-mail requise côté Supabase. " +
               "Si aucun e-mail n'arrive, vérifier Authentication → Rate Limits et Authentication → Emails (SMTP) dans le dashboard Supabase — ce dépôt n'envoie pas cet e-mail lui-même."
           );
-          setInfo(
-            "Compte créé ! Vérifie ta boîte e-mail pour confirmer ton adresse, puis connecte-toi ci-dessous."
-          );
-          setMode("login");
-          setSignupStep("plan");
+          setAwaitingConfirmation(true);
           setPassword("");
         }
       } else {
@@ -113,6 +112,18 @@ export default function LoginPage() {
         <PlatformLogo />
         <p className="sb-auth-sub">Pilotez votre commerce, simplement.</p>
 
+        {awaitingConfirmation ? (
+          <div style={{ textAlign: "center" }}>
+            <div className="sb-pending-icon" style={{ margin: "8px auto 16px" }}>
+              <Mail size={24} />
+            </div>
+            <h1 className="sb-h1" style={{ marginBottom: 8 }}>
+              Confirme ton adresse
+            </h1>
+            <p style={{ fontSize: 13, color: "var(--muted)" }}>Vérifie ta boîte mail pour confirmer ton adresse et activer ton compte.</p>
+          </div>
+        ) : (
+        <>
         <div className="sb-auth-tabs">
           <button
             type="button"
@@ -120,7 +131,6 @@ export default function LoginPage() {
             onClick={() => {
               setMode("login");
               setError("");
-              setInfo("");
             }}
           >
             Connexion
@@ -132,7 +142,6 @@ export default function LoginPage() {
               if (mode !== "signup") setSignupStep("plan");
               setMode("signup");
               setError("");
-              setInfo("");
             }}
           >
             Créer un compte
@@ -140,7 +149,6 @@ export default function LoginPage() {
         </div>
 
         {error && <div className="sb-auth-error">{error}</div>}
-        {info && <div className="sb-auth-info">{info}</div>}
 
         {mode === "signup" && signupStep === "plan" ? (
           <div className="sb-auth-plans">
@@ -261,6 +269,8 @@ export default function LoginPage() {
             ? "Un compte gratuit à créer, l'accès complet s'active après paiement de l'abonnement."
             : "Propulsé par Doka"}
         </p>
+        </>
+        )}
         <p className="sb-auth-legal-links">
           <Link href="/cgu" target="_blank">
             CGU
