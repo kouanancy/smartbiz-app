@@ -22,14 +22,25 @@ const fmt = (n) => fmtBase(n);
 // (components/ModuleMockup.js) et leur description, reprise telle quelle
 // quand elle existait déjà dans lib/i18n/fr.js, sinon rédigée à partir des
 // fonctionnalités réelles plutôt qu'inventée.
+//
+// image (optionnel, null pour l'instant) : dès que de vraies captures
+// d'écran de l'app sont disponibles, il suffit de renseigner ici un chemin
+// sous /public (ex. "/screenshots/dashboard.png") pour remplacer la
+// maquette CSS de la carte correspondante — voir components/ModuleMockup.js.
 const MODULES = [
-  { key: "dashboard", titre: t("sidebar.nav.dashboard"), texte: t("dashboard.subtitle") },
-  { key: "nouvelle", titre: t("sidebar.nav.nouvelle"), texte: t("nouvelle.subtitle") },
-  { key: "articles", titre: t("sidebar.nav.articles"), texte: "Suis ton stock article par article, avec une alerte avant la rupture." },
-  { key: "clients", titre: t("sidebar.nav.clients"), texte: "Une fiche par cliente : coordonnées, historique de commandes et total des achats." },
-  { key: "commandes", titre: t("sidebar.nav.commandes"), texte: "L'historique complet de tes commandes, du statut à la livraison." },
-  { key: "tresorerie", titre: t("sidebar.nav.tresorerie"), texte: t("tresorerie.subtitle") },
+  { key: "dashboard", titre: t("sidebar.nav.dashboard"), texte: t("dashboard.subtitle"), image: null },
+  { key: "nouvelle", titre: t("sidebar.nav.nouvelle"), texte: t("nouvelle.subtitle"), image: null },
+  { key: "articles", titre: t("sidebar.nav.articles"), texte: "Suis ton stock article par article, avec une alerte avant la rupture.", image: null },
+  { key: "clients", titre: t("sidebar.nav.clients"), texte: "Une fiche par cliente : coordonnées, historique de commandes et total des achats.", image: null },
+  { key: "commandes", titre: t("sidebar.nav.commandes"), texte: "L'historique complet de tes commandes, du statut à la livraison.", image: null },
+  { key: "tresorerie", titre: t("sidebar.nav.tresorerie"), texte: t("tresorerie.subtitle"), image: null },
 ];
+
+// Idem pour la composition ordinateur + téléphone du héros
+// (components/DeviceComposition.js) : deux chemins sous /public à
+// renseigner une fois les captures reçues (vue ordinateur, vue téléphone).
+const HERO_LAPTOP_IMAGE = null;
+const HERO_PHONE_IMAGE = null;
 
 export default function LandingPage() {
   return (
@@ -73,7 +84,7 @@ export default function LandingPage() {
             </div>
             <p className="sb-landing-hero-note sb-landing-hero-line sb-landing-hero-line-cta">7 jours d&apos;essai gratuit, sans carte bancaire.</p>
           </div>
-          <DeviceComposition />
+          <DeviceComposition laptopImage={HERO_LAPTOP_IMAGE} phoneImage={HERO_PHONE_IMAGE} />
         </div>
       </section>
 
@@ -122,9 +133,9 @@ export default function LandingPage() {
             <h2 className="sb-landing-section-title">Tout Doka, module par module</h2>
           </div>
           <div className="sb-landing-grid">
-            {MODULES.map(({ key, titre, texte }) => (
+            {MODULES.map(({ key, titre, texte, image }) => (
               <div className="sb-landing-card" key={key}>
-                <ModuleMockup type={key} />
+                <ModuleMockup type={key} imageSrc={image} imageAlt={titre} />
                 <div className="sb-landing-card-title">{titre}</div>
                 <p className="sb-landing-card-text">{texte}</p>
               </div>

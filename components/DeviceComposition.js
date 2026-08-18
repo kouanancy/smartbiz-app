@@ -1,12 +1,13 @@
 import ModuleMockup from "@/components/ModuleMockup";
 
 // Composition « ordinateur + téléphone » pour la colonne droite du héros
-// du site vitrine — aucune vraie capture d'écran de l'app dans ce dépôt à
-// réutiliser (pas de dossier de présentation/pitch ici), donc reconstruite
-// avec les mêmes maquettes CSS que les cartes module
-// (components/ModuleMockup.js), posées dans un cadre d'appareil plutôt
-// qu'une photo, jamais périmée puisqu'elle ne dépend d'aucune image.
-export default function DeviceComposition() {
+// du site vitrine — construite par défaut avec les mêmes maquettes CSS que
+// les cartes module (components/ModuleMockup.js), posées dans un cadre
+// d'appareil. laptopImage/phoneImage (optionnels) : une fois de vraies
+// captures d'écran de l'app disponibles, il suffit de renseigner un chemin
+// sous /public ici pour les afficher à la place des maquettes CSS, rien
+// d'autre à changer.
+export default function DeviceComposition({ laptopImage, phoneImage }) {
   return (
     <div className="sb-landing-devices" aria-hidden="true">
       <div className="sb-landing-device-laptop">
@@ -16,12 +17,12 @@ export default function DeviceComposition() {
           <span className="sb-landing-device-dot" />
         </div>
         <div className="sb-landing-device-screen">
-          <ModuleMockup type="dashboard" />
+          <ModuleMockup type="dashboard" imageSrc={laptopImage} />
         </div>
       </div>
       <div className="sb-landing-device-phone">
         <div className="sb-landing-device-notch" />
-        <ModuleMockup type="nouvelle" />
+        <ModuleMockup type="nouvelle" imageSrc={phoneImage} />
       </div>
     </div>
   );

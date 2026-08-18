@@ -1501,11 +1501,12 @@ cascade — jamais `components/Reveal.js`/`IntersectionObserver`, inutile
 pour du contenu déjà visible sans défilement) ; le mot « Doka » a en plus
 sa propre animation imbriquée (`sb-landing-doka-pop`, léger effet de
 zoom). À droite, `components/DeviceComposition.js` : une composition
-ordinateur + téléphone (cadres construits en CSS, pas une vraie capture
-d'écran — aucune n'est disponible dans ce dépôt) affichant chacun une
+ordinateur + téléphone (cadres construits en CSS) affichant chacun une
 maquette de module (`components/ModuleMockup.js`, réutilisée telle
-quelle). `prefers-reduced-motion` coupe toutes ces animations d'entrée —
-le contenu reste affiché, juste sans mouvement.
+quelle) — ou une vraie capture d'écran dès qu'elle est fournie, voir
+« Remplacer les maquettes par de vraies captures d'écran » ci-dessous.
+`prefers-reduced-motion` coupe toutes ces animations d'entrée — le
+contenu reste affiché, juste sans mouvement.
 
 **Notre histoire** : texte fourni tel quel par l'équipe Doka, jamais
 reformulé.
@@ -1517,12 +1518,19 @@ simplicité, prix accessible, données qui restent les siennes.
 **6 modules** (Dashboard, Nouvelle commande, Stock, Clients, Commandes,
 Trésorerie — Catalogue volontairement laissé de côté pour un site plus
 resserré) — chacun avec une petite maquette visuelle de l'écran réel
-(`components/ModuleMockup.js`, construite en CSS pur avec les mêmes
-couleurs/rôles que les vrais écrans : accent pour les graphiques, emerald
-pour « OK », amber pour une alerte de stock — plutôt qu'une icône
-statique ou une vraie capture d'écran, jamais à jour et plus lourde) et
-une description — reprise telle quelle quand elle existait déjà dans
-`lib/i18n/fr.js` (`dashboard.subtitle`, `nouvelle.subtitle`,
+(`components/ModuleMockup.js`, construite en CSS pur mais calquée sur la
+vraie structure de chaque page plutôt que des formes génériques : trois
+tuiles KPI + graphique pour le Dashboard (`app/(app)/dashboard/page.js`),
+même stepper que « Nouvelle commande » (`app/(app)/nouvelle/page.js`),
+lignes de tableau avec vignette photo + badge de stock OK/Faible/Rupture
+pour Stock (`app/(app)/articles/page.js`, mêmes couleurs que
+`common.badgeOk`/`badgeFaible`/`badgeRupture`), vrai tableau — jamais une
+liste d'avatars, qui n'existe nulle part dans l'app — pour Clients
+(`app/(app)/clients/page.js`), tableau N°/Cliente/CA/Statut pour Commandes
+(`app/(app)/commandes/page.js`), grille de fiches produit pour Catalogue
+(`app/(app)/catalogue/page.js`), courbe d'évolution + deux totaux pour
+Trésorerie) et une description — reprise telle quelle quand elle existait
+déjà dans `lib/i18n/fr.js` (`dashboard.subtitle`, `nouvelle.subtitle`,
 `tresorerie.subtitle`), sinon rédigée à partir des fonctionnalités
 réelles plutôt qu'inventée (ex. seuil d'alerte de stock, fiche client).
 
@@ -1572,6 +1580,32 @@ page vitrine.
 autres grilles de l'application plutôt que d'en introduire un nouveau. La
 composition d'appareils du héros passe en colonne unique (téléphone sous
 l'ordinateur, plus de chevauchement) au même point de rupture.
+
+**Défilement continu, sans démarcation entre sections** : toute la page
+partage le même fond (`.sb-landing { background: var(--paper); }`) — les
+sections « Notre histoire » et le pied de page n'ont plus leur propre
+fond/bordure (`background`/`border-top`/`border-bottom` retirés), pour
+qu'aucune ligne de coupure nette ne soit visible en descendant la page. La
+barre de navigation garde volontairement sa bordure/son fond : c'est un
+élément de chrome persistant (toujours à l'écran), pas une section de
+contenu.
+
+**Remplacer les maquettes par de vraies captures d'écran** : chaque
+maquette CSS est prête à être remplacée par une vraie image, sans aucune
+restructuration.
+- Modules (`components/LandingPage.js`, tableau `MODULES`) : renseigner le
+  champ `image` de l'entrée voulue avec un chemin sous `/public` (ex.
+  `/screenshots/dashboard.png`) — la carte affiche alors cette image à la
+  place de la maquette CSS (`components/ModuleMockup.js`, prop
+  `imageSrc`).
+- Composition du héros (`components/LandingPage.js`, constantes
+  `HERO_LAPTOP_IMAGE`/`HERO_PHONE_IMAGE`) : même principe, un chemin sous
+  `/public` pour la vue ordinateur et/ou la vue téléphone
+  (`components/DeviceComposition.js`, props `laptopImage`/`phoneImage`).
+
+Les deux mécanismes coexistent avec la maquette CSS existante : tant
+qu'aucune image n'est fournie (valeur `null`), la maquette construite en
+CSS s'affiche normalement.
 
 ## Centre de notifications
 
@@ -1754,6 +1788,9 @@ le changement se répercute aussitôt pour tous les comptes.
   remplace le texte « Doka » par défaut, uniquement pour les comptes
   qui n'ont pas encore leur propre logo de boutique personnalisé (celui-ci
   ne s'affiche qu'après connexion).
+- **En-tête du site vitrine public** (`components/LandingPage.js`, voir
+  « Site vitrine public » plus haut) : même composant `PlatformLogo.js`,
+  même repli texte.
 - **Pied de page « Propulsé par Doka » des reçus**
   (`components/Receipt.js`) : petite icône ajoutée devant le texte, dans
   l'aperçu écran et la version imprimée.
@@ -1762,6 +1799,15 @@ Chaque point de consommation lit `parametres_globaux` avec repli
 silencieux en cas d'échec (aucune session au moment de la lecture pour la
 page de connexion et le manifest — d'où la policy de lecture publique
 introduite par la migration ci-dessous).
+
+`PlatformLogo.js` affiche l'image telle quelle (`<img>`), sans fond ajouté
+en CSS : un carré blanc visible autour du logo sur un fond sombre (site
+vitrine, ou futur mode sombre général) vient du fichier envoyé lui-même
+(pixels de fond opaques), jamais d'un style de l'app. Pour un logo qui
+s'intègre proprement sur n'importe quel fond, envoyer un PNG à fond
+réellement transparent (canal alpha) depuis la carte Logo de
+l'Administration — aucun changement de code n'est nécessaire, `<img>`
+respecte déjà la transparence.
 
 Nécessite `supabase-parametres-globaux-logo-migration.sql` (voir
 Démarrage), à exécuter après `supabase-paiements-manuels-migration.sql`.
