@@ -394,6 +394,19 @@ revenir. Le choix voyage dans les métadonnées utilisateur Supabase
 (`lib/AuthProvider.js`) à la création de la ligne `businesses`, avec
 repli sur `'autonome'` si absent/invalide.
 
+**Après l'inscription**, si `supabase.auth.signUp()` ne renvoie pas de
+session immédiate (confirmation e-mail requise côté Supabase — voir
+« Notifications push (Web Push) » plus bas pour un rappel : ce dépôt
+n'envoie jamais lui-même cet e-mail), un état dédié (`awaitingConfirmation`)
+remplace entièrement les onglets/formulaire par un simple écran « Confirme
+ton adresse » (icône enveloppe + message unique), plutôt que de rediriger
+vers l'écran de connexion habituel avec un message temporaire — jamais
+mélangé aux deux autres états (connexion / choix de formule + formulaire)
+pour qu'il n'y ait aucune ambiguïté sur l'étape en cours. Une fois le lien
+reçu par e-mail cliqué, le comportement habituel reprend (session établie
+→ `onAuthStateChange` → `ensureBusiness` → redirection vers le compte),
+sans lien avec cet état local de la page `/login`.
+
 **`components/PlanGrid.js`** : grille des 3 formules côte à côte façon
 page tarifaire (`.sb-plan-grid`, `repeat(3, 1fr)` — une seule colonne sous
 860px), réutilisée partout où un commerçant choisit une formule. Chaque
