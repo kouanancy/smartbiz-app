@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Eye, EyeOff, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { PLANS } from "@/lib/constants";
+import { PLANS, PLANS_INDISPONIBLES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import FloatingBlobs from "@/components/FloatingBlobs";
 import PlatformLogo from "@/components/PlatformLogo";
@@ -168,28 +168,33 @@ export default function LoginPage() {
         {mode === "signup" && signupStep === "plan" ? (
           <div className="sb-auth-plans">
             <p className="sb-auth-plans-intro">Choisis la formule qui correspond le mieux à ton commerce.</p>
-            {PLANS.map((key) => (
-              <button
-                type="button"
-                key={key}
-                className={`sb-plan-card sb-auth-plan-option${selectedPlan === key ? " sb-plan-card-active" : ""}`}
-                onClick={() => {
-                  setSelectedPlan(key);
-                  setSignupStep("form");
-                }}
-              >
-                <div className="sb-plan-card-head">
-                  <strong>{t(`common.plans.${key}.nom`)}</strong>
-                </div>
-                <p className="sb-plan-card-accroche">{t(`common.plans.${key}.accroche`)}</p>
-                <p className="sb-plan-card-description">{t(`common.plans.${key}.description`)}</p>
-                <ul className="sb-plan-card-avantages">
-                  {t(`common.plans.${key}.avantages`).map((a) => (
-                    <li key={a}>{a}</li>
-                  ))}
-                </ul>
-              </button>
-            ))}
+            {PLANS.map((key) => {
+              const indisponible = PLANS_INDISPONIBLES.includes(key);
+              return (
+                <button
+                  type="button"
+                  key={key}
+                  className={`sb-plan-card sb-auth-plan-option${selectedPlan === key ? " sb-plan-card-active" : ""}${indisponible ? " sb-plan-card-indisponible" : ""}`}
+                  disabled={indisponible}
+                  onClick={() => {
+                    setSelectedPlan(key);
+                    setSignupStep("form");
+                  }}
+                >
+                  {indisponible && <span className="sb-plan-card-badge sb-badge sb-badge-amber">{t("parametres.formuleIndisponible")}</span>}
+                  <div className="sb-plan-card-head">
+                    <strong>{t(`common.plans.${key}.nom`)}</strong>
+                  </div>
+                  <p className="sb-plan-card-accroche">{t(`common.plans.${key}.accroche`)}</p>
+                  <p className="sb-plan-card-description">{t(`common.plans.${key}.description`)}</p>
+                  <ul className="sb-plan-card-avantages">
+                    {t(`common.plans.${key}.avantages`).map((a) => (
+                      <li key={a}>{a}</li>
+                    ))}
+                  </ul>
+                </button>
+              );
+            })}
           </div>
         ) : (
         <form onSubmit={handleSubmit}>
