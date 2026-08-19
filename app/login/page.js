@@ -10,6 +10,7 @@ import { PLANS } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import FloatingBlobs from "@/components/FloatingBlobs";
 import PlatformLogo from "@/components/PlatformLogo";
+import HomeLink from "@/components/HomeLink";
 
 // Page de connexion/inscription affichée avant qu'une boutique (et donc une
 // langue) ne soit chargée — toujours en français, comme le reste de cette
@@ -120,6 +121,7 @@ export default function LoginPage() {
 
   return (
     <div className="sb-auth-screen">
+      <HomeLink />
       <FloatingBlobs />
       <div className="sb-auth-card">
         <PlatformLogo />

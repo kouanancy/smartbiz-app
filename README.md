@@ -1515,9 +1515,9 @@ maquettes par de vraies captures d'écran » ci-dessous.
 continu — le contenu reste affiché, juste sans mouvement.
 
 **Notre histoire** : texte fourni tel quel par l'équipe Doka, jamais
-reformulé.
+reformulé, signé « — Nancy Koné, Fondatrice de Doka ».
 
-**Pourquoi Doka te convient** : court paragraphe (pas une liste de
+**Pourquoi Doka pour ton commerce** : court paragraphe (pas une liste de
 cartes) expliquant pourquoi Doka correspond à ce type de commerçant —
 simplicité, prix accessible, données qui restent les siennes.
 
@@ -1552,11 +1552,20 @@ isolées par boutique — les trois valeurs réelles déjà utilisées ailleurs
 sur la page, jamais des statistiques inventées (pas de nombre de clients
 ou de volumes fictifs).
 
+**Ce qu'en disent les commerçants** : aucun vrai client à ce jour, donc
+aucun faux témoignage inventé pour combler l'espace. Trois cartes
+volontairement estompées (bordure en pointillés, lignes de texte grisées,
+`opacity: 0.6`) suggèrent l'emplacement réservé, avec un message explicite
+en dessous — « Les premiers retours de nos commerçants arriveront
+bientôt ici. » — plutôt qu'un silence qui laisserait croire à un oubli.
+
 **Tarifs** : réutilise directement `components/PlanGrid.js` (mêmes 3
 formules, mêmes prix exacts, même liste d'avantages que partout ailleurs
 dans l'app) plutôt que d'en recréer une version dédiée — seul `onChoose`
 change : redirige vers `/login#signup` au lieu de changer de formule pour
-une boutique déjà existante.
+une boutique déjà existante. Le détail de la formule Clé en main (frais
+d'installation) reste uniquement dans sa propre carte — pas de note
+répétée en dessous des trois cartes.
 
 **Pied de page complet** : liens `/cgu`, `/confidentialite`,
 `/mentions-legales`, `contact@doka.ci` (même adresse que
@@ -1617,14 +1626,38 @@ restructuration.
   `/screenshots/dashboard.png`) — la carte affiche alors cette image à la
   place de la maquette CSS (`components/ModuleMockup.js`, prop
   `imageSrc`).
-- Composition du héros (`components/LandingPage.js`, constantes
+- Composition (statique) du héros (`components/LandingPage.js`, constantes
   `HERO_LAPTOP_IMAGE`/`HERO_PHONE_IMAGE`) : même principe, un chemin sous
   `/public` pour la vue ordinateur et/ou la vue téléphone
   (`components/DeviceComposition.js`, props `laptopImage`/`phoneImage`).
+- Carrousel (animé) du héros (`components/HeroCarousel.js`,
+  `HERO_CAROUSEL_IMAGES` dans `components/LandingPage.js`) : tableau de
+  `{ src, alt }`, chemins sous `/public` — dès qu'il contient au moins une
+  entrée, le héros bascule automatiquement du `DeviceComposition` statique
+  ci-dessus vers ce carrousel, qui fait défiler toutes les images en fondu
+  enchaîné (4,2 s par image). `prefers-reduced-motion` coupe le défilement
+  automatique — seule la première image reste affichée, statique.
 
-Les deux mécanismes coexistent avec la maquette CSS existante : tant
-qu'aucune image n'est fournie (valeur `null`), la maquette construite en
-CSS s'affiche normalement.
+Ces mécanismes coexistent avec la maquette CSS existante : tant qu'aucune
+image n'est fournie (valeur `null`/tableau vide), la maquette construite
+en CSS s'affiche normalement.
+
+**Lisibilité des textes secondaires** : `--muted`/`--text-faint` sont
+volontairement plus clairs sur `.sb-landing` que la même variable en mode
+sombre de l'app (`:root[data-theme="dark"]`) — un site public, découvert
+sans familiarité avec l'app, mérite un standard de lisibilité plus
+généreux pour ses sous-titres/légendes que l'écran d'un utilisateur déjà
+connecté. Les couleurs de marque (accent, emerald, amber, coral) ne
+changent pas.
+
+**`components/HomeLink.js`** : petit lien « ← Accueil » vers `/`, affiché
+en haut à gauche des écrans atteignables directement depuis les boutons du
+site vitrine (Se connecter, S'inscrire, Commencer l'essai gratuit) —
+`app/login/page.js`, `components/PremierPaiement.js`,
+`components/Reabonnement.js`. Toujours un lien statique vers `/` plutôt
+que `router.back()` (contrairement à `components/LegalBackLink.js`) : ici
+on veut précisément revenir au site vitrine, pas à la page précédente
+quelle qu'elle soit.
 
 ## Centre de notifications
 
@@ -1823,27 +1856,38 @@ silencieux en cas d'échec (aucune session au moment de la lecture pour la
 page de connexion et le manifest — d'où la policy de lecture publique
 introduite par la migration ci-dessous).
 
-`PlatformLogo.js` affiche l'image telle quelle (`<img>`), sans fond ajouté
-en CSS — un carré blanc visible autour du logo sur un fond sombre (site
-vitrine, ou futur mode sombre général) viendrait du fichier envoyé
-lui-même (pixels de fond opaques), jamais d'un style de l'app. Un simple
-`mix-blend-mode: multiply` en CSS ferait disparaître un fond blanc mais
-écraserait aussi les couleurs de marque du logo vers le noir sur un fond
-sombre (`multiply(couleur, fond_sombre) ≈ fond_sombre` pour toute couleur
-non blanche) : ce n'est donc pas la solution retenue.
+Un fond blanc visible autour du logo sur un fond sombre (site vitrine, ou
+futur mode sombre général) viendrait du fichier envoyé lui-même (pixels
+de fond opaques), jamais d'un style de l'app — `PlatformLogo.js` n'ajoute
+aucun fond en CSS. Un simple `mix-blend-mode: multiply` en CSS ferait
+disparaître un fond blanc mais écraserait aussi les couleurs de marque du
+logo vers le noir sur un fond sombre (`multiply(couleur, fond_sombre) ≈
+fond_sombre` pour toute couleur non blanche) : ce n'est donc pas la
+solution retenue.
 
-À la place, `LogoPlatformUpload.js` traite le fichier au niveau des
-pixels **à l'envoi** (`removeWhiteBackground`, via `<canvas>`) : tout
-pixel proche du blanc devient transparent (une bande de transition entre
-deux seuils adoucit les bords anti-aliasés du logo plutôt qu'une découpe
-nette et dentelée), tout pixel de couleur (noir, orange de marque...)
-reste inchangé. Le fond blanc d'un logo existant disparaît donc
-automatiquement au prochain envoi du fichier — aucune action manuelle
-particulière (pas besoin de préparer soi-même un PNG à fond transparent),
-il suffit de renvoyer le même fichier (ou un autre) depuis la carte Logo
-de l'Administration. Un logo déjà transparent au départ n'est pas affecté
-(le traitement ne réduit jamais l'opacité d'un pixel qui n'est pas déjà
-proche du blanc).
+À la place, `lib/removeWhiteBackground.js` (`removeWhiteBackgroundToCanvas`,
+partagée par les deux points ci-dessous) traite l'image au niveau des
+pixels via `<canvas>` : tout pixel proche du blanc devient transparent
+(une bande de transition entre deux seuils adoucit les bords anti-aliasés
+du logo plutôt qu'une découpe nette et dentelée), tout pixel de couleur
+(noir, orange de marque...) reste inchangé — un logo déjà transparent au
+départ n'est pas affecté (le traitement ne réduit jamais l'opacité d'un
+pixel qui n'est pas déjà proche du blanc). Le traitement se fait à deux
+endroits :
+
+- **À l'envoi** (`components/LogoPlatformUpload.js`) : le fichier local
+  (`URL.createObjectURL`, toujours même origine, jamais de souci CORS) est
+  traité avant l'upload — `parametres_globaux.logo_url` contient donc
+  directement l'image déjà transparente.
+- **À l'affichage** (`components/PlatformLogo.js`), en filet de
+  sécurité : un logo déjà publié avant ce traitement (ou dont le fichier
+  d'origine reste à fond blanc) est retraité à la volée depuis l'image
+  distante déjà en ligne — sans avoir besoin de le renvoyer depuis
+  Administration. `getImageData` peut cependant échouer sur une image
+  chargée depuis une autre origine si le bucket Storage ne renvoie pas
+  d'en-tête CORS permissif (contrairement à l'envoi, toujours une image
+  locale) ; en cas d'échec, l'image d'origine reste affichée telle quelle,
+  sans rien casser.
 
 Nécessite `supabase-parametres-globaux-logo-migration.sql` (voir
 Démarrage), à exécuter après `supabase-paiements-manuels-migration.sql`.

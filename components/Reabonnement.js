@@ -8,6 +8,7 @@ import FormuleEtPaiement from "@/components/FormuleEtPaiement";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import FloatingBlobs from "@/components/FloatingBlobs";
 import PlatformLogo from "@/components/PlatformLogo";
+import HomeLink from "@/components/HomeLink";
 
 // Écran de réabonnement (abonnement déjà payé au moins une fois, puis
 // expiré — subscription_status = 'expire'). Distinct de PremierPaiement.js
@@ -35,6 +36,7 @@ export default function Reabonnement({ business, paiementBlocage }) {
 
   return (
     <div className="sb-pending-screen">
+      <HomeLink />
       <FloatingBlobs />
       <div className="sb-pending-card" style={{ maxWidth: 720, textAlign: "left" }}>
         <div style={{ textAlign: "center", marginBottom: 4 }}>

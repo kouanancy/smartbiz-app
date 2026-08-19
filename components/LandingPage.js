@@ -7,6 +7,7 @@ import FloatingBlobs from "@/components/FloatingBlobs";
 import PlatformLogo from "@/components/PlatformLogo";
 import ModuleMockup from "@/components/ModuleMockup";
 import DeviceComposition from "@/components/DeviceComposition";
+import HeroCarousel from "@/components/HeroCarousel";
 import FooterSupport from "@/components/FooterSupport";
 import Reveal from "@/components/Reveal";
 import Counter from "@/components/Counter";
@@ -41,6 +42,14 @@ const MODULES = [
 // renseigner une fois les captures reçues (vue ordinateur, vue téléphone).
 const HERO_LAPTOP_IMAGE = null;
 const HERO_PHONE_IMAGE = null;
+
+// Carrousel du visuel du héros (components/HeroCarousel.js) : tant que ce
+// tableau est vide, le héros garde la composition ordinateur + téléphone
+// ci-dessus (DeviceComposition, avec ou sans HERO_LAPTOP_IMAGE/
+// HERO_PHONE_IMAGE) ; dès qu'au moins une image y est ajoutée (chemin sous
+// /public, ex. "/hero/phone-dashboard.png"), le carrousel prend le relais
+// et défile automatiquement entre toutes les images listées ici.
+const HERO_CAROUSEL_IMAGES = [];
 
 export default function LandingPage() {
   return (
@@ -81,7 +90,11 @@ export default function LandingPage() {
             </div>
             <p className="sb-landing-hero-note sb-landing-hero-line sb-landing-hero-line-cta">7 jours d&apos;essai gratuit, sans carte bancaire.</p>
           </div>
-          <DeviceComposition laptopImage={HERO_LAPTOP_IMAGE} phoneImage={HERO_PHONE_IMAGE} />
+          {HERO_CAROUSEL_IMAGES.length > 0 ? (
+            <HeroCarousel images={HERO_CAROUSEL_IMAGES} />
+          ) : (
+            <DeviceComposition laptopImage={HERO_LAPTOP_IMAGE} phoneImage={HERO_PHONE_IMAGE} />
+          )}
         </div>
       </section>
 
@@ -103,6 +116,7 @@ export default function LandingPage() {
                 taille. Doka est né de cette conviction simple : un petit commerce mérite un outil aussi sérieux
                 qu&apos;une grande entreprise, sans la complexité ni le prix qui vont avec.
               </p>
+              <p className="sb-landing-histoire-signature">— Nancy Koné, Fondatrice de Doka</p>
             </div>
           </div>
         </Reveal>
@@ -112,7 +126,7 @@ export default function LandingPage() {
         <FloatingBlobs count={2} subtle />
         <Reveal className="sb-landing-blobby-content">
           <div className="sb-landing-section-head" style={{ marginBottom: 0 }}>
-            <h2 className="sb-landing-section-title">Pourquoi Doka te convient</h2>
+            <h2 className="sb-landing-section-title">Pourquoi Doka pour ton commerce</h2>
             <p className="sb-landing-pourquoi-text">
               Doka est pensé pour les commerçantes et commerçants qui gèrent tout eux-mêmes — pas d&apos;équipe
               informatique, pas de temps à perdre en formation. Une prise en main immédiate, un prix accessible dès
@@ -167,6 +181,29 @@ export default function LandingPage() {
         </Reveal>
       </section>
 
+      <section className="sb-landing-section sb-landing-blobby-section" id="avis">
+        <FloatingBlobs count={2} subtle />
+        <Reveal className="sb-landing-blobby-content">
+          <div className="sb-landing-section-head">
+            <h2 className="sb-landing-section-title">Ce qu&apos;en disent les commerçants</h2>
+          </div>
+          <div className="sb-landing-avis-grid">
+            {[0, 1, 2].map((i) => (
+              <div className="sb-landing-avis-card" key={i} aria-hidden="true">
+                <span className="sb-landing-avis-quote-mark">&ldquo;</span>
+                <div className="sb-landing-avis-line" />
+                <div className="sb-landing-avis-line" style={{ width: "70%" }} />
+                <div className="sb-landing-avis-author">
+                  <span className="sb-landing-avis-avatar" />
+                  <div className="sb-landing-avis-line" style={{ width: "40%", height: 6 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="sb-landing-avis-note">Les premiers retours de nos commerçants arriveront bientôt ici.</p>
+        </Reveal>
+      </section>
+
       <section className="sb-landing-section sb-landing-blobby-section" id="tarifs">
         <FloatingBlobs count={2} subtle />
         <Reveal className="sb-landing-blobby-content">
@@ -185,7 +222,6 @@ export default function LandingPage() {
               window.location.href = "/login#signup";
             }}
           />
-          <p className="sb-landing-tarifs-note">{`Formule Clé en main : ${fmt(15000)} à l'installation, en plus de l'abonnement mensuel.`}</p>
         </Reveal>
       </section>
 
