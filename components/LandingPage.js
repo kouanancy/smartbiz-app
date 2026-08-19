@@ -51,15 +51,11 @@ const HERO_PHONE_IMAGE = null;
 // et défile automatiquement entre toutes les images listées ici.
 //
 // Les trois photos ci-dessous montrent des commerçants en situation
-// d'usage plutôt que de vrais écrans Doka (le contenu affiché sur les
-// téléphones n'est pas un aperçu fidèle de l'app — texte illisible sur
-// ces photos) : elles servent donc de visuel d'ambiance, jamais présentées
-// comme une capture d'écran réelle (alt générique, sans mention de l'app
-// à l'écran).
+// d'usage, avec le tableau de bord Doka affiché sur leur téléphone.
 const HERO_CAROUSEL_IMAGES = [
-  { src: "/hero/IMG_2661.PNG", alt: "Commerçante utilisant Doka sur son téléphone dans sa boutique" },
-  { src: "/hero/IMG_2660.PNG", alt: "Commerçant utilisant Doka sur son téléphone sur son étal" },
-  { src: "/hero/IMG_2659.PNG", alt: "Commerçante utilisant Doka sur son téléphone dans son atelier" },
+  { src: "/hero/IMG_2662.PNG", alt: "Commerçante consultant le tableau de bord Doka sur son téléphone dans sa boutique" },
+  { src: "/hero/IMG_2663.PNG", alt: "Commerçante consultant le tableau de bord Doka sur son téléphone dans son atelier" },
+  { src: "/hero/IMG_2664.PNG", alt: "Commerçant consultant le tableau de bord Doka sur son téléphone sur son étal" },
 ];
 
 export default function LandingPage() {

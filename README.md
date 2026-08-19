@@ -1640,13 +1640,11 @@ restructuration.
   enchaîné (4,2 s par image). `prefers-reduced-motion` coupe le défilement
   automatique — seule la première image reste affichée, statique.
   **En place** : trois photos sous `public/hero/` (fournies par l'équipe
-  Doka) montrant des commerçants en situation d'usage. Le contenu affiché
-  à l'écran du téléphone sur ces photos n'est pas un aperçu fidèle de
-  l'app — elles servent donc de visuel d'ambiance uniquement (texte alt
-  générique, sans mention de l'app à l'écran), pas de vraie capture
-  d'écran. Fichiers assez lourds (1,4 à 1,9 Mo chacun, non compressés) —
-  à optimiser avant une mise en production si le poids de page devient un
-  souci.
+  Doka, format paysage — `.sb-landing-carousel` en `aspect-ratio: 16/9`
+  pour s'y adapter) montrant des commerçants en situation d'usage avec le
+  tableau de bord Doka affiché sur leur téléphone. Fichiers assez lourds
+  (1,6 à 2,1 Mo chacun, non compressés) — à optimiser avant une mise en
+  production si le poids de page devient un souci.
 
 Ces mécanismes coexistent avec la maquette CSS existante : tant qu'aucune
 image n'est fournie (valeur `null`/tableau vide), la maquette construite
