@@ -23,6 +23,51 @@ function loadImage(file) {
   });
 }
 
+// Rend transparent le fond blanc d'un logo (plutôt qu'un fond blanc carré
+// visible une fois posé sur un fond sombre — site vitrine, futur mode
+// sombre général). Un simple CSS mix-blend-mode: multiply ferait
+// disparaître le blanc mais écraserait aussi les couleurs de marque vers
+// le noir sur un fond sombre (multiply(couleur, fond_sombre) ≈ fond_sombre
+// pour toute couleur non blanche) — le traitement doit donc se faire au
+// niveau des pixels, une seule fois, à l'envoi.
+// minC (canal le plus faible) proche de 255 = pixel quasi blanc → transparent ;
+// une bande de transition entre les deux seuils adoucit les bords
+// anti-aliasés du logo plutôt qu'une découpe nette et dentelée.
+const WHITE_LOW = 225;
+const WHITE_HIGH = 250;
+
+function whitenessToAlpha(r, g, b) {
+  const minC = Math.min(r, g, b);
+  if (minC <= WHITE_LOW) return 255;
+  if (minC >= WHITE_HIGH) return 0;
+  const t = (minC - WHITE_LOW) / (WHITE_HIGH - WHITE_LOW);
+  return Math.round(255 * (1 - t));
+}
+
+function removeWhiteBackground(img) {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    let imageData;
+    try {
+      imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    const px = imageData.data;
+    for (let i = 0; i < px.length; i += 4) {
+      const alpha = whitenessToAlpha(px[i], px[i + 1], px[i + 2]);
+      px[i + 3] = Math.min(px[i + 3], alpha);
+    }
+    ctx.putImageData(imageData, 0, 0);
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("toBlob a échoué"))), "image/png");
+  });
+}
+
 // Découpe centrée au carré (cover) puis redimensionne — un logo carré n'a
 // pas de bandes vides, contrairement à un simple redimensionnement "contain".
 function resizeToSquarePng(img, size) {
@@ -75,19 +120,31 @@ export default function LogoPlatformUpload({ label, businessId, value, onChange 
     setPreviewUrl(localPreview);
 
     try {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
       const uid = crypto.randomUUID();
+      const img = await loadImage(file);
 
-      const basePath = `${businessId}/smartbiz-logo/${uid}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from(BUCKET).upload(basePath, file, {
+      // Le logo original est envoyé avec son fond blanc rendu transparent
+      // (voir removeWhiteBackground ci-dessus) — les icônes carrées
+      // ci-dessous, elles, restent générées depuis le fichier opaque
+      // d'origine : une icône d'écran d'accueil transparente s'affiche avec
+      // un fond noir sur iOS, ce n'est donc pas souhaitable là.
+      let logoBlob;
+      try {
+        logoBlob = await removeWhiteBackground(img);
+      } catch (err) {
+        console.error("Suppression du fond blanc impossible, envoi du fichier original :", err);
+        logoBlob = file;
+      }
+      const logoExt = logoBlob === file ? (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg" : "png";
+      const basePath = `${businessId}/smartbiz-logo/${uid}.${logoExt}`;
+      const { error: uploadError } = await supabase.storage.from(BUCKET).upload(basePath, logoBlob, {
         cacheControl: "3600",
         upsert: false,
-        contentType: file.type,
+        contentType: logoBlob === file ? file.type : "image/png",
       });
       if (uploadError) throw uploadError;
       const logoUrl = supabase.storage.from(BUCKET).getPublicUrl(basePath).data.publicUrl;
 
-      const img = await loadImage(file);
       const urls = { logo_url: logoUrl };
       for (const { key, size } of ICON_SIZES) {
         const blob = await resizeToSquarePng(img, size);

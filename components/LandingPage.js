@@ -78,9 +78,6 @@ export default function LandingPage() {
               <Link href="/login#signup" className="sb-btn sb-btn-primary sb-landing-cta-btn">
                 Commencer l&apos;essai gratuit
               </Link>
-              <Link href="/login" className="sb-btn sb-btn-ghost sb-landing-cta-btn">
-                Se connecter
-              </Link>
             </div>
             <p className="sb-landing-hero-note sb-landing-hero-line sb-landing-hero-line-cta">7 jours d&apos;essai gratuit, sans carte bancaire.</p>
           </div>

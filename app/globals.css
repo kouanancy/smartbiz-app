@@ -2490,6 +2490,12 @@ a {
   color: var(--ink);
   font-family: "Inter", sans-serif;
   min-height: 100vh;
+  /* Seul point de découpe horizontal de toute la page : permet aux bulles
+     de chaque section (voir plus bas, overflow: visible) de déborder
+     verticalement d'une section à l'autre sans coupure nette, tout en
+     empêchant les décalages négatifs (ex. left: -9vw) d'une bulle en bord
+     d'écran de créer une barre de défilement horizontale. */
+  overflow-x: hidden;
 }
 .sb-landing-nav {
   border-bottom: 1px solid var(--line);
@@ -2536,6 +2542,25 @@ a {
 /* ------------------------------------------------------------------ */
 .sb-landing-hero {
   padding: 56px 24px 72px;
+}
+/* .sb-auth-screen/.sb-pending-screen/.sb-formule-screen (règle partagée
+   plus haut) découpent chaque bulle pile au bord de leur propre écran —
+   correct pour un écran plein isolé, mais sur le site vitrine, empilé sur
+   plusieurs sections consécutives, cette découpe nette à chaque section
+   se lit comme une ligne/un rectangle au changement de section, même sur
+   un fond déjà commun (.sb-landing { background }). On rouvre donc
+   overflow ici pour laisser les bulles déborder librement d'une section à
+   l'autre (leur propre forme organique + flou restent leurs seuls bords,
+   jamais une coupe droite) ; seul .sb-landing lui-même limite le
+   débordement horizontal (overflow-x: hidden ci-dessus) pour ne jamais
+   provoquer de barre de défilement latérale sur la page. */
+.sb-landing-hero,
+.sb-landing-blobby-section {
+  overflow: visible;
+}
+.sb-landing-hero .sb-blob-field,
+.sb-landing-blobby-section .sb-blob-field {
+  overflow: visible;
 }
 .sb-landing-hero-grid {
   max-width: 1180px;
@@ -2586,7 +2611,9 @@ a {
 .sb-landing-doka-word {
   display: inline-block;
   color: var(--accent);
-  animation: sb-landing-doka-pop 0.7s 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation:
+    sb-landing-doka-pop 0.7s 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    sb-landing-doka-glow 2.6s 1.3s ease-in-out infinite;
 }
 @keyframes sb-landing-doka-pop {
   from {
@@ -2596,6 +2623,20 @@ a {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+/* Halo doux et continu une fois l'entrée terminée (délai 1.3s ≈ fin du
+   pop) — pour que le mot reste visiblement "vivant" quel que soit le
+   moment où on regarde la page, pas seulement dans la fraction de seconde
+   de son entrée. Coupé par prefers-reduced-motion comme le reste des
+   animations d'entrée du héros. */
+@keyframes sb-landing-doka-glow {
+  0%,
+  100% {
+    text-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+  50% {
+    text-shadow: 0 0 22px var(--accent-soft);
   }
 }
 .sb-landing-hero-tagline {
@@ -2905,30 +2946,37 @@ a {
 }
 .sb-mockup-kpi {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
 .sb-mockup-kpi-label {
-  height: 5px;
-  width: 70%;
-  border-radius: 3px;
-  background: var(--line);
+  font-style: normal;
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--text-faint);
+  line-height: 1;
   display: block;
 }
 .sb-mockup-kpi-value {
-  height: 12px;
-  border-radius: 4px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sb-mockup-kpi-value-accent {
-  background: var(--accent-soft);
+  color: var(--accent);
 }
 .sb-mockup-kpi-value-emerald {
-  background: var(--emerald-bg);
+  color: var(--emerald);
 }
 .sb-mockup-kpi-value-ink {
-  background: var(--line);
+  color: var(--ink);
 }
 .sb-mockup-bars {
   display: flex;
@@ -2970,14 +3018,6 @@ a {
 .sb-mockup-step-line-done {
   background: var(--emerald);
 }
-.sb-mockup-rows {
-  gap: 10px;
-}
-.sb-mockup-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 .sb-mockup-bar {
   height: 8px;
   border-radius: 4px;
@@ -2985,20 +3025,27 @@ a {
   display: block;
 }
 .sb-mockup-pill {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  font-style: normal;
+  font-size: 7px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 20px;
   flex-shrink: 0;
   margin-left: auto;
+  white-space: nowrap;
 }
 .sb-mockup-pill-ok {
-  background: var(--emerald);
+  background: var(--emerald-bg);
+  color: var(--emerald);
 }
 .sb-mockup-pill-warn {
-  background: var(--amber);
+  background: var(--amber-bg);
+  color: var(--amber);
 }
 .sb-mockup-pill-coral {
-  background: var(--coral);
+  background: var(--coral-bg);
+  color: var(--coral);
 }
 .sb-mockup-table {
   gap: 6px;
@@ -3012,16 +3059,27 @@ a {
 .sb-mockup-trow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 }
 .sb-mockup-cell {
-  height: 7px;
-  border-radius: 3px;
-  background: var(--line);
+  font-style: normal;
+  font-size: 8px;
+  color: var(--ink);
+  line-height: 1;
   display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sb-mockup-cell-muted {
-  opacity: 0.55;
+  color: var(--text-faint);
+}
+.sb-mockup-cell-num {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
 }
 .sb-mockup-thumb-sm {
   width: 16px;
@@ -3031,12 +3089,24 @@ a {
   flex-shrink: 0;
 }
 .sb-mockup-count-badge {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
+  font-size: 7px;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 20px;
   background: var(--accent-soft);
+  /* Jamais --accent-text ici : dans .sb-landing (fond sombre),
+     --accent-text vaut --accent-soft — même couleur que le fond du badge,
+     texte invisible. var(--accent) (orange plein) contraste correctement
+     sur --accent-soft aussi bien en clair qu'en sombre. */
+  color: var(--accent);
   margin-left: auto;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .sb-mockup-catalogue {
   display: grid;
@@ -3056,15 +3126,18 @@ a {
   height: 28px;
 }
 .sb-mockup-product-line {
-  height: 5px;
-  width: 90%;
-  border-radius: 3px;
-  background: var(--line);
+  font-style: normal;
+  font-size: 7.5px;
+  color: var(--ink);
+  line-height: 1.3;
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sb-mockup-product-price {
-  width: 55%;
-  background: var(--accent-soft);
+  font-weight: 700;
+  color: var(--accent);
 }
 .sb-mockup-chart-svg {
   width: 100%;

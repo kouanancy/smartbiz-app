@@ -1499,14 +1499,20 @@ chaque ligne apparaît avec sa propre animation d'entrée au chargement
 (`@keyframes sb-landing-hero-line-in`, translateY + fondu, délais en
 cascade — jamais `components/Reveal.js`/`IntersectionObserver`, inutile
 pour du contenu déjà visible sans défilement) ; le mot « Doka » a en plus
-sa propre animation imbriquée (`sb-landing-doka-pop`, léger effet de
-zoom). À droite, `components/DeviceComposition.js` : une composition
-ordinateur + téléphone (cadres construits en CSS) affichant chacun une
-maquette de module (`components/ModuleMockup.js`, réutilisée telle
-quelle) — ou une vraie capture d'écran dès qu'elle est fournie, voir
-« Remplacer les maquettes par de vraies captures d'écran » ci-dessous.
-`prefers-reduced-motion` coupe toutes ces animations d'entrée — le
-contenu reste affiché, juste sans mouvement.
+sa propre animation d'entrée imbriquée (`sb-landing-doka-pop`, léger effet
+de zoom) suivie d'un halo continu (`sb-landing-doka-glow`, `text-shadow`
+en boucle infinie une fois l'entrée terminée) pour qu'il reste visiblement
+« vivant » quel que soit le moment où on regarde la page, pas seulement
+pendant la fraction de seconde de son entrée. Un seul bouton d'action («
+Commencer l'essai gratuit ») — « Se connecter » n'apparaît que dans la
+barre de navigation, jamais en double dans le héros. À droite,
+`components/DeviceComposition.js` : une composition ordinateur +
+téléphone (cadres construits en CSS) affichant chacun une maquette de
+module (`components/ModuleMockup.js`, réutilisée telle quelle) — ou une
+vraie capture d'écran dès qu'elle est fournie, voir « Remplacer les
+maquettes par de vraies captures d'écran » ci-dessous.
+`prefers-reduced-motion` coupe toutes ces animations d'entrée et le halo
+continu — le contenu reste affiché, juste sans mouvement.
 
 **Notre histoire** : texte fourni tel quel par l'équipe Doka, jamais
 reformulé.
@@ -1533,6 +1539,11 @@ Trésorerie) et une description — reprise telle quelle quand elle existait
 déjà dans `lib/i18n/fr.js` (`dashboard.subtitle`, `nouvelle.subtitle`,
 `tresorerie.subtitle`), sinon rédigée à partir des fonctionnalités
 réelles plutôt qu'inventée (ex. seuil d'alerte de stock, fiche client).
+Chaque maquette affiche aussi de vrais libellés/valeurs d'exemple
+illustratifs (noms, montants, statuts « OK »/« Faible »/« Rupture », «
+Livrée »/« En cours »...) plutôt que de simples barres grises vides, pour
+ressembler à un aperçu réel plutôt qu'à un squelette abstrait — jamais de
+vraies données d'une boutique.
 
 **Chiffres clés** animés (`components/Counter.js` — compte de 0 à la
 valeur finale via `requestAnimationFrame` dès l'entrée dans le viewport,
@@ -1582,13 +1593,21 @@ composition d'appareils du héros passe en colonne unique (téléphone sous
 l'ordinateur, plus de chevauchement) au même point de rupture.
 
 **Défilement continu, sans démarcation entre sections** : toute la page
-partage le même fond (`.sb-landing { background: var(--paper); }`) — les
-sections « Notre histoire » et le pied de page n'ont plus leur propre
-fond/bordure (`background`/`border-top`/`border-bottom` retirés), pour
-qu'aucune ligne de coupure nette ne soit visible en descendant la page. La
-barre de navigation garde volontairement sa bordure/son fond : c'est un
-élément de chrome persistant (toujours à l'écran), pas une section de
-contenu.
+partage le même fond (`.sb-landing { background: var(--paper); }`), aucune
+section n'a de fond/bordure propre (la barre de navigation fait
+volontairement exception : c'est un élément de chrome persistant, pas une
+section de contenu). Chaque section garde son propre champ de bulles
+flottantes (`components/FloatingBlobs.js`), mais celui-ci n'est plus
+strictement découpé au bord de sa section : `.sb-landing-hero` et
+`.sb-landing-blobby-section` repassent en `overflow: visible` (au lieu du
+`overflow: hidden` par défaut, hérité de la règle commune avec les écrans
+d'entrée) pour laisser une bulle déborder naturellement d'une section sur
+la suivante — seule sa propre forme organique + son flou restent ses
+bords, jamais une coupe droite au changement de section. Le seul point de
+découpe horizontal de toute la page reste `.sb-landing` lui-même
+(`overflow-x: hidden`), pour qu'un décalage négatif de bulle en bord
+d'écran (ex. `left: -9vw`) ne provoque jamais de barre de défilement
+latérale.
 
 **Remplacer les maquettes par de vraies captures d'écran** : chaque
 maquette CSS est prête à être remplacée par une vraie image, sans aucune
@@ -1758,11 +1777,15 @@ bucket `article-photos` déjà existant sous
 
 Un seul fichier envoyé déclenche deux choses :
 
-- l'upload du logo original (`parametres_globaux.logo_url`) ;
+- l'upload du logo, **fond blanc rendu transparent** (`parametres_globaux.logo_url`,
+  voir plus bas) ;
 - la génération, côté client via `<canvas>`, de trois variantes carrées
-  (découpe centrée façon "cover", pas de bandes vides) : 192×192 et
-  512×512 pour le manifest PWA, 180×180 pour l'icône Apple
-  (`icon_192_url`, `icon_512_url`, `icon_apple_180_url`). Le
+  **opaques**, depuis le fichier d'origine non traité (découpe centrée
+  façon "cover", pas de bandes vides) : 192×192 et 512×512 pour le
+  manifest PWA, 180×180 pour l'icône Apple (`icon_192_url`,
+  `icon_512_url`, `icon_apple_180_url`) — restées opaques
+  volontairement : une icône d'écran d'accueil transparente s'affiche
+  avec un fond noir sur iOS, ce n'est donc pas souhaitable là. Le
   redimensionnement se fait depuis le fichier local
   (`URL.createObjectURL`, même origine) plutôt que depuis l'URL déjà
   hébergée sur Supabase Storage, pour ne jamais dépendre des en-têtes CORS
@@ -1801,13 +1824,26 @@ page de connexion et le manifest — d'où la policy de lecture publique
 introduite par la migration ci-dessous).
 
 `PlatformLogo.js` affiche l'image telle quelle (`<img>`), sans fond ajouté
-en CSS : un carré blanc visible autour du logo sur un fond sombre (site
-vitrine, ou futur mode sombre général) vient du fichier envoyé lui-même
-(pixels de fond opaques), jamais d'un style de l'app. Pour un logo qui
-s'intègre proprement sur n'importe quel fond, envoyer un PNG à fond
-réellement transparent (canal alpha) depuis la carte Logo de
-l'Administration — aucun changement de code n'est nécessaire, `<img>`
-respecte déjà la transparence.
+en CSS — un carré blanc visible autour du logo sur un fond sombre (site
+vitrine, ou futur mode sombre général) viendrait du fichier envoyé
+lui-même (pixels de fond opaques), jamais d'un style de l'app. Un simple
+`mix-blend-mode: multiply` en CSS ferait disparaître un fond blanc mais
+écraserait aussi les couleurs de marque du logo vers le noir sur un fond
+sombre (`multiply(couleur, fond_sombre) ≈ fond_sombre` pour toute couleur
+non blanche) : ce n'est donc pas la solution retenue.
+
+À la place, `LogoPlatformUpload.js` traite le fichier au niveau des
+pixels **à l'envoi** (`removeWhiteBackground`, via `<canvas>`) : tout
+pixel proche du blanc devient transparent (une bande de transition entre
+deux seuils adoucit les bords anti-aliasés du logo plutôt qu'une découpe
+nette et dentelée), tout pixel de couleur (noir, orange de marque...)
+reste inchangé. Le fond blanc d'un logo existant disparaît donc
+automatiquement au prochain envoi du fichier — aucune action manuelle
+particulière (pas besoin de préparer soi-même un PNG à fond transparent),
+il suffit de renvoyer le même fichier (ou un autre) depuis la carte Logo
+de l'Administration. Un logo déjà transparent au départ n'est pas affecté
+(le traitement ne réduit jamais l'opacité d'un pixel qui n'est pas déjà
+proche du blanc).
 
 Nécessite `supabase-parametres-globaux-logo-migration.sql` (voir
 Démarrage), à exécuter après `supabase-paiements-manuels-migration.sql`.

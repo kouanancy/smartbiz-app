@@ -1,8 +1,11 @@
 // Petites maquettes visuelles de chaque module, pour le site vitrine
 // (components/LandingPage.js, components/DeviceComposition.js) —
-// reconstruites en s'appuyant fidèlement sur le vrai code de l'app
-// (mêmes structures, mêmes couleurs/rôles que les vrais écrans), pas des
-// formes abstraites :
+// construites en s'appuyant fidèlement sur le vrai code de l'app (mêmes
+// structures, mêmes couleurs/rôles que les vrais écrans) et avec de vrais
+// libellés/valeurs d'exemple plutôt que de simples barres vides, pour
+// ressembler à un aperçu réel plutôt qu'à un squelette abstrait — les
+// valeurs ci-dessous sont illustratives (aria-hidden, jamais de vraies
+// données d'une boutique) :
 // - dashboard : app/(app)/dashboard/page.js — trois cartes KPI
 //   (.sb-grid-stats/.sb-card/.sb-stat-value, CA en accent, marge en
 //   emerald, clients en ink) suivies du graphique d'évolution.
@@ -40,16 +43,16 @@ export default function ModuleMockup({ type, imageSrc, imageAlt = "" }) {
         <div className="sb-mockup sb-mockup-dashboard" aria-hidden="true">
           <div className="sb-mockup-kpis">
             <div className="sb-mockup-kpi">
-              <i className="sb-mockup-kpi-label" />
-              <span className="sb-mockup-kpi-value sb-mockup-kpi-value-accent" />
+              <i className="sb-mockup-kpi-label">CA</i>
+              <span className="sb-mockup-kpi-value sb-mockup-kpi-value-accent">128k</span>
             </div>
             <div className="sb-mockup-kpi">
-              <i className="sb-mockup-kpi-label" />
-              <span className="sb-mockup-kpi-value sb-mockup-kpi-value-emerald" />
+              <i className="sb-mockup-kpi-label">Marge</i>
+              <span className="sb-mockup-kpi-value sb-mockup-kpi-value-emerald">32%</span>
             </div>
             <div className="sb-mockup-kpi">
-              <i className="sb-mockup-kpi-label" />
-              <span className="sb-mockup-kpi-value sb-mockup-kpi-value-ink" />
+              <i className="sb-mockup-kpi-label">Clientes</i>
+              <span className="sb-mockup-kpi-value sb-mockup-kpi-value-ink">56</span>
             </div>
           </div>
           <div className="sb-mockup-bars">
@@ -79,14 +82,14 @@ export default function ModuleMockup({ type, imageSrc, imageAlt = "" }) {
         <div className="sb-mockup sb-mockup-table" aria-hidden="true">
           <div className="sb-mockup-thead" />
           {[
-            { w: "52%", pill: "ok" },
-            { w: "64%", pill: "warn" },
-            { w: "40%", pill: "coral" },
-          ].map((row, i) => (
-            <div className="sb-mockup-trow" key={i}>
+            { nom: "Perruque lisse 24\"", pill: "ok", statut: "OK" },
+            { nom: "Mèches ivoirienne", pill: "warn", statut: "Faible" },
+            { nom: "Tissage bouclé", pill: "coral", statut: "Rupture" },
+          ].map((row) => (
+            <div className="sb-mockup-trow" key={row.nom}>
               <span className="sb-mockup-thumb-sm" />
-              <i className="sb-mockup-cell" style={{ width: row.w }} />
-              <span className={`sb-mockup-pill sb-mockup-pill-${row.pill}`} />
+              <i className="sb-mockup-cell">{row.nom}</i>
+              <span className={`sb-mockup-pill sb-mockup-pill-${row.pill}`}>{row.statut}</span>
             </div>
           ))}
         </div>
@@ -95,11 +98,15 @@ export default function ModuleMockup({ type, imageSrc, imageAlt = "" }) {
       return (
         <div className="sb-mockup sb-mockup-table" aria-hidden="true">
           <div className="sb-mockup-thead" />
-          {[0, 1, 2].map((i) => (
-            <div className="sb-mockup-trow" key={i}>
-              <i className="sb-mockup-cell" style={{ width: "38%" }} />
-              <i className="sb-mockup-cell sb-mockup-cell-muted" style={{ width: "26%" }} />
-              <span className="sb-mockup-count-badge" />
+          {[
+            { nom: "Awa K.", tel: "07 •• •• ••", n: 5 },
+            { nom: "Fatou D.", tel: "05 •• •• ••", n: 12 },
+            { nom: "Mariam S.", tel: "01 •• •• ••", n: 3 },
+          ].map((row) => (
+            <div className="sb-mockup-trow" key={row.nom}>
+              <i className="sb-mockup-cell">{row.nom}</i>
+              <i className="sb-mockup-cell sb-mockup-cell-muted">{row.tel}</i>
+              <span className="sb-mockup-count-badge">{row.n}</span>
             </div>
           ))}
         </div>
@@ -108,12 +115,16 @@ export default function ModuleMockup({ type, imageSrc, imageAlt = "" }) {
       return (
         <div className="sb-mockup sb-mockup-table" aria-hidden="true">
           <div className="sb-mockup-thead" />
-          {[0, 1, 2].map((i) => (
-            <div className="sb-mockup-trow" key={i}>
-              <i className="sb-mockup-cell" style={{ width: "14%" }} />
-              <i className="sb-mockup-cell" style={{ width: "30%" }} />
-              <i className="sb-mockup-cell sb-mockup-cell-muted" style={{ width: "16%" }} />
-              <span className={`sb-mockup-pill ${i === 1 ? "sb-mockup-pill-warn" : "sb-mockup-pill-ok"}`} />
+          {[
+            { n: "#014", cliente: "Awa K.", ca: "24 500", pill: "ok", statut: "Livrée" },
+            { n: "#013", cliente: "Fatou D.", ca: "12 000", pill: "warn", statut: "En cours" },
+            { n: "#012", cliente: "Mariam S.", ca: "38 200", pill: "ok", statut: "Livrée" },
+          ].map((row) => (
+            <div className="sb-mockup-trow" key={row.n}>
+              <i className="sb-mockup-cell sb-mockup-cell-num">{row.n}</i>
+              <i className="sb-mockup-cell">{row.cliente}</i>
+              <i className="sb-mockup-cell sb-mockup-cell-muted">{row.ca}</i>
+              <span className={`sb-mockup-pill sb-mockup-pill-${row.pill}`}>{row.statut}</span>
             </div>
           ))}
         </div>
@@ -121,11 +132,16 @@ export default function ModuleMockup({ type, imageSrc, imageAlt = "" }) {
     case "catalogue":
       return (
         <div className="sb-mockup sb-mockup-catalogue" aria-hidden="true">
-          {[0, 1, 2, 3].map((i) => (
-            <div className="sb-mockup-product" key={i}>
+          {[
+            { nom: "Lace 24\"", prix: "35 000" },
+            { nom: "Mèches", prix: "8 000" },
+            { nom: "Tissage", prix: "15 000" },
+            { nom: "Perruque", prix: "45 000" },
+          ].map((p) => (
+            <div className="sb-mockup-product" key={p.nom}>
               <span className="sb-mockup-thumb" />
-              <i className="sb-mockup-product-line" />
-              <i className="sb-mockup-product-line sb-mockup-product-price" />
+              <i className="sb-mockup-product-line">{p.nom}</i>
+              <i className="sb-mockup-product-line sb-mockup-product-price">{p.prix} F</i>
             </div>
           ))}
         </div>
