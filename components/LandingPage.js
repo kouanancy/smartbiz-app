@@ -49,7 +49,18 @@ const HERO_PHONE_IMAGE = null;
 // HERO_PHONE_IMAGE) ; dès qu'au moins une image y est ajoutée (chemin sous
 // /public, ex. "/hero/phone-dashboard.png"), le carrousel prend le relais
 // et défile automatiquement entre toutes les images listées ici.
-const HERO_CAROUSEL_IMAGES = [];
+//
+// Les trois photos ci-dessous montrent des commerçants en situation
+// d'usage plutôt que de vrais écrans Doka (le contenu affiché sur les
+// téléphones n'est pas un aperçu fidèle de l'app — texte illisible sur
+// ces photos) : elles servent donc de visuel d'ambiance, jamais présentées
+// comme une capture d'écran réelle (alt générique, sans mention de l'app
+// à l'écran).
+const HERO_CAROUSEL_IMAGES = [
+  { src: "/hero/IMG_2661.PNG", alt: "Commerçante utilisant Doka sur son téléphone dans sa boutique" },
+  { src: "/hero/IMG_2660.PNG", alt: "Commerçant utilisant Doka sur son téléphone sur son étal" },
+  { src: "/hero/IMG_2659.PNG", alt: "Commerçante utilisant Doka sur son téléphone dans son atelier" },
+];
 
 export default function LandingPage() {
   return (
