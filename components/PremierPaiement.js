@@ -8,6 +8,7 @@ import FormuleEtPaiement from "@/components/FormuleEtPaiement";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import FloatingBlobs from "@/components/FloatingBlobs";
 import PlatformLogo from "@/components/PlatformLogo";
+import HomeLink from "@/components/HomeLink";
 
 // Écran affiché à la toute première échéance de paiement (essai gratuit
 // de 7 jours terminé, jamais encore payé — subscription_status =
@@ -38,6 +39,7 @@ export default function PremierPaiement({ business, paiementBlocage }) {
 
   return (
     <div className="sb-pending-screen">
+      <HomeLink />
       <FloatingBlobs />
       <div className="sb-pending-card" style={{ maxWidth: 720, textAlign: "left" }}>
         <div style={{ textAlign: "center", marginBottom: 4 }}>

@@ -2109,6 +2109,27 @@ a {
   color: var(--ink);
   padding: 20px;
 }
+/* Lien de retour vers le site vitrine (components/HomeLink.js), affiché sur
+   les écrans d'entrée atteignables directement depuis ses boutons — voir
+   .sb-auth-screen/.sb-pending-screen ci-dessus. z-index au-dessus du champ
+   de bulles (z-index: 0) pour rester cliquable. */
+.sb-entry-home-link {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.sb-entry-home-link:hover {
+  color: var(--ink);
+}
 .sb-auth-card {
   width: 100%;
   max-width: 380px;
@@ -2477,8 +2498,13 @@ a {
   --card: #232220;
   --card-soft: #2b2926;
   --line: #3a3835;
-  --muted: #a6a29c;
-  --text-faint: #8f8b85;
+  /* --muted/--text-faint volontairement plus clairs que la même variable en
+     mode sombre de l'app (:root[data-theme="dark"]) : un site public,
+     découvert sans contexte ni familiarité avec l'app, mérite un standard
+     de lisibilité plus généreux pour ses textes secondaires (sous-titres,
+     légendes) que l'écran d'un utilisateur déjà connecté. */
+  --muted: #c4c0ba;
+  --text-faint: #a8a49e;
   --emerald: #3ecf9a;
   --emerald-bg: rgba(62, 207, 154, 0.16);
   --amber: #e3ab5c;
@@ -2732,6 +2758,37 @@ a {
   margin-bottom: 0;
 }
 
+/* Carrousel du héros (components/HeroCarousel.js) — même emplacement, même
+   animation d'entrée que .sb-landing-devices ci-dessus (dont il prend la
+   place une fois de vraies images fournies, voir LandingPage.js), simple
+   fondu enchaîné entre les diapositives superposées. */
+.sb-landing-carousel {
+  position: relative;
+  max-width: 420px;
+  min-height: 300px;
+  aspect-ratio: 4 / 5;
+  margin: 0 auto;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  animation: sb-landing-hero-line-in 0.9s 0.35s ease-out both;
+}
+.sb-landing-carousel-slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 1.1s ease;
+}
+.sb-landing-carousel-slide-active {
+  opacity: 1;
+}
+
 .sb-landing-section {
   max-width: 1080px;
   margin: 0 auto;
@@ -2766,6 +2823,15 @@ a {
 }
 .sb-landing-histoire-text p {
   margin: 0;
+}
+.sb-landing-histoire-text p + p {
+  margin-top: 14px;
+}
+.sb-landing-histoire-signature {
+  font-style: italic;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: right;
 }
 
 .sb-landing-pourquoi-text {
@@ -2812,11 +2878,61 @@ a {
   line-height: 1.5;
 }
 
-.sb-landing-tarifs-note {
-  text-align: center;
-  font-size: 12px;
+/* Avis/témoignages (composants/LandingPage.js, id="avis") : aucun vrai
+   client pour l'instant — jamais de faux témoignage inventé. Des cartes
+   volontairement estompées (lignes de texte grisées, pas de vrai
+   contenu) suggèrent l'espace réservé, prêt à être rempli plus tard, avec
+   un message d'attente explicite plutôt qu'un vide silencieux. */
+.sb-landing-avis-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 860px) {
+  .sb-landing-avis-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.sb-landing-avis-card {
+  background: var(--card);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 20px;
+  opacity: 0.6;
+}
+.sb-landing-avis-quote-mark {
+  display: block;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 32px;
+  line-height: 1;
   color: var(--text-faint);
-  margin: 24px 0 0;
+  margin-bottom: 10px;
+}
+.sb-landing-avis-line {
+  height: 8px;
+  width: 100%;
+  border-radius: 4px;
+  background: var(--line);
+  margin-bottom: 8px;
+}
+.sb-landing-avis-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+.sb-landing-avis-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--line);
+  flex-shrink: 0;
+}
+.sb-landing-avis-note {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 22px 0 0;
 }
 
 .sb-landing-footer {
@@ -2902,11 +3018,15 @@ a {
   .sb-reveal,
   .sb-landing-hero-line,
   .sb-landing-doka-word,
-  .sb-landing-devices {
+  .sb-landing-devices,
+  .sb-landing-carousel {
     transition: none;
     animation: none;
     opacity: 1;
     transform: none;
+  }
+  .sb-landing-carousel-slide {
+    transition: none;
   }
 }
 
