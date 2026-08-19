@@ -2824,14 +2824,20 @@ a {
 .sb-landing-histoire-text p {
   margin: 0;
 }
-.sb-landing-histoire-text p + p {
-  margin-top: 14px;
-}
 .sb-landing-histoire-signature {
-  font-style: italic;
-  font-size: 13px;
-  color: var(--muted);
+  margin-top: 16px;
   text-align: right;
+}
+.sb-landing-histoire-signature p:first-child {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+}
+.sb-landing-histoire-signature p:last-child {
+  margin-top: 2px;
+  font-style: italic;
+  font-size: 12.5px;
+  color: var(--muted);
 }
 
 .sb-landing-pourquoi-text {

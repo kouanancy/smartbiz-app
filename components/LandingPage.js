@@ -107,16 +107,19 @@ export default function LandingPage() {
             </div>
             <div className="sb-landing-histoire-text">
               <p>
-                Doka est né d&apos;un vrai besoin, pas d&apos;une idée en l&apos;air. Avant d&apos;être un produit,
-                c&apos;était un problème que je vivais moi-même : gérer mon activité de vente de perruques et mèches,
-                entre le suivi du stock, les commandes clientes et le calcul de ma vraie marge. J&apos;ai d&apos;abord
-                bricolé mes propres outils pour m&apos;en sortir — jusqu&apos;à ce que je réalise que ce besoin
-                n&apos;était pas juste le mien : des dizaines de petits commerçants autour de moi vivaient exactement
-                la même chose, avec les mêmes cahiers, les mêmes tableurs, et les mêmes ERP trop chers pour leur
-                taille. Doka est né de cette conviction simple : un petit commerce mérite un outil aussi sérieux
-                qu&apos;une grande entreprise, sans la complexité ni le prix qui vont avec.
+                Doka est né d&apos;un vrai besoin. Avant d&apos;être un produit, c&apos;était un problème que je
+                vivais moi-même : gérer mon activité de vente de perruques et mèches, entre le suivi du stock, les
+                commandes clientes et le calcul de ma vraie marge. J&apos;ai d&apos;abord bricolé mes propres outils
+                pour m&apos;en sortir — jusqu&apos;à ce que je réalise que ce besoin n&apos;était pas juste le mien,
+                mais que des dizaines de petits commerçants autour de moi vivaient exactement la même chose, avec les
+                mêmes cahiers, les mêmes tableurs, et les mêmes ERP trop chers pour leur taille. Doka est né de cette
+                conviction simple : un petit commerce mérite un outil aussi sérieux qu&apos;une grande entreprise,
+                sans complexité, et accessible à tous.
               </p>
-              <p className="sb-landing-histoire-signature">— Nancy Koné, Fondatrice de Doka</p>
+              <div className="sb-landing-histoire-signature">
+                <p>Nancy Koné</p>
+                <p>Fondatrice de Doka</p>
+              </div>
             </div>
           </div>
         </Reveal>
@@ -128,7 +131,7 @@ export default function LandingPage() {
           <div className="sb-landing-section-head" style={{ marginBottom: 0 }}>
             <h2 className="sb-landing-section-title">Pourquoi Doka pour ton commerce</h2>
             <p className="sb-landing-pourquoi-text">
-              Doka est pensé pour les commerçantes et commerçants qui gèrent tout eux-mêmes — pas d&apos;équipe
+              Doka est pensé pour les commerçantes et commerçants qui gèrent tout eux-mêmes, pas d&apos;équipe
               informatique, pas de temps à perdre en formation. Une prise en main immédiate, un prix accessible dès
               5 000 FCFA par mois, et des données qui restent les tiennes : exactement ce qu&apos;il te faut pour
               professionnaliser ta boutique sans la compliquer.

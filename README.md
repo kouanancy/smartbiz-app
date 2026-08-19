@@ -1515,11 +1515,13 @@ maquettes par de vraies captures d'écran » ci-dessous.
 continu — le contenu reste affiché, juste sans mouvement.
 
 **Notre histoire** : texte fourni tel quel par l'équipe Doka, jamais
-reformulé, signé « — Nancy Koné, Fondatrice de Doka ».
+reformulé, signé sur deux lignes (`.sb-landing-histoire-signature`) —
+« Nancy Koné » puis « Fondatrice de Doka ».
 
 **Pourquoi Doka pour ton commerce** : court paragraphe (pas une liste de
-cartes) expliquant pourquoi Doka correspond à ce type de commerçant —
-simplicité, prix accessible, données qui restent les siennes.
+cartes, texte fourni tel quel, sans tiret) expliquant pourquoi Doka
+correspond à ce type de commerçant — simplicité, prix accessible, données
+qui restent les siennes.
 
 **6 modules** (Dashboard, Nouvelle commande, Stock, Clients, Commandes,
 Trésorerie — Catalogue volontairement laissé de côté pour un site plus
