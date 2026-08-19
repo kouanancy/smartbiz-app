@@ -2765,8 +2765,8 @@ a {
 .sb-landing-carousel {
   position: relative;
   width: 100%;
-  min-height: 300px;
-  aspect-ratio: 4 / 5;
+  min-height: 240px;
+  aspect-ratio: 16 / 9;
   border-radius: 16px;
   overflow: hidden;
   background: var(--card);
