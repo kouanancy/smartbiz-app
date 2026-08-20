@@ -2091,6 +2091,42 @@ fichier explique en fin de script comment supprimer le compte de
 connexion séparément si besoin (Dashboard Supabase, jamais un `DELETE`
 SQL manuel sur cette table gérée par Supabase Auth).
 
+## Suppression d'un commerçant depuis l'Administration
+
+Alternative au script SQL ci-dessus, directement utilisable en production :
+sur la page de détail d'un commerçant (`/admin/commercants/[id]`), un bouton
+« Supprimer définitivement » (masqué sur son propre compte) ouvre une
+confirmation à double niveau — avertissement explicite sur l'irréversibilité
+puis saisie exacte du nom de la boutique pour activer le bouton final — avant
+de déclencher la suppression complète : boutique, toutes ses données liées
+et le compte `auth.users` correspondant.
+
+Implémentation en deux temps :
+
+- `app/(app)/admin/commercants/[id]/page.js` : bouton + modal de
+  confirmation (état local, pas de nouvelle policy RLS requise), appelle la
+  route ci-dessous avec le jeton de session courant puis redirige vers
+  `/admin` une fois la suppression confirmée par le serveur.
+- `app/api/admin/supprimer-commercant/route.js` : route serveur (et non une
+  fonction RPC comme `admin_mark_subscription_paid`/`admin_reject_payment`/
+  `admin_set_is_admin`) car la suppression du compte de connexion exige
+  l'API Admin de Supabase Auth (`supabase.auth.admin.deleteUser`), inaccessible
+  depuis une fonction SQL, et qu'un `DELETE` SQL manuel sur `auth.users` est
+  déconseillé par Supabase. Vérifie l'identité de l'appelant puis son statut
+  admin via la même fonction `is_admin_user()` que le reste de
+  l'application (aucune logique de sécurité dupliquée), refuse
+  l'auto-suppression, puis utilise la clé `service_role` (jamais exposée au
+  client, même pattern que `app/api/push-admin-paiement` et
+  `app/api/cron/expiration-reminders`) pour supprimer le compte
+  `auth.users` du commerçant ciblé. Toutes les tables métier référençant
+  déjà `businesses(id) on delete cascade`, et `businesses.owner_id`
+  référençant `auth.users(id) on delete cascade`, cette unique suppression
+  entraîne en cascade, dans une seule transaction Postgres, l'effacement de
+  la boutique et de toutes ses données liées — sans réimplémenter en JS la
+  suppression table par table du script SQL. Si le compte `auth.users`
+  n'existe déjà plus (boutique orpheline), la route supprime directement la
+  ligne `businesses` en repli.
+
 ## Limitations connues / suite
 
 - **Sécurité RLS à durcir avant la mise en prod payante** : la policy
