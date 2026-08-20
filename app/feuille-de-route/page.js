@@ -31,21 +31,24 @@ export const metadata = {
 
 // Contenu de la feuille de route publique — trois phases à venir, chacune
 // avec sa couleur pour bien les distinguer visuellement (schéma du haut +
-// bordure des capsules ci-dessous). Jamais de nouvelle palette : les trois
-// couleurs sémantiques déjà posées sur .sb-landing (--emerald/--amber/
-// --coral, app/globals.css) et déjà visibles ailleurs sur le site vitrine
-// (badges de formule, statuts) — référencées ici via var(...) plutôt que
-// recopiées en dur, pour rester automatiquement synchronisées si ces
-// couleurs venaient à changer. Aucune fonctionnalité listée n'est encore
-// construite : "disponible" reste à false partout — passer une entrée à
-// true (une fois livrée dans l'app) suffira à faire passer sa coche du
-// gris au vert, sans autre changement.
+// bordure des capsules ci-dessous). Jamais de nouvelle palette : couleurs
+// déjà posées sur .sb-landing (app/globals.css) et déjà visibles ailleurs
+// sur le site vitrine (badges de formule, statuts, textes secondaires) —
+// référencées ici via var(...) plutôt que recopiées en dur, pour rester
+// automatiquement synchronisées si ces couleurs venaient à changer.
+// Aucune fonctionnalité listée n'est encore construite : "disponible"
+// reste à false partout — passer une entrée à true (une fois livrée dans
+// l'app) suffira à faire passer sa coche du gris au vert, sans autre
+// changement.
 const ROADMAP_PHASES = [
   {
     numero: 2,
     nom: "Mieux piloter",
-    couleur: "var(--emerald)",
-    couleurBg: "var(--emerald-bg)",
+    // Gris clair (--muted) plutôt qu'une couleur vive : demande explicite
+    // à la place du vert initial, qui se confondait visuellement avec le
+    // vert "disponible" des coches de fonctionnalités.
+    couleur: "var(--muted)",
+    couleurBg: "rgba(196, 192, 186, 0.16)",
     icone: Gauge,
     fonctionnalites: [
       {

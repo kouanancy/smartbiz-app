@@ -3093,10 +3093,10 @@ a {
 
 /* Capsules détaillées par phase — bloc icône/nom à gauche (couleur de
    phase, --phase-color/--phase-bg posées en inline style depuis
-   app/feuille-de-route/page.js, reprises des couleurs sémantiques déjà
-   posées sur .sb-landing — --emerald/--amber/--coral), liste des
-   fonctionnalités à droite. Le bloc de gauche occupe toute la hauteur de
-   la capsule (grid stretch par défaut) plutôt que de rester collé en
+   app/feuille-de-route/page.js, reprises des couleurs déjà posées sur
+   .sb-landing — --muted, --amber, --coral), liste des fonctionnalités à
+   droite. Le bloc de gauche occupe toute la hauteur de la capsule (grid
+   stretch par défaut) plutôt que de rester collé en
    haut avec du vide en dessous : contenu centré verticalement, avec un
    grand chiffre de phase en filigrane derrière l'icône pour occuper
    l'espace plutôt que de le laisser vide sur les phases à peu de
