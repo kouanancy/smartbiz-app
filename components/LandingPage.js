@@ -71,7 +71,7 @@ export default function LandingPage() {
               Découvrez <span className="sb-landing-doka-word">Doka</span>
             </h1>
             <p className="sb-landing-hero-tagline sb-landing-hero-line sb-landing-hero-line-2">
-              Votre ERP pensé pour les entrepreneurs d&apos;aujourd&apos;hui.
+              Votre mini ERP pensée pour les entrepreneurs d&apos;aujourd&apos;hui.
             </p>
             <div className="sb-landing-hero-ctas sb-landing-hero-line sb-landing-hero-line-cta">
               <Link href="/login#signup" className="sb-btn sb-btn-primary sb-landing-cta-btn">
