@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { Mail } from "lucide-react";
+import { ArrowRight, Rocket } from "lucide-react";
 import { fmt as fmtBase } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 import PlanGrid from "@/components/PlanGrid";
 import FloatingBlobs from "@/components/FloatingBlobs";
-import PlatformLogo from "@/components/PlatformLogo";
 import ModuleMockup from "@/components/ModuleMockup";
 import DeviceComposition from "@/components/DeviceComposition";
 import HeroCarousel from "@/components/HeroCarousel";
-import FooterSupport from "@/components/FooterSupport";
+import LandingNav from "@/components/LandingNav";
+import LandingFooter from "@/components/LandingFooter";
 import Reveal from "@/components/Reveal";
 import Counter from "@/components/Counter";
 
@@ -61,24 +61,7 @@ const HERO_CAROUSEL_IMAGES = [
 export default function LandingPage() {
   return (
     <div className="sb-landing">
-      <header className="sb-landing-nav">
-        <div className="sb-landing-nav-inner">
-          <div className="sb-landing-nav-brand">
-            <PlatformLogo />
-          </div>
-          <div className="sb-landing-nav-actions">
-            <Link href="/" className="sb-landing-nav-link">
-              Accueil
-            </Link>
-            <Link href="/login" className="sb-btn sb-btn-ghost">
-              Se connecter
-            </Link>
-            <Link href="/login#signup" className="sb-btn sb-btn-primary">
-              S&apos;inscrire
-            </Link>
-          </div>
-        </div>
-      </header>
+      <LandingNav />
 
       <section className="sb-landing-hero">
         <FloatingBlobs />
@@ -214,6 +197,22 @@ export default function LandingPage() {
         </Reveal>
       </section>
 
+      <section className="sb-landing-section sb-landing-blobby-section" id="feuille-de-route">
+        <FloatingBlobs count={2} subtle />
+        <Reveal className="sb-landing-blobby-content">
+          <Link href="/feuille-de-route" className="sb-roadmap-teaser">
+            <div className="sb-roadmap-teaser-icon">
+              <Rocket size={26} />
+            </div>
+            <div className="sb-roadmap-teaser-text">
+              <div className="sb-roadmap-teaser-title">Doka grandit avec vous</div>
+              <p className="sb-roadmap-teaser-sub">Découvrez notre feuille de route</p>
+            </div>
+            <ArrowRight className="sb-roadmap-teaser-arrow" size={20} aria-hidden="true" />
+          </Link>
+        </Reveal>
+      </section>
+
       <section className="sb-landing-section sb-landing-blobby-section" id="tarifs">
         <FloatingBlobs count={2} subtle />
         <Reveal className="sb-landing-blobby-content">
@@ -235,23 +234,7 @@ export default function LandingPage() {
         </Reveal>
       </section>
 
-      <footer className="sb-landing-footer">
-        <div className="sb-landing-footer-inner">
-          <div className="sb-landing-footer-row">
-            <div className="sb-landing-footer-brand">Doka — Mini ERP pour petits commerçants.</div>
-            <div className="sb-landing-footer-links">
-              <Link href="/cgu">CGU</Link>
-              <Link href="/confidentialite">Confidentialité</Link>
-              <Link href="/mentions-legales">Mentions légales</Link>
-              <a href="mailto:contact@doka.ci">
-                <Mail size={12} style={{ verticalAlign: "-2px", marginRight: 4 }} />
-                contact@doka.ci
-              </a>
-            </div>
-          </div>
-          <FooterSupport />
-        </div>
-      </footer>
+      <LandingFooter />
     </div>
   );
 }

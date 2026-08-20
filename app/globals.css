@@ -2955,6 +2955,254 @@ a {
   margin: 22px 0 0;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Teaser « Doka grandit avec vous » (components/LandingPage.js) et     */
+/*  page dédiée /feuille-de-route (app/feuille-de-route/page.js) —       */
+/*  léger flottement continu partagé par l'icône du teaser et par        */
+/*  l'icône de chaque capsule de phase, pour une section qui reste        */
+/*  visiblement vivante même hors survol.                                */
+/* ------------------------------------------------------------------ */
+@keyframes sb-roadmap-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.sb-roadmap-teaser {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 26px 28px;
+  background: linear-gradient(135deg, var(--card), var(--card-soft));
+  border: 1.5px solid var(--line);
+  border-radius: 18px;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.sb-roadmap-teaser:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  border-color: var(--accent-soft);
+}
+.sb-roadmap-teaser-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+  animation: sb-roadmap-float 3s ease-in-out infinite;
+}
+.sb-roadmap-teaser-text {
+  flex: 1;
+  min-width: 0;
+}
+.sb-roadmap-teaser-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 19px;
+  margin-bottom: 3px;
+}
+.sb-roadmap-teaser-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+}
+.sb-roadmap-teaser-arrow {
+  color: var(--accent);
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+.sb-roadmap-teaser:hover .sb-roadmap-teaser-arrow {
+  transform: translateX(4px);
+}
+
+/* Schéma des 3 phases reliées par des flèches, en haut de la page dédiée
+   — passe en colonne (flèches tournées à 90°) sous 700px, faute de place
+   pour 3 nœuds + 2 flèches sur une seule ligne. */
+.sb-roadmap-hero-inner {
+  max-width: 640px;
+  margin: 0 auto;
+}
+.sb-roadmap-schema {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  max-width: 920px;
+  margin: 36px auto 0;
+}
+.sb-roadmap-schema-node {
+  --phase-color: var(--accent);
+  background: var(--card);
+  border: 1.5px solid var(--phase-color);
+  border-radius: 14px;
+  padding: 14px 22px;
+  text-align: center;
+  min-width: 190px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+}
+.sb-roadmap-schema-badge {
+  display: block;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--phase-color);
+  margin-bottom: 4px;
+}
+.sb-roadmap-schema-nom {
+  display: block;
+  font-weight: 600;
+  font-size: 14.5px;
+}
+.sb-roadmap-schema-arrow {
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+@media (max-width: 700px) {
+  .sb-roadmap-schema {
+    flex-direction: column;
+  }
+  .sb-roadmap-schema-arrow {
+    transform: rotate(90deg);
+  }
+}
+
+/* Capsules détaillées par phase — bloc icône/nom à gauche (couleur de
+   phase, --phase-color/--phase-bg posées en inline style depuis
+   app/feuille-de-route/page.js, reprises de lib/constants.THEMES),
+   liste des fonctionnalités à droite. */
+.sb-roadmap-phases {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.sb-roadmap-phase {
+  --phase-color: var(--accent);
+  --phase-bg: var(--accent-soft);
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 28px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--phase-color);
+  border-radius: 16px;
+  padding: 28px;
+}
+@media (max-width: 780px) {
+  .sb-roadmap-phase {
+    grid-template-columns: 1fr;
+  }
+}
+.sb-roadmap-phase-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+@media (max-width: 780px) {
+  .sb-roadmap-phase-head {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+.sb-roadmap-phase-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--phase-bg);
+  color: var(--phase-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  animation: sb-roadmap-float 3.2s ease-in-out infinite;
+}
+.sb-roadmap-phase-badge {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--phase-color);
+  margin-bottom: 2px;
+}
+.sb-roadmap-phase-nom {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 19px;
+  margin: 0;
+}
+.sb-roadmap-feature-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sb-roadmap-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--card-soft);
+  border: 1px solid var(--line);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.sb-roadmap-feature:hover {
+  border-color: var(--phase-color);
+  transform: translateX(3px);
+}
+.sb-roadmap-feature-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--phase-bg);
+  color: var(--phase-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.sb-roadmap-feature-text {
+  flex: 1;
+  min-width: 0;
+}
+.sb-roadmap-feature-nom {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+.sb-roadmap-feature-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+.sb-roadmap-feature-statut {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--text-faint);
+  opacity: 0.5;
+}
+.sb-roadmap-feature-statut-ok {
+  color: var(--emerald);
+  opacity: 1;
+}
+
 .sb-landing-footer {
   padding: 24px;
 }
