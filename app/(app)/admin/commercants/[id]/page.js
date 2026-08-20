@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, ShieldCheck, ShieldOff, X, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ShieldCheck, ShieldOff, Trash2, X, XCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
@@ -17,7 +17,7 @@ const STATUT_BADGE_CLASS = {
 };
 
 export default function CommercantDetailPage() {
-  const { business: moi, refreshBusiness } = useAuth();
+  const { business: moi, session, refreshBusiness } = useAuth();
   const router = useRouter();
   const params = useParams();
   const fmt = (n) => fmtBase(n, moi?.devise);
@@ -29,6 +29,10 @@ export default function CommercantDetailPage() {
   const [rejetOpen, setRejetOpen] = useState(false);
   const [raisonRejet, setRaisonRejet] = useState("");
   const [zoomOpen, setZoomOpen] = useState(false);
+  const [supprimerOpen, setSupprimerOpen] = useState(false);
+  const [confirmationNom, setConfirmationNom] = useState("");
+  const [suppressionEnCours, setSuppressionEnCours] = useState(false);
+  const [erreurSuppression, setErreurSuppression] = useState("");
 
   useEffect(() => {
     if (!moi?.is_admin || !params.id) return;
@@ -89,6 +93,34 @@ export default function CommercantDetailPage() {
     setRejetOpen(false);
     setRaisonRejet("");
     setMsg(t("admin.rejectSuccess"));
+  }
+
+  // Suppression complète et définitive (boutique + toutes ses données
+  // liées + compte de connexion) — voir app/api/admin/supprimer-commercant
+  // pour le détail : passe par une route serveur (clé service_role) plutôt
+  // que par une fonction RPC, seule capable d'appeler l'API Admin de
+  // Supabase Auth pour supprimer le compte auth.users correspondant.
+  async function supprimerCommercant() {
+    setSuppressionEnCours(true);
+    setErreurSuppression("");
+    try {
+      const res = await fetch("/api/admin/supprimer-commercant", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ businessId: commercant.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || `${res.status}`);
+      }
+      router.push("/admin");
+    } catch (err) {
+      setErreurSuppression(t("admin.supprimerError", { message: err.message }));
+      setSuppressionEnCours(false);
+    }
   }
 
   async function toggleAdmin() {
@@ -229,6 +261,19 @@ export default function CommercantDetailPage() {
             {commercant.is_admin ? <ShieldOff size={15} /> : <ShieldCheck size={15} />}{" "}
             {commercant.is_admin ? t("admin.retirerAdmin") : t("admin.donnerAdmin")}
           </button>
+          {!estMoi && (
+            <button
+              className="sb-btn"
+              style={{ background: "var(--coral)", color: "#fff" }}
+              onClick={() => {
+                setConfirmationNom("");
+                setErreurSuppression("");
+                setSupprimerOpen(true);
+              }}
+            >
+              <Trash2 size={15} /> {t("admin.supprimerDefinitivement")}
+            </button>
+          )}
         </div>
       </div>
 
@@ -277,6 +322,57 @@ export default function CommercantDetailPage() {
                 disabled={!raisonRejet.trim()}
               >
                 {t("admin.confirmerRejet")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {supprimerOpen && (
+        <div className="sb-modal-overlay" onClick={() => !suppressionEnCours && setSupprimerOpen(false)}>
+          <div className="sb-card" style={{ width: 380, background: "var(--card)" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+              <div className="sb-section-title" style={{ margin: 0, color: "var(--coral)" }}>
+                {t("admin.supprimerModalTitle")}
+              </div>
+              {!suppressionEnCours && (
+                <button onClick={() => setSupprimerOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+            <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("admin.supprimerModalWarning")}</p>
+            <div className="sb-field">
+              <label>{t("admin.supprimerModalConfirmLabel", { nom: commercant.name || t("common.defaultBusinessName") })}</label>
+              <input
+                className="sb-input"
+                type="text"
+                placeholder={t("admin.supprimerModalConfirmPlaceholder")}
+                value={confirmationNom}
+                onChange={(e) => setConfirmationNom(e.target.value)}
+                disabled={suppressionEnCours}
+                autoComplete="off"
+              />
+            </div>
+            {erreurSuppression && (
+              <p style={{ fontSize: 12.5, color: "var(--coral)", margin: "8px 0 0" }}>{erreurSuppression}</p>
+            )}
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button
+                className="sb-btn sb-btn-ghost"
+                style={{ flex: 1, justifyContent: "center" }}
+                onClick={() => setSupprimerOpen(false)}
+                disabled={suppressionEnCours}
+              >
+                {t("admin.annuler")}
+              </button>
+              <button
+                className="sb-btn"
+                style={{ flex: 1, justifyContent: "center", background: "var(--coral)", color: "#fff" }}
+                onClick={supprimerCommercant}
+                disabled={suppressionEnCours || confirmationNom.trim() !== (commercant.name || t("common.defaultBusinessName"))}
+              >
+                {suppressionEnCours ? t("admin.supprimerEnCours") : t("admin.supprimerDefinitivement")}
               </button>
             </div>
           </div>
