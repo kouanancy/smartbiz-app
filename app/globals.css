@@ -2958,9 +2958,11 @@ a {
 /* ------------------------------------------------------------------ */
 /*  Teaser « Doka grandit avec vous » (components/LandingPage.js) et     */
 /*  page dédiée /feuille-de-route (app/feuille-de-route/page.js) —       */
-/*  léger flottement continu partagé par l'icône du teaser et par        */
-/*  l'icône de chaque capsule de phase, pour une section qui reste        */
-/*  visiblement vivante même hors survol.                                */
+/*  flottement + halo pulsé continus, partagés par l'icône du teaser et  */
+/*  par l'icône de chaque capsule de phase. --icon-glow (posée par       */
+/*  chaque icône concernée, jamais recopiée en dur dans le keyframe)     */
+/*  prend la couleur d'accent du teaser ou la couleur de la phase, pour  */
+/*  une section qui reste visiblement vivante même hors survol.          */
 /* ------------------------------------------------------------------ */
 @keyframes sb-roadmap-float {
   0%,
@@ -2969,6 +2971,15 @@ a {
   }
   50% {
     transform: translateY(-6px);
+  }
+}
+@keyframes sb-roadmap-icon-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+  50% {
+    box-shadow: 0 0 22px var(--icon-glow, var(--accent));
   }
 }
 .sb-roadmap-teaser {
@@ -2990,6 +3001,7 @@ a {
   border-color: var(--accent-soft);
 }
 .sb-roadmap-teaser-icon {
+  --icon-glow: var(--accent);
   width: 52px;
   height: 52px;
   border-radius: 14px;
@@ -2999,7 +3011,7 @@ a {
   justify-content: center;
   color: #fff;
   background: linear-gradient(135deg, var(--accent), var(--accent-deep));
-  animation: sb-roadmap-float 3s ease-in-out infinite;
+  animation: sb-roadmap-float 3s ease-in-out infinite, sb-roadmap-icon-glow 3s ease-in-out infinite;
 }
 .sb-roadmap-teaser-text {
   flex: 1;
@@ -3081,8 +3093,14 @@ a {
 
 /* Capsules détaillées par phase — bloc icône/nom à gauche (couleur de
    phase, --phase-color/--phase-bg posées en inline style depuis
-   app/feuille-de-route/page.js, reprises de lib/constants.THEMES),
-   liste des fonctionnalités à droite. */
+   app/feuille-de-route/page.js, reprises des couleurs sémantiques déjà
+   posées sur .sb-landing — --emerald/--amber/--coral), liste des
+   fonctionnalités à droite. Le bloc de gauche occupe toute la hauteur de
+   la capsule (grid stretch par défaut) plutôt que de rester collé en
+   haut avec du vide en dessous : contenu centré verticalement, avec un
+   grand chiffre de phase en filigrane derrière l'icône pour occuper
+   l'espace plutôt que de le laisser vide sur les phases à peu de
+   fonctionnalités. */
 .sb-roadmap-phases {
   max-width: 900px;
   margin: 0 auto;
@@ -3094,13 +3112,14 @@ a {
   --phase-color: var(--accent);
   --phase-bg: var(--accent-soft);
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 260px 1fr;
   gap: 28px;
   background: var(--card);
   border: 1px solid var(--line);
   border-left: 4px solid var(--phase-color);
   border-radius: 16px;
   padding: 28px;
+  overflow: hidden;
 }
 @media (max-width: 780px) {
   .sb-roadmap-phase {
@@ -3108,10 +3127,12 @@ a {
   }
 }
 .sb-roadmap-phase-head {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 12px;
+  justify-content: center;
+  gap: 16px;
 }
 @media (max-width: 780px) {
   .sb-roadmap-phase-head {
@@ -3119,31 +3140,55 @@ a {
     align-items: center;
   }
 }
+.sb-roadmap-phase-num-bg {
+  position: absolute;
+  top: -34px;
+  right: -8px;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 140px;
+  line-height: 1;
+  color: var(--phase-color);
+  opacity: 0.1;
+  pointer-events: none;
+  user-select: none;
+}
+@media (max-width: 780px) {
+  .sb-roadmap-phase-num-bg {
+    display: none;
+  }
+}
 .sb-roadmap-phase-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  --icon-glow: var(--phase-color);
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
   background: var(--phase-bg);
   color: var(--phase-color);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  animation: sb-roadmap-float 3.2s ease-in-out infinite;
+  animation: sb-roadmap-float 3.2s ease-in-out infinite, sb-roadmap-icon-glow 3.2s ease-in-out infinite;
+}
+.sb-roadmap-phase-titre {
+  position: relative;
 }
 .sb-roadmap-phase-badge {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--phase-color);
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 .sb-roadmap-phase-nom {
   font-family: "Space Grotesk", sans-serif;
   font-weight: 700;
-  font-size: 19px;
+  font-size: 23px;
+  line-height: 1.2;
   margin: 0;
 }
 .sb-roadmap-feature-list {

@@ -19,7 +19,6 @@ import {
   TrendingUp,
   UserCog,
 } from "lucide-react";
-import { THEMES } from "@/lib/constants";
 import FloatingBlobs from "@/components/FloatingBlobs";
 import LandingNav from "@/components/LandingNav";
 import LandingFooter from "@/components/LandingFooter";
@@ -31,10 +30,13 @@ export const metadata = {
 };
 
 // Contenu de la feuille de route publique — trois phases à venir, chacune
-// avec sa couleur (reprise de lib/constants.THEMES, déjà utilisée comme
-// palette de couleurs de marque dans l'app, plutôt qu'une nouvelle
-// palette) pour bien les distinguer visuellement (schéma du haut + bordure
-// des capsules ci-dessous). Aucune fonctionnalité listée n'est encore
+// avec sa couleur pour bien les distinguer visuellement (schéma du haut +
+// bordure des capsules ci-dessous). Jamais de nouvelle palette : les trois
+// couleurs sémantiques déjà posées sur .sb-landing (--emerald/--amber/
+// --coral, app/globals.css) et déjà visibles ailleurs sur le site vitrine
+// (badges de formule, statuts) — référencées ici via var(...) plutôt que
+// recopiées en dur, pour rester automatiquement synchronisées si ces
+// couleurs venaient à changer. Aucune fonctionnalité listée n'est encore
 // construite : "disponible" reste à false partout — passer une entrée à
 // true (une fois livrée dans l'app) suffira à faire passer sa coche du
 // gris au vert, sans autre changement.
@@ -42,8 +44,8 @@ const ROADMAP_PHASES = [
   {
     numero: 2,
     nom: "Mieux piloter",
-    couleur: THEMES.bleu.accent,
-    couleurBg: "rgba(47, 111, 237, 0.16)",
+    couleur: "var(--emerald)",
+    couleurBg: "var(--emerald-bg)",
     icone: Gauge,
     fonctionnalites: [
       {
@@ -81,8 +83,8 @@ const ROADMAP_PHASES = [
   {
     numero: 3,
     nom: "Grandir en équipe",
-    couleur: THEMES.violet.accent,
-    couleurBg: "rgba(124, 77, 220, 0.16)",
+    couleur: "var(--amber)",
+    couleurBg: "var(--amber-bg)",
     icone: Handshake,
     fonctionnalites: [
       {
@@ -114,8 +116,8 @@ const ROADMAP_PHASES = [
   {
     numero: 4,
     nom: "Se structurer",
-    couleur: THEMES.rose.accent,
-    couleurBg: "rgba(214, 72, 125, 0.16)",
+    couleur: "var(--coral)",
+    couleurBg: "var(--coral-bg)",
     icone: Building2,
     fonctionnalites: [
       {
@@ -184,10 +186,13 @@ export default function FeuilleDeRoutePage() {
               <Reveal key={phase.numero}>
                 <div className="sb-roadmap-phase" style={{ "--phase-color": phase.couleur, "--phase-bg": phase.couleurBg }}>
                   <div className="sb-roadmap-phase-head">
+                    <span className="sb-roadmap-phase-num-bg" aria-hidden="true">
+                      {phase.numero}
+                    </span>
                     <div className="sb-roadmap-phase-icon">
-                      <IconePhase size={28} />
+                      <IconePhase size={34} />
                     </div>
-                    <div>
+                    <div className="sb-roadmap-phase-titre">
                       <span className="sb-roadmap-phase-badge">Phase {phase.numero}</span>
                       <h3 className="sb-roadmap-phase-nom">{phase.nom}</h3>
                     </div>
