@@ -1586,6 +1586,45 @@ une boutique déjà existante. Le détail de la formule Clé en main (frais
 d'installation) reste uniquement dans sa propre carte — pas de note
 répétée en dessous des trois cartes.
 
+**« Doka grandit avec vous » (teaser feuille de route)** : section
+compacte entre les avis et les tarifs, entièrement cliquable
+(`<Link href="/feuille-de-route">` enveloppant toute la carte, pas
+seulement un bouton interne) — icône fusée sur fond dégradé orange
+(`linear-gradient(135deg, var(--accent), var(--accent-deep))`, même
+dégradé que `.sb-btn-primary`) avec un léger flottement continu
+(`@keyframes sb-roadmap-float`), élévation + bordure accentuée au survol
+(même technique que `.sb-landing-card:hover`), flèche qui glisse vers la
+droite au survol. Mène vers `app/feuille-de-route/page.js`.
+
+**Page dédiée `/feuille-de-route`** : réutilise l'ossature du site
+vitrine (`components/LandingNav.js`/`components/LandingFooter.js` —
+extraits de `LandingPage.js` pour être partagés sans dupliquer ce
+balisage, voir la carte des fichiers plus bas) et le même fond sombre
+`.sb-landing`. En haut, un schéma des 3 phases à venir reliées par des
+flèches (`ArrowRight`, tournées à 90° en colonne sous 700px) ; en
+dessous, une capsule détaillée par phase — bloc icône (flottement
+continu, comme le teaser) + numéro + nom à gauche, liste de
+fonctionnalités à droite, chacune avec une icône, un nom, une
+description et une puce de statut (`CheckCircle2`, grisée tant que
+`disponible: false`, verte dès que passée à `true` dans
+`ROADMAP_PHASES`). Couleur distincte par phase — reprise de
+`lib/constants.THEMES` (bleu/violet/rose) plutôt qu'une nouvelle
+palette, posée en variables CSS inline (`--phase-color`/`--phase-bg`)
+sur chaque capsule et sur chaque nœud du schéma. Chaque capsule apparaît
+au défilement via `components/Reveal.js`, comme le reste du site
+vitrine. Contenu des 3 phases (aucune fonctionnalité encore construite
+à ce jour) :
+
+- **Phase 2 — Mieux piloter** : historique client enrichi, statistiques
+  des produits les plus vendus, comparaison du chiffre d'affaires au
+  mois dernier, rapport hebdomadaire enrichi (WhatsApp/notification),
+  export comptable consolidé.
+- **Phase 3 — Grandir en équipe** : paiement partiel par acompte,
+  plusieurs utilisateurs à droits limités, suivi des fournisseurs et des
+  achats, diversification des moyens de paiement.
+- **Phase 4 — Se structurer** : programme de parrainage, facturation,
+  gestion multi-boutique, fidélisation des clientes.
+
 **Pied de page complet** : liens `/cgu`, `/confidentialite`,
 `/mentions-legales`, `contact@doka.ci` (même adresse que
 `app/(app)/aide/page.js`), et `components/FooterSupport.js` — mention du
@@ -2031,6 +2070,7 @@ app/
   layout.js               root layout (police, AuthProvider)
   page.js                 site vitrine public (components/LandingPage.js) si non connecté, sinon redirection vers /dashboard
   login/page.js            inscription / connexion
+  feuille-de-route/page.js roadmap publique par phases (voir « Site vitrine public »)
   cgu/, confidentialite/, mentions-legales/   pages légales publiques
   (app)/layout.js          shell protégé : auth + gate d'abonnement + sidebar
   (app)/dashboard/         tableau de bord
@@ -2054,6 +2094,7 @@ components/
   PaiementAbonnement.js   flux de paiement Wave (montant, QR/tél., upload, historique)
   FloatingBlobs.js, PlatformLogo.js   fond animé + logo partagés par les écrans d'entrée (voir « Fond animé des écrans d'entrée »)
   LandingPage.js           site vitrine public (voir « Site vitrine public » ci-dessous)
+  LandingNav.js, LandingFooter.js   en-tête/pied de page du site vitrine, partagés par LandingPage.js et app/feuille-de-route/page.js
   ModuleMockup.js, Reveal.js, Counter.js   maquettes de module, révélation au défilement, compteurs animés (site vitrine)
   DeviceComposition.js, FooterSupport.js   composition ordinateur/téléphone du héros, support WhatsApp/e-mail du pied de page (site vitrine)
 lib/
