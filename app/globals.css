@@ -386,6 +386,16 @@ a {
 .sb-plan-card-badge {
   align-self: flex-start;
 }
+/* Formule temporairement retirée de la vente (lib/constants.js,
+   PLANS_INDISPONIBLES) — reste visible, mais visuellement en retrait et
+   non sélectionnable (voir components/PlanGrid.js). */
+.sb-plan-card-indisponible {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.sb-plan-card-indisponible .sb-plan-card-btn {
+  cursor: not-allowed;
+}
 .sb-plan-card-head {
   display: flex;
   align-items: center;

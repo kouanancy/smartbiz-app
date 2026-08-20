@@ -421,6 +421,23 @@ désactivé (rien à faire — cas « changer de formule » ci-dessous) ou reste
 cliquable (premier paiement/réabonnement, qui doivent aboutir à un
 paiement même si c'est la même formule qu'avant).
 
+**Formule temporairement indisponible** (`lib/constants.js`,
+`PLANS_INDISPONIBLES` — actuellement `["premium"]`) : la formule reste
+visible partout (site vitrine, inscription, réabonnement, changement de
+formule) mais grisée (`opacity: 0.6`), non cliquable, avec un badge
+`sb-badge-amber` « Bientôt disponible »
+(`parametres.formuleIndisponible`) à la place du bouton habituel.
+Exception volontaire : une boutique dont c'est déjà la formule active
+(`planActuel`) la voit normalement sélectionnable, pour ne jamais bloquer
+le paiement/renouvellement d'une cliente déjà en Premium géré — seule une
+**nouvelle** sélection est bloquée. `components/PlanGrid.js` gère ce cas
+automatiquement (donc aussi le site vitrine, réabonnement, premier
+paiement et changement de formule, tous basés dessus) ;
+`app/login/page.js` (inscription, rendu de carte spécifique, pas
+`PlanGrid`) applique la même logique séparément, sans l'exception
+« formule déjà active » puisqu'une inscription n'a jamais de formule
+existante.
+
 **Dans Paramètres** : plus de grille complète affichée directement — une
 carte « Formule » résume juste la formule actuelle (nom) et propose un
 bouton « Changer ma formule » vers une page dédiée
@@ -2048,6 +2065,31 @@ lib/
 public/
   sw.js                    service worker minimal (notifications push uniquement, pas de cache offline)
 ```
+
+## Suppression complète d'un compte de test
+
+`supprimer-compte-test.sql` (racine du dépôt) — supprime intégralement une
+boutique de test et toutes ses données liées (commande_lignes, commandes,
+reappros, articles, clients, categories, zones_livraison,
+paiements_abonnement, notifications, push_subscriptions, puis la ligne
+businesses elle-même), dans l'ordre requis par les contraintes de clé
+étrangère. Différent des fichiers `supabase-*-migration.sql` : ce n'est
+**pas une migration de schéma rejouable**, mais un utilitaire destructif à
+paramétrer (UUID de la boutique) et exécuter manuellement dans l'éditeur
+SQL Supabase — voir les instructions et avertissements en tête du
+fichier.
+
+Comme toutes les tables listées référencent déjà `businesses(id) on
+delete cascade`, supprimer directement la ligne `businesses` suffirait
+techniquement à tout effacer en cascade — ce script fait néanmoins la
+suppression explicitement, table par table, pour rester auditable
+(affiche le nombre de lignes supprimées à chaque étape) plutôt que de
+dépendre silencieusement du comportement de cascade.
+
+Ne supprime jamais `auth.users` (aucune contrainte dans ce sens) : le
+fichier explique en fin de script comment supprimer le compte de
+connexion séparément si besoin (Dashboard Supabase, jamais un `DELETE`
+SQL manuel sur cette table gérée par Supabase Auth).
 
 ## Limitations connues / suite
 
