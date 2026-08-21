@@ -1609,15 +1609,19 @@ gauche, liste de fonctionnalités à droite, chacune avec une icône, un
 nom, une description et une puce de statut (`CheckCircle2`, grisée tant
 que `disponible: false`, verte dès que passée à `true` dans
 `ROADMAP_PHASES`). Couleur distincte par phase — reprise des couleurs
-déjà posées sur `.sb-landing` (`--emerald`/`--muted`/`--amber`/`--coral`,
+déjà posées sur `.sb-landing` (`--accent`/`--muted`/`--amber`/`--coral`,
 `app/globals.css`) plutôt qu'une nouvelle palette, posée en variables
 CSS inline (`--phase-color`/`--phase-bg`) sur chaque capsule et sur
-chaque nœud du schéma. Chaque capsule apparaît au défilement via
-`components/Reveal.js`, comme le reste du site vitrine. Contenu des 4
-phases :
+chaque nœud du schéma — `--emerald` volontairement écarté pour la
+Phase 1 (deux retours successifs sur cette couleur, qui se confondait
+avec le vert des coches « disponible ») au profit de `--accent`,
+l'orange de marque, seule teinte de l'identité Doka encore libre.
+Chaque capsule apparaît au défilement via `components/Reveal.js`,
+comme le reste du site vitrine. Contenu des 4 phases :
 
-- **Phase 1 — Déjà là** (`disponible: true` sur toute la phase, seule à
-  afficher des coches vertes) : suivi de stock en temps réel (réel vs
+- **Phase 1 — Vos fondamentaux** (`disponible: true` sur toute la
+  phase, seule à afficher des coches vertes) : suivi de stock en temps
+  réel (réel vs
   théorique), marge réelle automatique (frais annexes inclus), commandes
   avec livraison et paiement intégrés (zones, Mobile Money, confirmation
   WhatsApp), catalogue partageable, trésorerie avec export,
