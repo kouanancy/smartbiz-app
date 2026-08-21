@@ -756,7 +756,7 @@ de prototype, ReDoS) concernent uniquement l'analyse de fichiers importés
 ## Pagination
 
 Stock (`/articles`), Clients (`/clients`) et Commandes (`/commandes`)
-chargent leurs listes 25 lignes à la fois (`PAGE_SIZE`,
+chargent leurs listes 10 lignes à la fois (`PAGE_SIZE`,
 `lib/constants.js`) plutôt que la totalité d'un coup, via `.range()` côté
 Supabase — filtre, recherche et tri sont eux aussi appliqués côté serveur
 (`.eq()`/`.ilike()`/`.is()`/`.order()`), pas recalculés côté client sur un
@@ -1600,30 +1600,43 @@ droite au survol. Mène vers `app/feuille-de-route/page.js`.
 vitrine (`components/LandingNav.js`/`components/LandingFooter.js` —
 extraits de `LandingPage.js` pour être partagés sans dupliquer ce
 balisage, voir la carte des fichiers plus bas) et le même fond sombre
-`.sb-landing`. En haut, un schéma des 3 phases à venir reliées par des
-flèches (`ArrowRight`, tournées à 90° en colonne sous 700px) ; en
-dessous, une capsule détaillée par phase — bloc icône (flottement
-continu, comme le teaser) + numéro + nom à gauche, liste de
-fonctionnalités à droite, chacune avec une icône, un nom, une
-description et une puce de statut (`CheckCircle2`, grisée tant que
-`disponible: false`, verte dès que passée à `true` dans
-`ROADMAP_PHASES`). Couleur distincte par phase — reprise de
-`lib/constants.THEMES` (bleu/violet/rose) plutôt qu'une nouvelle
-palette, posée en variables CSS inline (`--phase-color`/`--phase-bg`)
-sur chaque capsule et sur chaque nœud du schéma. Chaque capsule apparaît
-au défilement via `components/Reveal.js`, comme le reste du site
-vitrine. Contenu des 3 phases (aucune fonctionnalité encore construite
-à ce jour) :
+`.sb-landing`. En haut, un schéma des 4 phases reliées par des flèches
+(`ArrowRight`, tournées à 90° en colonne sous 700px) ; en dessous, une
+capsule détaillée par phase — bloc icône (flottement continu, comme le
+teaser) + numéro (répété en grand filigrane derrière l'icône, pour
+occuper l'espace même sur une phase à peu de fonctionnalités) + nom à
+gauche, liste de fonctionnalités à droite, chacune avec une icône, un
+nom, une description et une puce de statut (`CheckCircle2`, grisée tant
+que `disponible: false`, verte dès que passée à `true` dans
+`ROADMAP_PHASES`). Couleur distincte par phase — reprise des couleurs
+déjà posées sur `.sb-landing` (`--emerald`/`--muted`/`--amber`/`--coral`,
+`app/globals.css`) plutôt qu'une nouvelle palette, posée en variables
+CSS inline (`--phase-color`/`--phase-bg`) sur chaque capsule et sur
+chaque nœud du schéma. Chaque capsule apparaît au défilement via
+`components/Reveal.js`, comme le reste du site vitrine. Contenu des 4
+phases :
 
-- **Phase 2 — Mieux piloter** : historique client enrichi, statistiques
-  des produits les plus vendus, comparaison du chiffre d'affaires au
-  mois dernier, rapport hebdomadaire enrichi (WhatsApp/notification),
-  export comptable consolidé.
-- **Phase 3 — Grandir en équipe** : paiement partiel par acompte,
-  plusieurs utilisateurs à droits limités, suivi des fournisseurs et des
-  achats, diversification des moyens de paiement.
-- **Phase 4 — Se structurer** : programme de parrainage, facturation,
-  gestion multi-boutique, fidélisation des clientes.
+- **Phase 1 — Déjà là** (`disponible: true` sur toute la phase, seule à
+  afficher des coches vertes) : suivi de stock en temps réel (réel vs
+  théorique), marge réelle automatique (frais annexes inclus), commandes
+  avec livraison et paiement intégrés (zones, Mobile Money, confirmation
+  WhatsApp), catalogue partageable, trésorerie avec export,
+  personnalisation complète (logo/couleurs/devise/langue), notifications
+  en temps réel, données strictement confidentielles (isolation par
+  boutique) — un résumé des fonctionnalités déjà livrées dans l'app,
+  jamais une nouvelle description inventée.
+- **Phase 2 — Mieux piloter** (`disponible: false` partout) : historique
+  client enrichi, statistiques des produits les plus vendus, comparaison
+  du chiffre d'affaires au mois dernier, rapport hebdomadaire enrichi
+  (WhatsApp/notification), export comptable consolidé.
+- **Phase 3 — Grandir en équipe** (`disponible: false` partout) :
+  paiement partiel par acompte, plusieurs utilisateurs à droits limités,
+  suivi des fournisseurs et des achats, diversification des moyens de
+  paiement pour les abonnements.
+- **Phase 4 — Se structurer** (`disponible: false` partout) : programme
+  de parrainage, facturation, gestion multi-boutique, fidélisation des
+  clientes, Marketplace Doka (catalogues de tous les commerçants
+  centralisés dans un espace commun).
 
 **Pied de page complet** : liens `/cgu`, `/confidentialite`,
 `/mentions-legales`, `contact@doka.ci` (même adresse que

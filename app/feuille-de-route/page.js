@@ -2,7 +2,10 @@ import { Fragment } from "react";
 import {
   ArrowRight,
   Banknote,
+  Bell,
+  Boxes,
   Building2,
+  Calculator,
   CheckCircle2,
   CreditCard,
   FileSpreadsheet,
@@ -10,14 +13,21 @@ import {
   Handshake,
   Heart,
   History,
+  LayoutGrid,
+  Lock,
   MessageCircle,
+  PackageCheck,
+  Palette,
   Percent,
   Receipt,
   Share2,
+  ShoppingBag,
+  Sparkles,
   Store,
   Truck,
   TrendingUp,
   UserCog,
+  Wallet,
 } from "lucide-react";
 import FloatingBlobs from "@/components/FloatingBlobs";
 import LandingNav from "@/components/LandingNav";
@@ -29,18 +39,76 @@ export const metadata = {
   description: "Découvrez les prochaines étapes de Doka : mieux piloter votre activité, grandir en équipe, puis vous structurer.",
 };
 
-// Contenu de la feuille de route publique — trois phases à venir, chacune
-// avec sa couleur pour bien les distinguer visuellement (schéma du haut +
-// bordure des capsules ci-dessous). Jamais de nouvelle palette : couleurs
-// déjà posées sur .sb-landing (app/globals.css) et déjà visibles ailleurs
-// sur le site vitrine (badges de formule, statuts, textes secondaires) —
-// référencées ici via var(...) plutôt que recopiées en dur, pour rester
-// automatiquement synchronisées si ces couleurs venaient à changer.
-// Aucune fonctionnalité listée n'est encore construite : "disponible"
-// reste à false partout — passer une entrée à true (une fois livrée dans
-// l'app) suffira à faire passer sa coche du gris au vert, sans autre
-// changement.
+// Contenu de la feuille de route publique — 4 phases (1 déjà là, 3 à
+// venir), chacune avec sa couleur pour bien les distinguer visuellement
+// (schéma du haut + bordure des capsules ci-dessous). Jamais de nouvelle
+// palette : couleurs déjà posées sur .sb-landing (app/globals.css) et
+// déjà visibles ailleurs sur le site vitrine (badges de formule, statuts,
+// textes secondaires) — référencées ici via var(...) plutôt que
+// recopiées en dur, pour rester automatiquement synchronisées si ces
+// couleurs venaient à changer. Phase 1 réunit les fonctionnalités déjà
+// livrées dans l'app ("disponible: true" partout, coche verte) ; les
+// phases 2/3/4 restent à construire ("disponible: false" partout, coche
+// grise) — passer une entrée à true (une fois livrée) suffira à faire
+// passer sa coche du gris au vert, sans autre changement.
 const ROADMAP_PHASES = [
+  {
+    numero: 1,
+    nom: "Déjà là",
+    couleur: "var(--emerald)",
+    couleurBg: "var(--emerald-bg)",
+    icone: Sparkles,
+    fonctionnalites: [
+      {
+        icone: Boxes,
+        nom: "Suivi de stock en temps réel",
+        description: "Stock réel et stock théorique (déjà réservé par des commandes en attente)",
+        disponible: true,
+      },
+      {
+        icone: Calculator,
+        nom: "Marge réelle automatique",
+        description: "Frais annexes (transport, import) inclus dans le calcul, pas juste prix de vente − prix d'achat",
+        disponible: true,
+      },
+      {
+        icone: PackageCheck,
+        nom: "Commandes avec livraison et paiement intégrés",
+        description: "Zones de livraison, Mobile Money, confirmation envoyée sur WhatsApp",
+        disponible: true,
+      },
+      {
+        icone: LayoutGrid,
+        nom: "Catalogue partageable",
+        description: "Prêt pour WhatsApp, Instagram, ou impression PDF",
+        disponible: true,
+      },
+      {
+        icone: Wallet,
+        nom: "Trésorerie",
+        description: "Suivi du CA et de la marge dans le temps, avec export",
+        disponible: true,
+      },
+      {
+        icone: Palette,
+        nom: "Personnalisation complète",
+        description: "Logo, couleurs, devise, langue de chaque boutique",
+        disponible: true,
+      },
+      {
+        icone: Bell,
+        nom: "Notifications en temps réel",
+        description: "Centre de notifications et alertes directement sur l'appareil",
+        disponible: true,
+      },
+      {
+        icone: Lock,
+        nom: "Données strictement confidentielles",
+        description: "Chaque boutique isolée, jamais visible par un autre commerçant",
+        disponible: true,
+      },
+    ],
+  },
   {
     numero: 2,
     nom: "Mieux piloter",
@@ -110,7 +178,7 @@ const ROADMAP_PHASES = [
       },
       {
         icone: CreditCard,
-        nom: "Diversification des moyens de paiement",
+        nom: "Diversification des moyens de paiement pour les abonnements",
         description: "Ne pas dépendre d'une seule option de paiement",
         disponible: false,
       },
@@ -145,6 +213,12 @@ const ROADMAP_PHASES = [
         icone: Heart,
         nom: "Fidélisation des clientes",
         description: "Donner une raison de plus de revenir",
+        disponible: false,
+      },
+      {
+        icone: ShoppingBag,
+        nom: "Marketplace Doka",
+        description: "Un espace commun centralisant les catalogues de tous les commerçants Doka, pour donner de la visibilité à chaque boutique auprès de nouveaux clients",
         disponible: false,
       },
     ],
