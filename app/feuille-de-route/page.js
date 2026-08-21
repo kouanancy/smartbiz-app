@@ -54,9 +54,13 @@ export const metadata = {
 const ROADMAP_PHASES = [
   {
     numero: 1,
-    nom: "Déjà là",
-    couleur: "var(--emerald)",
-    couleurBg: "var(--emerald-bg)",
+    nom: "Vos fondamentaux",
+    // Orange de marque (--accent) plutôt que le vert initial (encore
+    // écarté, deuxième retour sur cette couleur) : seule teinte de
+    // l'identité Doka pas encore utilisée par une autre phase, cohérente
+    // avec le reste du site (bouton principal, icône du teaser).
+    couleur: "var(--accent)",
+    couleurBg: "rgba(224, 122, 41, 0.16)",
     icone: Sparkles,
     fonctionnalites: [
       {
