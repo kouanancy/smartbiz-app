@@ -702,6 +702,25 @@ derniers mois glissants) :
   récent au plus ancien — indépendant de la période choisie pour le
   graphique.
 
+**Étiquettes de valeur toujours visibles** (Dashboard « Évolution des
+ventes » et Trésorerie, jamais seulement au survol) : chaque barre
+affiche son montant en permanence, via `<LabelList>` de `recharts`
+(`renderBarValueLabel`, police `IBM Plex Mono` comme le reste des
+montants de l'app, couleur reprenant celle de la barre — orange pour le
+CA, `--emerald` pour la marge). Bascule automatiquement entre la valeur
+exacte (`lib/format.js`, `fmt`) et un format compact « k »/« M »
+(`fmtCompact`, notation `compact` d'Intl) selon la place réellement
+disponible : `shouldCompactLabels` compare la largeur du conteneur —
+mesurée en direct par `lib/useElementWidth.js` (`ResizeObserver`, donc
+sensible au redimensionnement/à la rotation d'écran, pas seulement à la
+largeur au premier rendu) — à la largeur estimée de l'étiquette la plus
+longue une fois formatée en entier, en tenant compte du nombre de barres
+réellement dessinées (catégories × séries — CA + marge sur Trésorerie
+comptent double par rapport au même nombre de catégories sur Dashboard,
+qui n'a qu'une seule série). Une valeur à 0 n'affiche aucune étiquette
+(semaine/mois sans commande) plutôt que d'encombrer le graphique d'une
+rangée de « 0 ».
+
 **Impression / export PDF** (« Imprimer / PDF », `window.print()` — même
 mécanisme que le Catalogue et les reçus) : mise en page dédiée pleine page
 A4, rendue via un portail directement dans `<body>` (comme
