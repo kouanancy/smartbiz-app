@@ -11,10 +11,12 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  LabelList,
 } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt as fmtBase, monthLabel, dateLocale } from "@/lib/format";
+import { fmt as fmtBase, fmtCompact as fmtCompactBase, shouldCompactLabels, monthLabel, dateLocale } from "@/lib/format";
+import useElementWidth from "@/lib/useElementWidth";
 import { THEMES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 
@@ -49,9 +51,27 @@ function buildEvolution(commandes, mode, lang, t) {
   return buckets;
 }
 
+// Étiquette de valeur affichée en permanence au-dessus de chaque barre
+// (jamais seulement au survol de la souris) — recharts calcule x/y/width
+// d'après la barre réellement dessinée, on centre juste le texte dessus
+// avec un léger décalage vertical. Valeurs nulles ignorées : un "0" sur
+// chaque semaine/mois sans commande surchargerait le graphique sans rien
+// apporter.
+function renderBarValueLabel(formatter, color) {
+  return function BarValueLabel({ x, y, width, value }) {
+    if (!value) return null;
+    return (
+      <text x={x + width / 2} y={y - 6} textAnchor="middle" fontSize={10} fontFamily='"IBM Plex Mono", monospace' fill={color}>
+        {formatter(value)}
+      </text>
+    );
+  };
+}
+
 export default function DashboardPage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
+  const fmtCompact = (n) => fmtCompactBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const [commandes, setCommandes] = useState([]);
   const [articles, setArticles] = useState([]);
@@ -107,6 +127,13 @@ export default function DashboardPage() {
     [commandes, intervalMode, business?.langue]
   );
   const dernieresCommandes = commandes.slice(0, 5);
+  const [chartRef, chartWidth] = useElementWidth();
+  const compactLabels = shouldCompactLabels(
+    evolution.map((b) => b.ca),
+    evolution.length,
+    business?.devise,
+    chartWidth
+  );
 
   if (loading) return <p className="sb-sub">{t("dashboard.loading")}</p>;
 
@@ -157,18 +184,22 @@ export default function DashboardPage() {
             ))}
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={evolution}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--muted)" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "var(--muted)" }} axisLine={false} tickLine={false} width={40} />
-            <Tooltip
-              formatter={(v) => fmt(v)}
-              contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink)" }}
-            />
-            <Bar dataKey="ca" fill={accent} radius={[5, 5, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        <div ref={chartRef}>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={evolution} margin={{ top: 22, right: 10, left: 10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--muted)" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--muted)" }} axisLine={false} tickLine={false} width={40} />
+              <Tooltip
+                formatter={(v) => fmt(v)}
+                contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink)" }}
+              />
+              <Bar dataKey="ca" fill={accent} radius={[5, 5, 0, 0]}>
+                <LabelList dataKey="ca" content={renderBarValueLabel(compactLabels ? fmtCompact : fmt, accent)} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       <div className="sb-dash-split">

@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { FileSpreadsheet, Printer } from "lucide-react";
-import { ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt as fmtBase, monthLabel, dateLocale } from "@/lib/format";
+import { fmt as fmtBase, fmtCompact as fmtCompactBase, shouldCompactLabels, monthLabel, dateLocale } from "@/lib/format";
+import useElementWidth from "@/lib/useElementWidth";
 import { THEMES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import { exportToExcel, dateFichier } from "@/lib/exportExcel";
@@ -74,9 +75,27 @@ function periodeRangeLabel(periode, moisBuckets) {
   return `${capitalize(premier.label)} à ${capitalize(dernier.labelFull)}`;
 }
 
+// Étiquette de valeur affichée en permanence au-dessus de chaque barre
+// (jamais seulement au survol de la souris) — recharts calcule x/y/width
+// d'après la barre réellement dessinée, on centre juste le texte dessus
+// avec un léger décalage vertical. Valeurs nulles ignorées : un "0" sur
+// chaque mois sans commande surchargerait le graphique sans rien
+// apporter.
+function renderBarValueLabel(formatter, color) {
+  return function BarValueLabel({ x, y, width, value }) {
+    if (!value) return null;
+    return (
+      <text x={x + width / 2} y={y - 6} textAnchor="middle" fontSize={10} fontFamily='"IBM Plex Mono", monospace' fill={color}>
+        {formatter(value)}
+      </text>
+    );
+  };
+}
+
 export default function TresoreriePage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
+  const fmtCompact = (n) => fmtCompactBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const accent = THEMES[business?.theme_key || "orange"].accent;
   const [commandes, setCommandes] = useState([]);
@@ -130,6 +149,13 @@ export default function TresoreriePage() {
   const totaux = chartData.reduce((acc, b) => ({ ca: acc.ca + b.ca, marge: acc.marge + b.marge }), { ca: 0, marge: 0 });
   const tableRows = [...moisBuckets].reverse();
   const aucuneDonnee = chartData.every((b) => b.ca === 0 && b.marge === 0);
+  const [chartRef, chartWidth] = useElementWidth();
+  const compactLabels = shouldCompactLabels(
+    chartData.flatMap((b) => [b.ca, b.marge]),
+    chartData.length * 2,
+    business?.devise,
+    chartWidth
+  );
 
   function imprimer() {
     const original = document.title;
@@ -208,23 +234,29 @@ export default function TresoreriePage() {
           {aucuneDonnee ? (
             <p style={{ fontSize: 13, color: "var(--muted)" }}>{t("tresorerie.aucuneDonnee")}</p>
           ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--muted)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "var(--muted)" }} axisLine={false} tickLine={false} width={44} />
-                <Tooltip
-                  formatter={(v) => fmt(v)}
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink)" }}
-                />
-                <Legend
-                  wrapperStyle={{ fontSize: 12 }}
-                  formatter={(v) => (v === "ca" ? t("tresorerie.legendCa") : t("tresorerie.legendMarge"))}
-                />
-                <Bar dataKey="ca" name="ca" fill={accent} radius={[5, 5, 0, 0]} />
-                <Bar dataKey="marge" name="marge" fill="var(--emerald)" radius={[5, 5, 0, 0]} />
-              </ComposedChart>
-            </ResponsiveContainer>
+            <div ref={chartRef}>
+              <ResponsiveContainer width="100%" height={240}>
+                <ComposedChart data={chartData} margin={{ top: 22, right: 10, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--muted)" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "var(--muted)" }} axisLine={false} tickLine={false} width={44} />
+                  <Tooltip
+                    formatter={(v) => fmt(v)}
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink)" }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: 12 }}
+                    formatter={(v) => (v === "ca" ? t("tresorerie.legendCa") : t("tresorerie.legendMarge"))}
+                  />
+                  <Bar dataKey="ca" name="ca" fill={accent} radius={[5, 5, 0, 0]}>
+                    <LabelList dataKey="ca" content={renderBarValueLabel(compactLabels ? fmtCompact : fmt, accent)} />
+                  </Bar>
+                  <Bar dataKey="marge" name="marge" fill="var(--emerald)" radius={[5, 5, 0, 0]}>
+                    <LabelList dataKey="marge" content={renderBarValueLabel(compactLabels ? fmtCompact : fmt, "var(--emerald)")} />
+                  </Bar>
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </div>
 
