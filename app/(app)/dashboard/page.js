@@ -161,6 +161,12 @@ export default function DashboardPage() {
     }
     if (business && !business.visite_guidee_vue) {
       const { data, error } = await supabase.from("businesses").update({ visite_guidee_vue: true }).eq("id", business.id).select().single();
+      // Toujours logué en détail (jamais un échec silencieux) : c'est
+      // précisément ce qui a caché le bug du GRANT UPDATE manquant sur
+      // cette colonne avant correctif (voir
+      // supabase-visite-guidee-migration.sql) — la visite se réaffichait
+      // à chaque arrivée sur le Dashboard sans aucune erreur visible.
+      if (error) console.error("[dashboard] échec de l'enregistrement de la visite guidée vue :", error);
       if (!error && data) setBusiness(data);
     }
   }
