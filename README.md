@@ -2141,6 +2141,25 @@ changement sans recharger la boutique) — que la visite ait été terminée ou
 passée : les deux comptent comme « vue », aucune raison de la
 réafficher au prochain login juste parce qu'elle a été passée.
 
+**Bug corrigé — la visite se réaffichait à chaque connexion malgré ce
+mécanisme** : le GRANT UPDATE sur `businesses` est restreint colonne par
+colonne pour `authenticated` (`revoke ... ; grant update (name, ...)`,
+voir `supabase-businesses-colonnes-restreintes-migration.sql`), et
+`visite_guidee_vue` n'y figurait pas à la création de la migration —
+l'update ci-dessus échouait donc silencieusement (erreur de privilège
+Postgres, jamais loguée avant correctif) sur *tout* compte, à chaque
+visite du Dashboard, indépendamment de tout réabonnement.
+`supabase-visite-guidee-migration.sql` ajoute maintenant
+`grant update (visite_guidee_vue) on businesses to authenticated;` (sûr :
+aucune implication de sécurité, contrairement à `subscription_status`/
+`is_admin` volontairement hors de ce GRANT) et l'échec, s'il devait se
+reproduire pour une autre raison, est désormais logué
+(`console.error`) plutôt que silencieux. Root cause et correctif vérifiés
+en reproduisant la structure GRANT/RLS réelle sur un Postgres local
+(échec confirmé avant correctif, succès après, `visite_guidee_vue` bien
+inchangée par une mise à jour de `subscription_status` simulant
+`admin_mark_subscription_paid`).
+
 **Relance manuelle** : bouton « Revoir la visite guidée » sur la page Aide
 (masqué pour un compte admin, comme la visite elle-même), qui redirige vers
 `/dashboard?tour=1`. Ce paramètre d'URL force l'ouverture indépendamment de
