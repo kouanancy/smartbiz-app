@@ -2099,6 +2099,55 @@ simple : pas de formulaire de ticket, seulement deux moyens de contact.
   `2250710685710`).
 - **E-mail** : adresse fixe `contact@doka.ci`, bouton `mailto:` en repli.
 
+## Visite guidée
+
+`components/OnboardingTour.js` — un coachmark (anneau lumineux posé sur
+l'élément visé + bulle d'explication à côté), pas une bibliothèque tierce :
+5 étapes fixes définies directement dans le composant (`STEPS`, seul
+consommateur — voir la convention déjà suivie par `NAV_ITEMS` dans
+`components/Sidebar.js`), chacune ciblant un sélecteur CSS (`.sb-grid-stats`
+pour l'accueil, `#sb-tour-articles`/`#sb-tour-clients`/`#sb-tour-nouvelle`/
+`#sb-tour-aide` posés sur les liens correspondants dans `Sidebar.js`).
+Boutons **Suivant** / **Passer** (dernière étape : **Terminer**), compteur
+d'étape, jamais de bouton « Précédent » — un aller simple, volontairement
+minimal.
+
+**Toutes les étapes visent des éléments déjà présents sur le Dashboard/la
+barre de navigation** — jamais de changement de page pendant la visite
+(rester sur `/dashboard` du début à la fin), pour un flux simple et
+prévisible plutôt que d'orchestrer une navigation entre plusieurs pages en
+plein milieu d'un tutoriel. Les étapes « Stock »/« Clients »/« Nouvelle
+commande » pointent donc vers l'entrée de navigation correspondante (le
+texte de la bulle nomme explicitement le bouton à trouver une fois sur
+place, ex. « Nouvel article »), pas vers ce bouton lui-même.
+
+**Positionnement** : `getBoundingClientRect()` sur la cible à chaque étape
+(recalculé au redimensionnement et au défilement), bulle placée à droite
+si la place le permet, sinon en dessous, sinon au-dessus, toujours ramenée
+dans le viewport en dernier recours — calcul maison plutôt qu'une
+dépendance de positionnement (popper/floating-ui) pour ce seul besoin
+ponctuel. Cible introuvable ou hors du viewport (ex. menu mobile replié
+sous 860px, `.sb-nav` alors translaté hors écran — voir « Navigation
+mobile ») : bulle centrée, sans anneau, plutôt que positionnée sur un
+rectangle vide ou hors écran.
+
+**Déclenchement automatique une seule fois** : `businesses.visite_guidee_vue`
+(`supabase-visite-guidee-migration.sql`, `boolean not null default false`)
+— le Dashboard (`app/(app)/dashboard/page.js`) l'ouvre dès que les données
+sont chargées si cette colonne vaut encore `false`, jamais pour un compte
+admin (`business.is_admin`). Se ferme en la passant à `true` (`supabase
+.from("businesses").update(...)`, puis `setBusiness` pour répercuter le
+changement sans recharger la boutique) — que la visite ait été terminée ou
+passée : les deux comptent comme « vue », aucune raison de la
+réafficher au prochain login juste parce qu'elle a été passée.
+
+**Relance manuelle** : bouton « Revoir la visite guidée » sur la page Aide
+(masqué pour un compte admin, comme la visite elle-même), qui redirige vers
+`/dashboard?tour=1`. Ce paramètre d'URL force l'ouverture indépendamment de
+`visite_guidee_vue` — et à la fermeture, ne repasse jamais cette colonne à
+`false` : revoir la visite ne doit pas la refaire apparaître automatiquement
+au login suivant.
+
 ## Structure
 
 ```

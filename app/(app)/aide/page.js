@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Mail, MessageCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Mail, MessageCircle, RotateCcw } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { toWhatsAppNumber } from "@/lib/format";
@@ -11,6 +12,7 @@ const SUPPORT_EMAIL = "contact@doka.ci";
 
 export default function AidePage() {
   const { business } = useAuth();
+  const router = useRouter();
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const [supportTelephone, setSupportTelephone] = useState("");
 
@@ -64,6 +66,21 @@ export default function AidePage() {
           <Mail size={14} /> {t("aide.emailBtn")}
         </a>
       </div>
+
+      {/* Jamais pour un compte admin — la visite guidée elle-même ne se
+          déclenche jamais pour ces comptes (voir app/(app)/dashboard/page.js),
+          un bouton pour la revoir n'aurait donc aucun effet utile ici. */}
+      {!business?.is_admin && (
+        <div className="sb-card" style={{ marginTop: 16, maxWidth: 480 }}>
+          <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <RotateCcw size={15} /> {t("aide.tourTitle")}
+          </div>
+          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("aide.tourSub")}</p>
+          <button className="sb-btn sb-btn-primary" onClick={() => router.push("/dashboard?tour=1")}>
+            <RotateCcw size={14} /> {t("aide.tourBtn")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -704,6 +704,79 @@ a {
   z-index: 70;
   padding: 16px;
 }
+
+/* ------------------------------------------------------------------ */
+/*  Visite guidée (components/OnboardingTour.js) — coachmark : anneau   */
+/*  lumineux positionné sur l'élément visé (spotlight, obtenu par un     */
+/*  simple box-shadow géant plutôt qu'un clip-path/masque SVG) + bulle   */
+/*  d'explication à côté. z-index 100, au-dessus de tout le reste de     */
+/*  l'app (le plus haut jusqu'ici était .sb-notif-panel à 90) — la       */
+/*  visite doit toujours rester au premier plan, y compris pendant que   */
+/*  le menu mobile ou le panneau de notifications sont ouverts.          */
+/* ------------------------------------------------------------------ */
+.sb-tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+.sb-tour-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(27, 42, 74, 0.55);
+}
+.sb-tour-spotlight {
+  position: fixed;
+  border-radius: 10px;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 9999px rgba(27, 42, 74, 0.55);
+  pointer-events: none;
+  transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
+}
+.sb-tour-bubble {
+  position: fixed;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+  padding: 18px;
+  transition: top 0.25s ease, left 0.25s ease;
+}
+.sb-tour-bubble-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+.sb-tour-bubble-text {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+.sb-tour-bubble-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sb-tour-step-count {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.sb-tour-bubble-actions {
+  display: flex;
+  gap: 8px;
+}
+@media (max-width: 420px) {
+  .sb-tour-bubble-footer {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+
 .sb-stamp {
   transform: rotate(-8deg);
   border: 3px solid var(--accent-deep);
