@@ -66,7 +66,23 @@ export async function POST(request) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const { data: cible, error: cibleError } = await callerClient
+  // Lecture de la boutique ciblée via la clé service_role, jamais via
+  // callerClient : la policy RLS "Le propriétaire gère sa boutique"
+  // (owner_id = auth.uid()) ne laisse un compte voir QUE sa propre ligne
+  // dans businesses — la policy qui donnait un accès direct aux admins a
+  // été volontairement retirée au profit des fonctions RPC dédiées (voir
+  // supabase-admin-scope-abonnement-migration.sql). callerClient.from
+  // ("businesses").select(...) sur l'id d'un autre commerçant renvoie donc
+  // toujours null ici (jamais une vraie erreur RLS), ce qui faisait
+  // échouer systématiquement toute suppression avec "not_found" avant ce
+  // correctif. Le statut admin de l'appelant est déjà vérifié ci-dessus
+  // via is_admin_user() (RPC SECURITY DEFINER) — passer sur service_role
+  // seulement à partir d'ici est donc sûr.
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { data: cible, error: cibleError } = await supabaseAdmin
     .from("businesses")
     .select("id, owner_id, name")
     .eq("id", businessId)
@@ -81,10 +97,6 @@ export async function POST(request) {
   if (cible.owner_id === caller.id) {
     return Response.json({ error: "cannot_delete_self" }, { status: 400 });
   }
-
-  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
 
   const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(cible.owner_id);
   if (deleteUserError) {
