@@ -29,16 +29,21 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 
 const MODE_ICON = { clair: Sun, sombre: Moon, auto: Monitor };
 
+// id="sb-tour-*" sur les entrées ciblées par la visite guidée
+// (components/OnboardingTour.js) — jamais posé au hasard, seulement sur
+// les liens que le composant a besoin de retrouver par
+// document.querySelector, indépendamment de la page depuis laquelle la
+// visite tourne.
 const NAV_ITEMS = [
   { href: "/dashboard", icon: LayoutDashboard, key: "dashboard" },
-  { href: "/nouvelle", icon: ShoppingCart, key: "nouvelle" },
+  { href: "/nouvelle", icon: ShoppingCart, key: "nouvelle", id: "sb-tour-nouvelle" },
   { href: "/commandes", icon: ClipboardList, key: "commandes" },
   { href: "/tresorerie", icon: Wallet, key: "tresorerie" },
-  { href: "/articles", icon: Package, key: "articles" },
-  { href: "/clients", icon: Users, key: "clients" },
+  { href: "/articles", icon: Package, key: "articles", id: "sb-tour-articles" },
+  { href: "/clients", icon: Users, key: "clients", id: "sb-tour-clients" },
   { href: "/catalogue", icon: LayoutGrid, key: "catalogue" },
   { href: "/parametres", icon: Palette, key: "parametres" },
-  { href: "/aide", icon: LifeBuoy, key: "aide" },
+  { href: "/aide", icon: LifeBuoy, key: "aide", id: "sb-tour-aide" },
 ];
 
 const ADMIN_NAV_ITEM = { href: "/admin", icon: ShieldCheck, key: "admin" };
@@ -130,6 +135,7 @@ export default function Sidebar({ business, onSignOut, onChangeMode }) {
         {navItems.map((item) => (
           <NavItem
             key={item.href}
+            id={item.id}
             href={item.href}
             icon={<item.icon size={16} />}
             label={t(`sidebar.nav.${item.key}`)}
@@ -169,9 +175,9 @@ export default function Sidebar({ business, onSignOut, onChangeMode }) {
   );
 }
 
-function NavItem({ href, icon, label, active, onClick }) {
+function NavItem({ id, href, icon, label, active, onClick }) {
   return (
-    <Link href={href} className={`sb-nav-item${active ? " active" : ""}`} onClick={onClick}>
+    <Link id={id} href={href} className={`sb-nav-item${active ? " active" : ""}`} onClick={onClick}>
       {icon}
       {label}
     </Link>

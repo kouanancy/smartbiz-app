@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, ChevronRight } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -19,6 +20,7 @@ import { fmt as fmtBase, fmtCompact as fmtCompactBase, shouldCompactLabels, mont
 import useElementWidth from "@/lib/useElementWidth";
 import { THEMES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
+import OnboardingTour from "@/components/OnboardingTour";
 
 function buildEvolution(commandes, mode, lang, t) {
   const now = new Date();
@@ -69,7 +71,8 @@ function renderBarValueLabel(formatter, color) {
 }
 
 export default function DashboardPage() {
-  const { business } = useAuth();
+  const { business, setBusiness } = useAuth();
+  const router = useRouter();
   const fmt = (n) => fmtBase(n, business?.devise);
   const fmtCompact = (n) => fmtCompactBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
@@ -134,6 +137,33 @@ export default function DashboardPage() {
     business?.devise,
     chartWidth
   );
+
+  // Visite guidée (components/OnboardingTour.js) : déclenchée une seule
+  // fois, à la toute première arrivée sur ce Dashboard une fois les
+  // données chargées (business.visite_guidee_vue encore à false — voir
+  // supabase-visite-guidee-migration.sql), jamais pour un compte admin.
+  // ?tour=1 (posé par le bouton "Revoir la visite guidée" de la page
+  // Aide) la relance manuellement sans dépendre de cette colonne, et sans
+  // jamais la repasser à false : revoir la visite n'annule pas le fait
+  // qu'elle a déjà été vue une première fois.
+  const [tourOpen, setTourOpen] = useState(false);
+  useEffect(() => {
+    if (loading || !business || business.is_admin) return;
+    const forceTour = new URLSearchParams(window.location.search).get("tour") === "1";
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- window.location n'est lisible que côté client, ce déclenchement ponctuel (une fois les données chargées) ne peut pas se faire pendant le rendu
+    if (forceTour || business.visite_guidee_vue === false) setTourOpen(true);
+  }, [loading, business]);
+
+  async function fermerTour() {
+    setTourOpen(false);
+    if (new URLSearchParams(window.location.search).get("tour") === "1") {
+      router.replace("/dashboard");
+    }
+    if (business && !business.visite_guidee_vue) {
+      const { data, error } = await supabase.from("businesses").update({ visite_guidee_vue: true }).eq("id", business.id).select().single();
+      if (!error && data) setBusiness(data);
+    }
+  }
 
   if (loading) return <p className="sb-sub">{t("dashboard.loading")}</p>;
 
@@ -266,6 +296,8 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      <OnboardingTour open={tourOpen} onClose={fermerTour} t={t} />
     </div>
   );
 }
