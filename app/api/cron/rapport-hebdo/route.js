@@ -104,60 +104,41 @@ export async function GET(request) {
       const alertesStock = (articles || []).filter((a) => a.stock <= a.seuil).length;
 
       const devise = b.devise || "FCFA";
-      const lignesMessage = [
-        `Rapport hebdomadaire Doka — ${b.business_name || "ta boutique"}`,
-        `CA de la semaine : ${fmt(ca, devise)}`,
-        `Marge réelle : ${fmt(marge, devise)}`,
-        `Top vente : ${topVente ? `${topVente} (${topQuantite})` : "aucune vente livrée cette semaine"}`,
-        `Alertes stock : ${alertesStock > 0 ? `${alertesStock} article(s) sous le seuil` : "rien à signaler"}`,
-      ];
-      const messageComplet = lignesMessage.join("\n");
       const resumeCourt = `CA : ${fmt(ca, devise)} — Marge : ${fmt(marge, devise)}${topVente ? ` — Top vente : ${topVente}` : ""}`;
 
-      if (b.rapport_hebdo_mode === "push") {
-        // Notification en cloche (historique consultable en app) +
-        // vraie notification Web Push si le commerçant a activé le push
-        // sur au moins un appareil (voir Paramètres, carte "Rapport
-        // hebdomadaire") — jamais l'inverse (pas de wa.me en mode push).
-        await supabaseAdmin
-          .from("notifications")
-          .insert({ business_id: b.business_id, type: "rapport_hebdo", message: resumeCourt, lien: "/dashboard" });
+      // Canal unique : notification push (voir Paramètres, section
+      // « Notification push », commune à tous les comptes — plus de choix
+      // WhatsApp/push, voir supabase-rapport-hebdo-push-uniquement-migration.sql).
+      // Notification en cloche (historique consultable en app) systématique
+      // + vraie notification Web Push si le commerçant a activé le push sur
+      // au moins un appareil — sinon la boutique voit son rapport dans le
+      // centre de notifications à sa prochaine connexion, sans erreur.
+      await supabaseAdmin
+        .from("notifications")
+        .insert({ business_id: b.business_id, type: "rapport_hebdo", message: resumeCourt, lien: "/dashboard" });
 
-        if (pushDisponible) {
-          const { data: abonnements } = await supabaseAdmin
-            .from("push_subscriptions")
-            .select("id, endpoint, p256dh, auth")
-            .eq("business_id", b.business_id);
-          const payload = JSON.stringify({ title: "Rapport hebdomadaire", body: resumeCourt, url: "/dashboard" });
-          const aSupprimer = [];
-          for (const abo of abonnements || []) {
-            try {
-              await webpush.sendNotification({ endpoint: abo.endpoint, keys: { p256dh: abo.p256dh, auth: abo.auth } }, payload);
-            } catch (err) {
-              if (err.statusCode === 404 || err.statusCode === 410) aSupprimer.push(abo.id);
-              else console.error(`[rapport-hebdo] échec d'envoi push pour l'abonnement ${abo.id} :`, err.message || err);
-            }
+      if (pushDisponible) {
+        const { data: abonnements } = await supabaseAdmin
+          .from("push_subscriptions")
+          .select("id, endpoint, p256dh, auth")
+          .eq("business_id", b.business_id);
+        const payload = JSON.stringify({ title: "Rapport hebdomadaire", body: resumeCourt, url: "/dashboard" });
+        const aSupprimer = [];
+        for (const abo of abonnements || []) {
+          try {
+            await webpush.sendNotification({ endpoint: abo.endpoint, keys: { p256dh: abo.p256dh, auth: abo.auth } }, payload);
+          } catch (err) {
+            if (err.statusCode === 404 || err.statusCode === 410) aSupprimer.push(abo.id);
+            else console.error(`[rapport-hebdo] échec d'envoi push pour l'abonnement ${abo.id} :`, err.message || err);
           }
-          if (aSupprimer.length > 0) await supabaseAdmin.from("push_subscriptions").delete().in("id", aSupprimer);
         }
-      } else {
-        // Mode WhatsApp : aucune API WhatsApp Business n'existe dans cette
-        // app (voir lib/format.js/toWhatsAppNumber et
-        // components/Receipt.js) — le rapport est donc livré comme un lien
-        // wa.me pré-rempli (sans numéro, comme app/(app)/catalogue/page.js :
-        // le commerçant choisit lui-même le destinataire, y compris
-        // lui-même) posé sur une notification en cloche, jamais un envoi
-        // automatique réel.
-        const lienWhatsApp = `https://wa.me/?text=${encodeURIComponent(messageComplet)}`;
-        await supabaseAdmin
-          .from("notifications")
-          .insert({ business_id: b.business_id, type: "rapport_hebdo", message: resumeCourt, lien: lienWhatsApp });
+        if (aSupprimer.length > 0) await supabaseAdmin.from("push_subscriptions").delete().in("id", aSupprimer);
       }
 
-      resultats.push({ business_id: b.business_id, mode: b.rapport_hebdo_mode, ok: true });
+      resultats.push({ business_id: b.business_id, ok: true });
     } catch (err) {
       console.error(`[rapport-hebdo] échec pour la boutique ${b.business_id} :`, err);
-      resultats.push({ business_id: b.business_id, mode: b.rapport_hebdo_mode, ok: false });
+      resultats.push({ business_id: b.business_id, ok: false });
     }
   }
 

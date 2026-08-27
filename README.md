@@ -698,11 +698,18 @@ chaque ouverture de la fiche, à partir des données déjà en base.
 
 ## Statistiques des produits les plus vendus
 
-Nouvelle page dédiée `app/(app)/statistiques/page.js` (entrée de
-navigation propre dans `components/Sidebar.js`, entre Trésorerie et
-Stock/Articles) plutôt qu'une carte de plus sur un Dashboard déjà chargé
-— le sujet (« quoi remettre en avant, quoi arrêter de stocker ») mérite un
-espace propre, pas un encart parmi d'autres. Classement des articles par
+Page dédiée `app/(app)/statistiques/page.js` plutôt qu'une carte de plus
+sur un Dashboard déjà chargé — le sujet (« quoi remettre en avant, quoi
+arrêter de stocker ») mérite un espace propre, pas un encart parmi
+d'autres. **Point d'accès** : un bouton « Voir les statistiques »
+(`TrendingUp`) dans l'en-tête de Stock/Articles (`app/(app)/articles/page.js`),
+pas d'entrée dans le menu latéral — ce classement de produits est
+directement lié à la gestion du stock (savoir quoi remettre en avant,
+quoi arrêter de stocker), donc rattaché à ce module plutôt qu'ajouté comme
+une neuvième entrée de navigation pour une fonctionnalité encore annexe ;
+`components/Sidebar.js` reste inchangé sinon. La page elle-même
+(`/statistiques`) n'est pas modifiée par ce déplacement — toujours
+directement accessible par son URL. Classement des articles par
 quantité totale vendue, uniquement sur les commandes livrées, avec un
 sélecteur de période à 3 choix (Mois / Trimestre / Année) — délibérément
 différent du sélecteur à 4 choix de Trésorerie (qui a en plus Semestre) :
@@ -1377,23 +1384,49 @@ push :
    `/admin` en général — l'administratrice n'a alors plus jamais à
    chercher où aller après avoir reçu l'alerte.
 
-**Abonnement** (Paramètres, carte « Notifications push », visible
-uniquement si `business.is_admin`) : le bouton « Activer les
-notifications sur cet appareil » (`lib/push.js`,
+**Abonnement** (Paramètres, carte unique « Notification push », visible
+pour tous les comptes — admin ou commerçant classique, voir plus bas) : le
+bouton « Activer les notifications sur cet appareil » (`lib/push.js`,
 `activerNotificationsPush()`) demande la permission navigateur, enregistre
 le service worker, s'abonne auprès du service de push du navigateur
 (`PushManager.subscribe`) puis enregistre l'abonnement
 (`push_subscriptions`, table dédiée — `endpoint` unique, `p256dh`/`auth`
 = les clés de chiffrement du navigateur pour ce couple utilisateur/appareil).
-Un même compte admin peut avoir plusieurs appareils abonnés (téléphone +
+Un même compte peut avoir plusieurs appareils abonnés (téléphone +
 ordinateur) : chaque `endpoint` est une ligne séparée.
 
-**Sécurité** : `push_subscriptions` n'est accessible (`select`/`insert`/
-`update`/`delete`) qu'au propriétaire d'une boutique `is_admin = true` —
-un commerçant ordinaire ne peut pas s'y abonner même via un appel direct
-à l'API REST, en plus du bouton déjà masqué côté interface. La route
-`app/api/push-admin-paiement` filtre aussi explicitement sur
-`is_admin = true` côté serveur (défense en profondeur).
+**Un seul mécanisme d'activation, un contenu différent selon le rôle** :
+la carte « Notification push » et son bouton sont strictement identiques
+pour un compte admin et un commerçant classique — mais ce que ce canal
+transporte diffère. Un commerçant classique y reçoit ses notifications
+habituelles (ex. abonnement bientôt expiré) et le rapport hebdomadaire
+(voir « Rapport hebdomadaire enrichi » plus bas) ; un compte admin y
+reçoit ses notifications propres (nouveau paiement à vérifier, ce
+mécanisme-ci) — jamais les notifications d'un commerçant classique
+(abonnement expiré...), un compte admin n'ayant pas d'abonnement.
+**Indicateur d'état** : un badge à côté du bouton (coche verte « Activé
+sur cet appareil » / pastille grise « Non activé sur cet appareil »,
+`parametres.pushStatutActif`/`pushStatutInactif`) montre immédiatement si
+CET appareil précis est abonné, sans attendre un clic —
+`verifierAbonnementPushActif()` (`lib/push.js`) interroge directement
+`registration.pushManager.getSubscription()` du navigateur, jamais
+`push_subscriptions` côté serveur (si un abonnement navigateur existe
+encore, c'est qu'il a bien été enregistré en base au moment de
+l'activation).
+
+**Sécurité** : la policy RLS de `push_subscriptions` scope chaque ligne à
+son propriétaire (`business_id in (select id from businesses where
+owner_id = auth.uid())`) — initialement restreinte aux comptes
+`is_admin = true` (activation réservée à l'administratrice, pour les
+alertes de paiement uniquement), assouplie à toute boutique par
+`supabase-rapport-hebdo-migration.sql` quand le rapport hebdomadaire a
+introduit un deuxième cas d'usage côté commerçant classique — toujours
+strictement scopée à sa propre boutique, jamais un accès croisé entre
+comptes. La route `app/api/push-admin-paiement` filtre elle-même
+explicitement sur `is_admin = true` côté serveur (défense en profondeur) :
+seules les notifications de paiement à vérifier passent par cette route,
+jamais le rapport hebdomadaire d'un commerçant classique (envoyé
+directement par `app/api/cron/rapport-hebdo`, voir plus bas).
 
 **⚠️ Étapes manuelles requises, dans l'ordre :**
 
@@ -1694,7 +1727,7 @@ comme le reste du site vitrine. Contenu des 4 phases :
   mois dernier et export comptable consolidé) : historique client
   enrichi, statistiques des produits les plus vendus, comparaison du
   chiffre d'affaires au mois dernier, rapport hebdomadaire enrichi
-  (WhatsApp/notification), export comptable consolidé.
+  (notification push), export comptable consolidé.
 - **Phase 3 — Grandir en équipe** (`disponible: false` partout) :
   paiement partiel par acompte, plusieurs utilisateurs à droits limités,
   suivi des fournisseurs et des achats, diversification des moyens de
@@ -1957,23 +1990,37 @@ pour cause de redondance avec la page Articles : celui-ci résume toute
 l'activité de la semaine (CA, marge réelle, top vente, alertes de stock),
 pas seulement le stock — et surtout, il n'est plus envoyé par e-mail
 (jamais fiabilisé pour les alertes de paiement admin non plus, voir
-« Notifications push » plus bas) mais au choix du commerçant, par WhatsApp
-ou notification push. Désactivé par défaut
-(`businesses.rapport_hebdo_actif`), configurable dans Paramètres.
+« Notifications push » plus haut) mais par **notification push**, seul
+canal disponible (voir plus bas). Désactivé par défaut
+(`businesses.rapport_hebdo_actif`), configurable dans Paramètres, carte
+« Notification push » (partagée avec l'activation push elle-même — voir
+« Notifications push » plus haut).
 
 **Migration** : `supabase-rapport-hebdo-migration.sql` — colonnes
 `businesses.rapport_hebdo_actif` (boolean, false par défaut),
-`rapport_hebdo_mode` (`'whatsapp'` ou `'push'`), `rapport_hebdo_jour_semaine`
-(0 = dimanche … 6 = samedi, convention PostgreSQL `extract(dow from ...)`,
-même principe que l'ancien `rapport_stock_jour_semaine` retiré) et
-`rapport_hebdo_dernier_envoi` (posée uniquement côté serveur, jamais par
-le client — absente du `GRANT UPDATE`, même piège que
-`visite_guidee_vue` documenté plus bas : sans ce grant, l'écriture depuis
-Paramètres échouerait silencieusement). Assouplit aussi la policy RLS de
-`push_subscriptions` (jusque-là réservée aux comptes admin, voir
-« Notifications push » plus bas) à toute boutique propriétaire de ses
-propres abonnements — un commerçant qui choisit le mode push doit pouvoir
-s'abonner sur son appareil comme un compte admin le fait déjà.
+`rapport_hebdo_jour_semaine` (0 = dimanche … 6 = samedi, convention
+PostgreSQL `extract(dow from ...)`, même principe que l'ancien
+`rapport_stock_jour_semaine` retiré) et `rapport_hebdo_dernier_envoi`
+(posée uniquement côté serveur, jamais par le client — absente du `GRANT
+UPDATE`, même piège que `visite_guidee_vue` documenté plus bas : sans ce
+grant, l'écriture depuis Paramètres échouerait silencieusement). Assouplit
+aussi la policy RLS de `push_subscriptions` (jusque-là réservée aux
+comptes admin, voir « Notifications push » plus haut) à toute boutique
+propriétaire de ses propres abonnements — un commerçant classique doit
+pouvoir s'abonner sur son appareil comme un compte admin le fait déjà.
+
+**Simplifié à un canal unique — `supabase-rapport-hebdo-push-uniquement-migration.sql`** :
+la première version proposait un choix WhatsApp/push
+(`rapport_hebdo_mode`) ; simplifié ensuite à la notification push seule
+— un seul bouton d'activation à connaître pour le commerçant (la même
+carte Paramètres que les autres notifications push de l'app), et une
+seule route à maintenir côté cron (plus de branche `wa.me`). Cette
+migration supprime la fonction `boutiques_dues_rapport_hebdo()` puis la
+colonne `rapport_hebdo_mode`, avant de recréer la fonction sans ce champ
+— `create or replace function` refuse de changer le type de retour d'une
+fonction existante, d'où l'ordre `drop function` → `alter table drop
+column` → nouvelle `create function`. **À exécuter après**
+`supabase-rapport-hebdo-migration.sql`, jamais avant.
 
 **Contrainte du plan Vercel actuel — leçon tirée de l'ancien rapport de
 stock** : une seule exécution par jour, à heure fixe pour toutes les
@@ -1999,21 +2046,15 @@ vente, alertes de stock) est calculé côté route Node
 lire/maintenir pour le petit nombre de boutiques dues chaque jour, même
 choix que pour les autres tâches planifiées de ce dépôt.
 
-**Mode WhatsApp** : aucune API WhatsApp Business n'existe dans cette app
-(voir `lib/format.js`/`toWhatsAppNumber` et `components/Receipt.js`) — le
-rapport est donc livré comme une notification en cloche (centre de
-notifications, voir plus bas) dont le lien est un `wa.me` pré-rempli avec
-le texte complet du rapport, sans numéro de destinataire (même principe
-que le partage générique de `app/(app)/catalogue/page.js` : le commerçant
-choisit lui-même à qui l'envoyer, y compris à lui-même). Jamais un envoi
-automatique réel — seulement un lien prêt à ouvrir.
-
-**Mode push** : vraie notification Web Push, envoyée directement depuis
-la route cron (pas via la route dédiée `app/api/push-admin-paiement`,
-réservée aux alertes de paiement admin) — plus simple, ce cron a déjà la
-clé service_role et les clés VAPID sous la main, pas besoin d'un aller-
-retour HTTP supplémentaire comme le fait le trigger Postgres de
-`notifier_admins_nouveau_justificatif()`.
+**Livraison** : notification en cloche systématique (centre de
+notifications, voir plus bas — la boutique voit toujours son rapport dans
+l'app, même sans push activé sur aucun appareil) et, si le commerçant a
+activé le push sur au moins un appareil, une vraie notification Web Push
+en plus — envoyée directement depuis la route cron elle-même (pas via la
+route dédiée `app/api/push-admin-paiement`, réservée aux alertes de
+paiement admin) : plus simple, ce cron a déjà la clé service_role et les
+clés VAPID sous la main, pas besoin d'un aller-retour HTTP supplémentaire
+comme le fait le trigger Postgres de `notifier_admins_nouveau_justificatif()`.
 
 ## Logo Doka (marque de la plateforme)
 
@@ -2311,7 +2352,7 @@ app/
   (app)/admin/paiements/   liste dédiée des paiements en attente (accès permanent, bouton + badge sur /admin)
   api/push-admin-paiement/    route serveur : notification push (web-push), appelée depuis Supabase (pg_net) à la soumission d'un justificatif
   api/cron/expiration-reminders/   route serveur : rappel d'abonnement qui expire (Vercel Cron)
-  api/cron/rapport-hebdo/     route serveur : rapport hebdomadaire (CA/marge/top vente/stock), WhatsApp ou push (Vercel Cron, voir « Rapport hebdomadaire enrichi »)
+  api/cron/rapport-hebdo/     route serveur : rapport hebdomadaire (CA/marge/top vente/stock), notification push (Vercel Cron, voir « Rapport hebdomadaire enrichi »)
 components/
   Sidebar.js, Receipt.js, ImageUploadField.js, PlanGrid.js,
   FormuleEtPaiement.js, PremierPaiement.js, Reabonnement.js, CompteSuspendu.js,
