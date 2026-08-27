@@ -1213,25 +1213,29 @@ chaque groupe de 6 plutôt que laissé à l'appréciation du moteur
 d'impression, garantissant une page = 6 fiches maximum, toujours au même
 endroit, indépendamment du nombre total d'articles.
 
-Pour borner la hauteur d'une fiche à quelque chose de prévisible (un nom
-d'article anormalement long ne doit jamais, à lui seul, faire déborder un
-groupe de la hauteur d'une page A4 déjà vérifiée tenir), `.sb-catalogue-nom`
-est tronqué à 2 lignes (`-webkit-line-clamp: 2`) **à l'impression
-uniquement** — l'écran affiche toujours le nom complet, sans troncage.
-À l'écran, `.sb-catalogue-page-group` passe en `display: contents` (hors
-`@media print`) : le regroupement par 6 devient invisible pour la mise en
-page, les fiches rejoignent directement la grille responsive habituelle
-(`repeat(auto-fill, minmax(160px, 1fr))`) comme si le regroupement
-n'existait pas — ce mécanisme ne change donc strictement rien à
-l'affichage à l'écran, seulement à l'impression/PDF.
+Le nom d'article n'est **jamais tronqué**, ni à l'écran ni à l'impression
+— le texte complet s'affiche toujours, sur autant de lignes que
+nécessaire. C'est justement l'atomicité du groupe qui rend ça possible
+sans risque de coupure : un nom plus long agrandit sa fiche puis tout le
+groupe de 6 (les lignes du `grid` interne s'ajustent normalement à la
+plus haute cellule de chaque rangée), mais le groupe entier bascule alors
+en bloc sur la page suivante s'il ne tient plus sur la page courante — le
+`break-inside: avoid` posé sur le groupe (pas sur les fiches, voir
+ci-dessus) garantit cette bascule en bloc quelle que soit la hauteur
+atteinte. À l'écran, `.sb-catalogue-page-group` passe en `display:
+contents` (hors `@media print`) : le regroupement par 6 devient invisible
+pour la mise en page, les fiches rejoignent directement la grille
+responsive habituelle (`repeat(auto-fill, minmax(160px, 1fr))`) comme si
+le regroupement n'existait pas — ce mécanisme ne change donc strictement
+rien à l'affichage à l'écran, seulement à l'impression/PDF.
 
 Vérifié en générant deux vrais PDF via Playwright `page.pdf()` (pas
 seulement un aperçu écran, qui ne montre pas la pagination) : 12 articles
-(2 groupes pleins de 6, y compris un nom volontairement très long pour
-vérifier le troncage à 2 lignes) → page 1 = bannière boutique + 6 fiches
-en 3×2, page 2 = 6 fiches en 3×2, aucune fiche coupée ; 10 articles (un
-groupe plein de 6 + un groupe partiel de 4) → page 2 affiche exactement 4
-fiches sans page vide supplémentaire après.
+(2 groupes pleins de 6, dont un nom volontairement très long, affiché en
+entier sur 6 lignes sans troncature) → page 1 = bannière boutique + 6
+fiches en 3×2, page 2 = 6 fiches en 3×2, aucune fiche coupée ; 10 articles
+(un groupe plein de 6 + un groupe partiel de 4) → page 2 affiche
+exactement 4 fiches sans page vide supplémentaire après.
 
 ## Espace Administration
 
