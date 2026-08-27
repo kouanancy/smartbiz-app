@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileSpreadsheet, Plus, RefreshCw, Search, X } from "lucide-react";
+import Link from "next/link";
+import { FileSpreadsheet, Plus, RefreshCw, Search, TrendingUp, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
@@ -272,6 +273,9 @@ export default function ArticlesPage() {
           <p className="sb-sub">{t("articles.subtitleCount", { n: totalCount })}</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          <Link href="/statistiques" className="sb-btn sb-btn-ghost">
+            <TrendingUp size={14} /> {t("articles.voirStatistiques")}
+          </Link>
           <button className="sb-btn sb-btn-ghost" onClick={() => setShowCatManager((s) => !s)}>
             {t("articles.categoriesBtn")}
           </button>
