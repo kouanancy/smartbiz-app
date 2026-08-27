@@ -1214,7 +1214,7 @@ d'impression, garantissant une page = 6 fiches maximum, toujours au même
 endroit, indépendamment du nombre total d'articles.
 
 **Hauteur de fiche fixe et prévisible à l'impression — nom tronqué au
-milieu sur une seule ligne.** Une première version laissait le nom
+milieu sur 3 lignes maximum.** Une première version laissait le nom
 d'article libre de retourner à la ligne à l'impression, misant
 uniquement sur l'atomicité du groupe (ci-dessus) pour éviter les
 coupures. Ça ne suffisait pas dans les faits : plusieurs noms longs réunis
@@ -1223,37 +1223,41 @@ qu'une page A4 complète — et dans ce cas, `break-inside: avoid` ne peut
 plus rien faire (un bloc plus haut qu'une page entière ne bascule vers
 aucune page où il tiendrait), Chromium le fragmentait quand même. Corrigé
 en bornant la hauteur de chaque fiche plutôt qu'en espérant qu'elle
-tienne : `.sb-catalogue-nom` est limité à **une seule ligne** à
-l'impression (hauteur fixe `17px`, `overflow: hidden`), le nom étant
-pré-tronqué **au milieu** par `tronquerMilieuNom()`
-(`app/(app)/catalogue/page.js`) avant d'être rendu, plutôt que de
-compter sur `text-overflow: ellipsis` (qui ne tronque qu'en fin de
-texte). Le dernier mot du nom — presque toujours la couleur de l'article
-dans ce contexte (ex. « Blond », « Noir », « Rouge ») — reste donc
-toujours entièrement visible : « Perruque Lace Front 20 Pouces Naturelle
-Blond » devient « Perruque Lace Front… Blond », jamais « Perruque Lace
-Front 20 Pouces Nat… » qui masquerait l'information la plus utile en fin
-de nom. Le nom complet reste inchangé en base de données (`articles.nom`)
-et intégralement affiché à l'écran (aucune troncature côté navigateur) —
-deux rendus distincts coexistent dans le DOM
-(`.sb-catalogue-nom-screen` / `.sb-catalogue-nom-print`), un seul visible
-à la fois selon `@media print` (`app/globals.css`).
+tienne : `.sb-catalogue-nom` est limité à **3 lignes** à l'impression
+(hauteur fixe `52px` ≈ 3 × 13px × line-height 1.3, `overflow: hidden`),
+le nom étant pré-tronqué **au milieu** par `tronquerMilieuNom()`
+(`app/(app)/catalogue/page.js`, `LONGUEUR_NOM_IMPRESSION = 78` caractères
+— calé pour ~3 lignes) avant d'être rendu, seulement s'il dépasse même
+ces 3 lignes — la grande majorité des noms d'articles réels tiennent
+entièrement dans cet espace, sans aucune troncature. Le dernier mot du
+nom — presque toujours la couleur de l'article dans ce contexte (ex. «
+Blond », « Noir », « Rouge ») — reste donc toujours entièrement visible
+même pour les noms qui dépassent : « Perruque Lace Front Deep Wave Lisse
+Naturelle Densite 180 Pourcent Longueur 24 Pouces Cheveux Humains
+Bresiliens Vierges Blond Miel » devient « Perruque Lace Front Deep Wave
+Lisse Naturelle Densite 180 Pourcent Longue… Miel », jamais tronqué en
+fin de texte (`text-overflow: ellipsis` classique) qui masquerait
+l'information la plus utile en fin de nom. Le nom complet reste inchangé
+en base de données (`articles.nom`) et intégralement affiché à l'écran
+(aucune troncature côté navigateur) — deux rendus distincts coexistent
+dans le DOM (`.sb-catalogue-nom-screen` / `.sb-catalogue-nom-print`), un
+seul visible à la fois selon `@media print` (`app/globals.css`).
 
 Chaque fiche a désormais une hauteur fixe et prévisible (miniature carrée
-+ 1 ligne de nom + 1 ligne de prix) : un groupe de 6 tient toujours
-largement dans la hauteur imprimable d'une page A4 (297mm - 2×16mm de
++ jusqu'à 3 lignes de nom + 1 ligne de prix) : un groupe de 6 tient
+toujours dans la hauteur imprimable d'une page A4 (297mm - 2×16mm de
 marge `@page`), y compris sur la première page où la bannière boutique
-réduit l'espace disponible. Vérifié en générant deux vrais PDF via
+réduit l'espace disponible. Vérifié en générant plusieurs vrais PDF via
 Playwright `page.pdf()` (pas seulement un aperçu écran, qui ne montre ni
-la pagination ni le rendu réel de la troncature) : 12 articles incluant 3
-noms volontairement longs (« Perruque Lace Front 20 Pouces Naturelle
-Blond », « Robe longue en wax imprimé fait main taille unique Rouge »,
-« Sac à main en cuir véritable fait main artisanal Noir ») → chaque nom
-tronqué correctement sur une seule ligne avec la couleur finale visible,
-toutes les fiches d'un même groupe alignées à la même hauteur, page 1 =
-bannière + 6 fiches, page 2 = 6 fiches, aucune fiche coupée ; à l'écran,
-les mêmes noms restent affichés en entier, non tronqués, sur plusieurs
-lignes.
+la pagination ni le rendu réel de la troncature) : 12 articles incluant
+un nom volontairement extrême (131 caractères) → tronqué correctement sur
+3 lignes avec la couleur finale visible, page 1 = bannière + 6 fiches,
+page 2 = 6 fiches, aucune fiche coupée ; puis un scénario volontairement
+pire — les 6 noms d'un même groupe tous longs, chacun occupant réellement
+ses 3 lignes complètes — toujours aucun débordement ni coupure, avec une
+marge confortable sous le groupe avant la fin de la page ; à l'écran, les
+mêmes noms restent affichés en entier, non tronqués, sur autant de lignes
+que nécessaire.
 
 ## Espace Administration
 

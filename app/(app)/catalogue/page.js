@@ -26,10 +26,11 @@ function chunk(arr, size) {
 
 // Longueur maximale (en caractères) du nom affiché sur une fiche à
 // l'impression, avant troncature au milieu — voir tronquerMilieuNom
-// ci-dessous. Calée pour tenir sur une ligne dans une carte de 3
-// colonnes (~185px de large utile) en 13px gras, vérifiée visuellement
-// via un PDF de test (voir README).
-const LONGUEUR_NOM_IMPRESSION = 26;
+// ci-dessous. Calée pour tenir sur 3 lignes dans une carte de 3 colonnes
+// (~185px de large utile) en 13px gras — hauteur de zone de nom fixée en
+// conséquence dans .sb-catalogue-nom (app/globals.css) — vérifiée
+// visuellement via un PDF de test (voir README).
+const LONGUEUR_NOM_IMPRESSION = 78;
 
 // Tronque au milieu plutôt qu'à la fin : le dernier mot du nom (presque
 // toujours la couleur pour les articles vendus ici, ex. "Blond", "Noir")
