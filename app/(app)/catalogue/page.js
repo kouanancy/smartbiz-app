@@ -11,6 +11,19 @@ import { t as tBase } from "@/lib/i18n";
 const FILTRE_TOUTES = "toutes";
 const FILTRE_SANS_CATEGORIE = "sans-categorie";
 
+// 6 fiches par page à l'impression (3 colonnes × 2 lignes, voir
+// .sb-catalogue-page-group dans globals.css) — un saut de page est forcé
+// après chaque groupe plutôt que de laisser le moteur d'impression décider
+// où couper, seule façon fiable d'empêcher une fiche produit d'être coupée
+// entre deux pages (voir le commentaire détaillé dans globals.css).
+const ARTICLES_PAR_PAGE_IMPRESSION = 6;
+
+function chunk(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
 export default function CataloguePage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
@@ -154,21 +167,25 @@ export default function CataloguePage() {
         <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 16 }}>{t("catalogue.aucunArticle")}</p>
       ) : (
         <div className="sb-catalogue-grid">
-          {filtres.map((a) => (
-            <div key={a.id} className="sb-catalogue-card">
-              {a.image_url ? (
-                <div className="sb-catalogue-thumb-img">
-                  <img src={a.image_url} alt={a.nom} />
+          {chunk(filtres, ARTICLES_PAR_PAGE_IMPRESSION).map((groupe, gi) => (
+            <div key={gi} className="sb-catalogue-page-group">
+              {groupe.map((a) => (
+                <div key={a.id} className="sb-catalogue-card">
+                  {a.image_url ? (
+                    <div className="sb-catalogue-thumb-img">
+                      <img src={a.image_url} alt={a.nom} />
+                    </div>
+                  ) : (
+                    <div className="sb-catalogue-thumb" style={{ background: accent }}>
+                      {a.nom.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="sb-catalogue-nom">{a.nom}</div>
+                  <div className="sb-catalogue-prix">
+                    {fmt(a.prix_vente)} <span className="sb-catalogue-unite">/ {uniteLabel(a.unite)}</span>
+                  </div>
                 </div>
-              ) : (
-                <div className="sb-catalogue-thumb" style={{ background: accent }}>
-                  {a.nom.slice(0, 1).toUpperCase()}
-                </div>
-              )}
-              <div className="sb-catalogue-nom">{a.nom}</div>
-              <div className="sb-catalogue-prix">
-                {fmt(a.prix_vente)} <span className="sb-catalogue-unite">/ {uniteLabel(a.unite)}</span>
-              </div>
+              ))}
             </div>
           ))}
         </div>
