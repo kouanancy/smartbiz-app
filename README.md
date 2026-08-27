@@ -1226,22 +1226,48 @@ en bornant la hauteur de chaque fiche plutôt qu'en espérant qu'elle
 tienne : `.sb-catalogue-nom` est limité à **3 lignes** à l'impression
 (hauteur fixe `52px` ≈ 3 × 13px × line-height 1.3, `overflow: hidden`),
 le nom étant pré-tronqué **au milieu** par `tronquerMilieuNom()`
-(`app/(app)/catalogue/page.js`, `LONGUEUR_NOM_IMPRESSION = 78` caractères
-— calé pour ~3 lignes) avant d'être rendu, seulement s'il dépasse même
-ces 3 lignes — la grande majorité des noms d'articles réels tiennent
-entièrement dans cet espace, sans aucune troncature. Le dernier mot du
-nom — presque toujours la couleur de l'article dans ce contexte (ex. «
-Blond », « Noir », « Rouge ») — reste donc toujours entièrement visible
-même pour les noms qui dépassent : « Perruque Lace Front Deep Wave Lisse
-Naturelle Densite 180 Pourcent Longueur 24 Pouces Cheveux Humains
-Bresiliens Vierges Blond Miel » devient « Perruque Lace Front Deep Wave
-Lisse Naturelle Densite 180 Pourcent Longue… Miel », jamais tronqué en
-fin de texte (`text-overflow: ellipsis` classique) qui masquerait
-l'information la plus utile en fin de nom. Le nom complet reste inchangé
-en base de données (`articles.nom`) et intégralement affiché à l'écran
-(aucune troncature côté navigateur) — deux rendus distincts coexistent
-dans le DOM (`.sb-catalogue-nom-screen` / `.sb-catalogue-nom-print`), un
-seul visible à la fois selon `@media print` (`app/globals.css`).
+(`app/(app)/catalogue/page.js`) avant d'être rendu, seulement s'il dépasse
+même ces 3 lignes. Le dernier mot du nom — presque toujours la couleur de
+l'article dans ce contexte (ex. « Blond », « Noir », « Rouge ») — reste
+donc entièrement visible même pour les noms qui dépassent : « Perruque
+Lace Front Deep Wave Lisse Naturelle Densite 180 Pourcent Longueur 24
+Pouces Cheveux Humains Bresiliens Vierges Blond Miel » devient « Perruque
+Lace Front… Miel », jamais tronqué en fin de texte (`text-overflow:
+ellipsis` classique) qui masquerait l'information la plus utile en fin de
+nom. Le nom complet reste inchangé en base de données (`articles.nom`) et
+intégralement affiché à l'écran (aucune troncature côté navigateur) —
+deux rendus distincts coexistent dans le DOM (`.sb-catalogue-nom-screen`
+/ `.sb-catalogue-nom-print`), un seul visible à la fois selon `@media
+print` (`app/globals.css`).
+
+**`LONGUEUR_NOM_IMPRESSION` abaissé de 78 à 52 caractères, après un bug
+constaté avec un vrai catalogue.** Un nombre de caractères ne prédit
+qu'approximativement le nombre de lignes réellement occupé après retour
+à la ligne : un nom de produit dense en mots courts et en majuscules (ex.
+« Outre Melted Hairline Kinky Soft Edges Glueless HD Lace Front Wig »)
+remplit moins bien chaque ligne qu'un nom au phrasé plus fluide, et peut
+déborder sur une 4e ligne même sous le seuil de caractères. Avec un seuil
+à 78 (calé sur un nom de test à la structure plus favorable), ce
+débordement produisait un bug visible en pratique sur un vrai catalogue
+fourni par une utilisatrice : le nom se coupait en plein milieu d'un mot,
+**sans aucun point de suspension visible**, perdant entièrement la
+couleur que la troncature au milieu cherche justement à préserver. Deux
+correctifs combinés : le seuil est abaissé à 52 (marge de sécurité large
+pour ce type de nom dense), et `.sb-catalogue-nom-print` porte en plus
+`-webkit-line-clamp: 3` (avec `display: -webkit-box` et
+`-webkit-box-orient: vertical`) comme filet de sécurité — si le texte
+déjà pré-tronqué par `tronquerMilieuNom()` dépasse malgré tout 3 lignes,
+le navigateur le coupe proprement à la 3e ligne avec ses propres points
+de suspension (calcul natif basé sur le rendu réel, jamais une
+estimation) plutôt que de couper un caractère en plein milieu sans aucun
+indicateur. `word-break: break-word` complète ce filet pour l'unique cas
+pathologique restant — un nom sans le moindre espace exploitable (mot
+unique anormalement long) — qui déborderait sinon de la largeur de la
+fiche plutôt que de sa hauteur ; `break-word` ne casse un mot que quand
+il ne peut vraiment pas tenir sur sa propre ligne (contrairement à
+`break-all`, testé puis écarté : il cassait aussi des mots normaux qui
+auraient tenu sur la ligne suivante, dégradant inutilement des noms sans
+problème).
 
 Chaque fiche a désormais une hauteur fixe et prévisible (miniature carrée
 + jusqu'à 3 lignes de nom + 1 ligne de prix) : un groupe de 6 tient
@@ -1249,15 +1275,19 @@ toujours dans la hauteur imprimable d'une page A4 (297mm - 2×16mm de
 marge `@page`), y compris sur la première page où la bannière boutique
 réduit l'espace disponible. Vérifié en générant plusieurs vrais PDF via
 Playwright `page.pdf()` (pas seulement un aperçu écran, qui ne montre ni
-la pagination ni le rendu réel de la troncature) : 12 articles incluant
-un nom volontairement extrême (131 caractères) → tronqué correctement sur
-3 lignes avec la couleur finale visible, page 1 = bannière + 6 fiches,
-page 2 = 6 fiches, aucune fiche coupée ; puis un scénario volontairement
-pire — les 6 noms d'un même groupe tous longs, chacun occupant réellement
-ses 3 lignes complètes — toujours aucun débordement ni coupure, avec une
-marge confortable sous le groupe avant la fin de la page ; à l'écran, les
-mêmes noms restent affichés en entier, non tronqués, sur autant de lignes
-que nécessaire.
+la pagination ni le rendu réel de la troncature) avec les noms exacts
+reconstitués à partir du catalogue réel qui posait problème (« Outre
+Melted Hairline Kinky Soft Edges Glueless HD Lace Front Wig - KIMORA
+(Marron) », « Sensationnel Curls Kinks Glueless HD 13×6 Lace Front Wig -
+13×6 KINKY BLONDE (Or) »...) : chaque nom tronqué proprement sur 2-3
+lignes avec des points de suspension visibles et la couleur finale
+préservée, plus de coupure en plein mot ; puis un cas pathologique
+volontaire (nom composé d'un unique « mot » de 90+ caractères sans aucun
+espace) → la fiche reste dans ses bornes grâce à `word-break: break-word`
+au lieu de déborder de sa largeur ; dans tous les cas, page 1 = bannière
++ 6 fiches, page 2 = 6 fiches, aucune fiche coupée entre deux pages ; à
+l'écran, les mêmes noms restent affichés en entier, non tronqués, sur
+autant de lignes que nécessaire.
 
 ## Espace Administration
 

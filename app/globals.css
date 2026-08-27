@@ -1267,6 +1267,10 @@ a {
   font-size: 13px;
   font-weight: 600;
   line-height: 1.3;
+  /* Filet de sécurité pour un nom sans espace exploitable (mot unique
+     anormalement long) : force le retour à la ligne à l'intérieur de la
+     fiche plutôt que de déborder de sa largeur. */
+  overflow-wrap: break-word;
 }
 /* Deux rendus du nom dans le DOM (voir app/(app)/catalogue/page.js) : le
    nom complet à l'écran, sa version tronquée au milieu réservée à
@@ -1499,8 +1503,20 @@ a {
     display: none;
   }
   .sb-catalogue-nom-print {
-    display: block;
+    /* Filet de sécurité : tronquerMilieuNom() (page.js) vise déjà 3
+       lignes via un seuil de caractères, mais un compte de caractères ne
+       prédit qu'approximativement le nombre de lignes réellement occupé
+       — un nom dense en mots courts/majuscules peut malgré tout déborder.
+       -webkit-line-clamp coupe alors proprement à la 3e ligne avec ses
+       propres points de suspension (calcul natif du navigateur, basé sur
+       le rendu réel, pas une estimation) plutôt que de laisser un
+       caractère coupé en plein milieu sans aucun indicateur — bug
+       constaté en pratique avec un vrai catalogue avant ce correctif. */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
     overflow: hidden;
+    word-break: break-word;
   }
 }
 
