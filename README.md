@@ -1227,18 +1227,36 @@ tienne : `.sb-catalogue-nom` est limité à **3 lignes** à l'impression
 (hauteur fixe `52px` ≈ 3 × 13px × line-height 1.3, `overflow: hidden`),
 le nom étant pré-tronqué **au milieu** par `tronquerMilieuNom()`
 (`app/(app)/catalogue/page.js`) avant d'être rendu, seulement s'il dépasse
-même ces 3 lignes. Le dernier mot du nom — presque toujours la couleur de
-l'article dans ce contexte (ex. « Blond », « Noir », « Rouge ») — reste
-donc entièrement visible même pour les noms qui dépassent : « Perruque
-Lace Front Deep Wave Lisse Naturelle Densite 180 Pourcent Longueur 24
-Pouces Cheveux Humains Bresiliens Vierges Blond Miel » devient « Perruque
-Lace Front… Miel », jamais tronqué en fin de texte (`text-overflow:
-ellipsis` classique) qui masquerait l'information la plus utile en fin de
-nom. Le nom complet reste inchangé en base de données (`articles.nom`) et
-intégralement affiché à l'écran (aucune troncature côté navigateur) —
-deux rendus distincts coexistent dans le DOM (`.sb-catalogue-nom-screen`
-/ `.sb-catalogue-nom-print`), un seul visible à la fois selon `@media
-print` (`app/globals.css`).
+même ces 3 lignes. La fin du nom — presque toujours la couleur/variante de
+l'article dans ce contexte (ex. « Blond », « Noir », « ( Marron / Noir )
+») — reste donc entièrement visible même pour les noms qui dépassent : «
+Perruque Lace Front Deep Wave Lisse Naturelle Densite 180 Pourcent
+Longueur 24 Pouces Cheveux Humains Bresiliens Vierges Blond Miel » devient
+« Perruque Lace Front… Miel », jamais tronqué en fin de texte
+(`text-overflow: ellipsis` classique) qui masquerait l'information la
+plus utile en fin de nom. Le nom complet reste inchangé en base de données
+(`articles.nom`) et intégralement affiché à l'écran (aucune troncature
+côté navigateur) — deux rendus distincts coexistent dans le DOM
+(`.sb-catalogue-nom-screen` / `.sb-catalogue-nom-print`), un seul visible
+à la fois selon `@media print` (`app/globals.css`).
+
+**La "queue" préservée est un groupe entre parenthèses en toute fin de
+nom s'il y en a un, pas juste le dernier mot séparé par un espace.** Un
+simple découpage sur les espaces cassait dès que la parenthèse fermante
+était elle-même précédée d'un espace (style « ( Marron / Noir ) », par
+opposition à « (Marron) » sans espaces internes) — un vrai cas rencontré
+en pratique sur un second export du même catalogue : le dernier "mot" au
+sens strict devenait alors `)` tout seul, et la couleur réelle
+(« Marron / Noir ») disparaissait derrière les points de suspension,
+recréant exactement le problème que la troncature au milieu cherche à
+éviter — pire encore pour une variante multi-couleurs, l'info la plus
+utile pour la distinguer d'une autre fiche presque identique. Traiter tout
+le groupe `(...)` final comme un seul bloc insécable (regex
+`/\(([^()]*)\)\s*$/`) corrige aussi un second symptôme visible sur ce même
+export : une coupure tombant juste après le « ( » ouvrant produisait un
+fragment illisible comme « DOMINICAN CURL… (… Hair) » — avec ce
+découpage, le début du nom s'arrête toujours avant la parenthèse plutôt
+que de la traverser.
 
 **`LONGUEUR_NOM_IMPRESSION` abaissé de 78 à 52 caractères, après un bug
 constaté avec un vrai catalogue.** Un nombre de caractères ne prédit
@@ -1275,19 +1293,23 @@ toujours dans la hauteur imprimable d'une page A4 (297mm - 2×16mm de
 marge `@page`), y compris sur la première page où la bannière boutique
 réduit l'espace disponible. Vérifié en générant plusieurs vrais PDF via
 Playwright `page.pdf()` (pas seulement un aperçu écran, qui ne montre ni
-la pagination ni le rendu réel de la troncature) avec les noms exacts
-reconstitués à partir du catalogue réel qui posait problème (« Outre
-Melted Hairline Kinky Soft Edges Glueless HD Lace Front Wig - KIMORA
-(Marron) », « Sensationnel Curls Kinks Glueless HD 13×6 Lace Front Wig -
-13×6 KINKY BLONDE (Or) »...) : chaque nom tronqué proprement sur 2-3
-lignes avec des points de suspension visibles et la couleur finale
-préservée, plus de coupure en plein mot ; puis un cas pathologique
+la pagination ni le rendu réel de la troncature) avec les 17 noms exacts
+reconstitués à partir des deux exports PDF du catalogue réel qui posaient
+problème (« Outre Melted Hairline Kinky Soft Edges Glueless HD Lace
+Front Wig - KIMORA (Marron) », « Outre Quick Weave Half Wig - NEESHA
+H301 ( Marron / Noir ) », « Sensationnel Curls Kinks Glueless HD 13×6
+Lace Front Wig - 13×6 KINKY BLONDE (Or) »...) : chaque nom tronqué
+proprement sur 2-3 lignes avec des points de suspension visibles, la
+couleur/variante finale toujours entièrement préservée (y compris les
+variantes multi-couleurs entre parenthèses), plus de coupure en plein mot
+ni de fragment de parenthèse illisible ; puis un cas pathologique
 volontaire (nom composé d'un unique « mot » de 90+ caractères sans aucun
 espace) → la fiche reste dans ses bornes grâce à `word-break: break-word`
 au lieu de déborder de sa largeur ; dans tous les cas, page 1 = bannière
-+ 6 fiches, page 2 = 6 fiches, aucune fiche coupée entre deux pages ; à
-l'écran, les mêmes noms restent affichés en entier, non tronqués, sur
-autant de lignes que nécessaire.
++ 6 fiches, page 2 = 6 fiches, page 3 = 5 fiches restantes sans page vide
+en trop, aucune fiche coupée entre deux pages ; à l'écran, les mêmes noms
+restent affichés en entier, non tronqués, sur autant de lignes que
+nécessaire.
 
 ## Espace Administration
 
