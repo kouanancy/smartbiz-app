@@ -1442,12 +1442,15 @@ a {
      `break-inside: avoid` posé sur ce wrapper est respecté de façon
      fiable : le groupe entier bascule sur la page suivante s'il ne tient
      pas en entier sur la page courante, jamais une fiche coupée en plein
-     milieu. Le nom d'article est borné à 2 lignes (webkit-line-clamp,
-     impression uniquement) pour garantir une hauteur de fiche prévisible
-     — sans borne, un nom anormalement long pourrait à lui seul faire
-     déborder un groupe de la hauteur de page déjà vérifiée (voir README).
-     Vérifié avec un vrai PDF de 12 articles (2 groupes de 6, 2 pages) :
-     aucune fiche coupée, page 1 = bannière + 6 fiches, page 2 = 6 fiches. */
+     milieu. Le nom d'article n'est plus tronqué à l'impression (texte
+     complet, retour à la ligne libre) : c'est justement cette atomicité
+     du groupe qui permet de l'afficher en entier sans risque de coupure
+     — un nom plus long agrandit la fiche et donc le groupe, mais le
+     groupe entier bascule alors en bloc sur la page suivante s'il ne
+     tient plus, jamais une fiche coupée au milieu. Vérifié avec un vrai
+     PDF de 12 articles (dont un nom volontairement très long, affiché en
+     entier sur plusieurs lignes) : aucune fiche coupée, page 1 = bannière
+     + 6 fiches, page 2 = 6 fiches. */
   .sb-catalogue-grid {
     display: block;
   }
@@ -1469,12 +1472,6 @@ a {
     page-break-inside: avoid;
     box-shadow: none;
     transform: none;
-  }
-  .sb-catalogue-nom {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
   }
 }
 
