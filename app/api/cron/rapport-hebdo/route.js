@@ -74,11 +74,13 @@ export async function GET(request) {
 
       // Top vente de la semaine — même idiome de jointure que
       // app/(app)/statistiques/page.js, restreint aux 7 derniers jours.
+      // offert = false : un cadeau n'est jamais une vente.
       const { data: lignes } = await supabaseAdmin
         .from("commande_lignes")
         .select("quantite, articles(nom), commandes!inner(business_id, statut, created_at)")
         .eq("commandes.business_id", b.business_id)
         .eq("commandes.statut", "livree")
+        .eq("offert", false)
         .gte("commandes.created_at", depuis);
       const quantitesParArticle = new Map();
       (lignes || []).forEach((l) => {

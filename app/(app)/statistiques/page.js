@@ -29,12 +29,15 @@ export default function StatistiquesPage() {
       // annulée n'a jamais réellement "vendu" les articles qu'elle
       // contient. Même idiome de jointure que
       // app/(app)/articles/[id]/page.js (commande_lignes ->
-      // commandes!inner(...)).
+      // commandes!inner(...)). offert = false : un cadeau n'est jamais
+      // une vente, il ne doit donc jamais gonfler ce classement (voir
+      // supabase-articles-offerts-migration.sql).
       const { data } = await supabase
         .from("commande_lignes")
         .select("quantite, articles(nom), commandes!inner(business_id, statut, created_at)")
         .eq("commandes.business_id", business.id)
-        .eq("commandes.statut", "livree");
+        .eq("commandes.statut", "livree")
+        .eq("offert", false);
       if (!active) return;
       setLignes(data || []);
       setLoading(false);

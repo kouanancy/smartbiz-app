@@ -12,12 +12,45 @@ import { t as tBase } from "@/lib/i18n";
 // la même mise en page A4 que l'impression navigateur classique.
 const PAGE_MARGIN_MM = 16;
 
+// Couleurs "amber" du thème clair recopiées en dur (jamais var(--amber)/
+// var(--amber-bg)) : ce composant force déjà un fond blanc fixe partout
+// (écran comme impression), indépendant du mode sombre éventuellement
+// choisi par le commerçant dans l'app — utiliser les variables CSS ferait
+// apparaître les teintes assombries de --amber-bg (pensées pour un fond
+// sombre) sur ce fond blanc, illisibles. Même principe que l'accent
+// #E07A29 déjà en dur plus bas.
+function CadeauBadge({ t }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        fontSize: 11,
+        fontWeight: 600,
+        padding: "3px 8px",
+        borderRadius: 20,
+        background: "#FBF0DF",
+        color: "#C9862B",
+        whiteSpace: "nowrap",
+      }}
+    >
+      🎁 {t("receipt.cadeauOffertBadge")}
+    </span>
+  );
+}
+
 export default function Receipt({ commande, business, onClose }) {
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const uniteLabel = (u) => t(`common.unites.${u || "unite"}`);
   const client = commande.client;
   const totalGeneral = commande.ca + (commande.livraison_frais || 0);
+  // Séparées une fois pour les 3 surfaces (écran, PDF, WhatsApp) : aucune
+  // trace de cadeaux nulle part tant que lignesOffertes est vide — la
+  // section dédiée ci-dessous n'est alors jamais rendue.
+  const lignesVendues = commande.lignes.filter((l) => !l.offert);
+  const lignesOffertes = commande.lignes.filter((l) => l.offert);
   const businessName = business?.name;
   const logo = business?.logo_url;
   const accent = "#E07A29";
@@ -146,12 +179,18 @@ export default function Receipt({ commande, business, onClose }) {
 
     const numero = toWhatsAppNumber(client?.telephone);
     if (!numero) return;
-    const lignesTxt = commande.lignes.map((l) => `- ${l.nom} ×${l.quantite} ${uniteLabel(l.unite)}`).join("\n");
+    const lignesTxt = lignesVendues.map((l) => `- ${l.nom} ×${l.quantite} ${uniteLabel(l.unite)}`).join("\n");
+    // Section distincte, jamais mélangée à la liste ci-dessus, et
+    // entièrement absente du message si aucun cadeau n'a été renseigné.
+    const cadeauxTxt =
+      lignesOffertes.length > 0
+        ? `\n\n${t("receipt.cadeauxTitle")}\n${lignesOffertes.map((l) => `- 🎁 ${l.nom} ×${l.quantite} ${uniteLabel(l.unite)}`).join("\n")}`
+        : "";
     const message = t("receipt.whatsappMessage", {
       clientNom: client?.nom || "",
       numero: commande.numero,
       businessName: businessName || "Doka",
-      lignesTxt,
+      lignesTxt: lignesTxt + cadeauxTxt,
       livraisonLine: commande.livraison_frais > 0 ? t("receipt.whatsappLivraisonLine", { frais: fmt(commande.livraison_frais) }) : "",
       total: fmt(totalGeneral),
     });
@@ -208,8 +247,8 @@ export default function Receipt({ commande, business, onClose }) {
             <span>{commande.paiement_mode === "mobile_money" ? commande.paiement_operateur : t("receipt.paiementLivraison")}</span>
           </div>
 
-          <div style={{ borderTop: "1px dashed #E4E2D8", borderBottom: "1px dashed #E4E2D8", padding: "10px 0", marginBottom: 12 }}>
-            {commande.lignes.map((l, i) => (
+          <div style={{ borderTop: "1px dashed #E4E2D8", borderBottom: "1px dashed #E4E2D8", padding: "10px 0", marginBottom: lignesOffertes.length > 0 ? 10 : 12 }}>
+            {lignesVendues.map((l, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
                 <span>{l.nom} ×{l.quantite} {uniteLabel(l.unite)}</span>
                 <span className="sb-mono">{fmt(l.prix_vente * l.quantite)}</span>
@@ -222,6 +261,20 @@ export default function Receipt({ commande, business, onClose }) {
               </div>
             )}
           </div>
+
+          {lignesOffertes.length > 0 && (
+            <div style={{ borderBottom: "1px dashed #E4E2D8", padding: "0 0 10px", marginBottom: 12 }}>
+              <p style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "#A6A29D", margin: "0 0 8px" }}>
+                {t("receipt.cadeauxTitle")}
+              </p>
+              {lignesOffertes.map((l, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12.5, marginBottom: 4 }}>
+                  <span>{l.nom} ×{l.quantite} {uniteLabel(l.unite)}</span>
+                  <CadeauBadge t={t} />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 14.5, marginBottom: 16 }}>
             <span>{t("receipt.total")}</span>
@@ -339,7 +392,7 @@ export default function Receipt({ commande, business, onClose }) {
               </tr>
             </thead>
             <tbody>
-              {commande.lignes.map((l, i) => (
+              {lignesVendues.map((l, i) => (
                 <tr key={i}>
                   <td className="sb-receipt-print-table-photo">
                     {l.image_url ? (
@@ -360,6 +413,46 @@ export default function Receipt({ commande, business, onClose }) {
               ))}
             </tbody>
           </table>
+
+          {lignesOffertes.length > 0 && (
+            <>
+              <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "#8A867F", margin: "14px 0 6px" }}>
+                {t("receipt.cadeauxTitle")}
+              </p>
+              <table className="sb-receipt-print-table">
+                <thead>
+                  <tr>
+                    <th className="sb-receipt-print-table-photo"></th>
+                    <th>{t("receipt.tableArticle")}</th>
+                    <th style={{ textAlign: "center" }}>{t("receipt.tableQuantite")}</th>
+                    <th style={{ textAlign: "right" }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lignesOffertes.map((l, i) => (
+                    <tr key={i}>
+                      <td className="sb-receipt-print-table-photo">
+                        {l.image_url ? (
+                          <img src={l.image_url} alt="" />
+                        ) : (
+                          <div className="sb-receipt-print-table-photo-fallback">
+                            <ImageIcon size={14} />
+                          </div>
+                        )}
+                      </td>
+                      <td>{l.nom}</td>
+                      <td style={{ textAlign: "center" }}>
+                        {l.quantite} {uniteLabel(l.unite)}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <CadeauBadge t={t} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
 
           <div className="sb-receipt-print-totals">
             <div>
