@@ -18,7 +18,7 @@ const STATUT_BADGE_CLASS = {
 };
 
 const COMMANDE_SELECT =
-  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, articles(nom, unite, image_url))";
+  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, offert, articles(nom, unite, image_url))";
 
 export default function CommandeDetailPage() {
   const { business } = useAuth();
@@ -96,6 +96,7 @@ export default function CommandeDetailPage() {
         prix_vente: l.prix_vente,
         prix_achat: l.prix_achat,
         frais_annexes: l.frais_annexes,
+        offert: l.offert,
       })),
       ca: commande.ca,
       livraison_type: commande.livraison_type,
@@ -151,7 +152,13 @@ export default function CommandeDetailPage() {
 
   function ouvrirEdition() {
     setEditClientId(commande.client_id);
-    setEditLignes(commande.commande_lignes.map((l) => ({ articleId: l.article_id, quantite: l.quantite })));
+    // offert préservé tel quel depuis la ligne existante : la modale de
+    // modification ne permet pas d'ajouter de nouveaux cadeaux (voir
+    // addEditLigne, toujours offert: false) — seulement de ne pas perdre
+    // le statut d'un cadeau déjà présent quand la commande est modifiée
+    // pour une autre raison (livraison, paiement, quantité d'un autre
+    // article...).
+    setEditLignes(commande.commande_lignes.map((l) => ({ articleId: l.article_id, quantite: l.quantite, offert: l.offert })));
     setEditArticleSel("");
     setEditQte(1);
     setEditTypeLivraison(commande.livraison_type);
@@ -169,12 +176,18 @@ export default function CommandeDetailPage() {
     return art.stock - dejaDansForm;
   }
 
+  // Fusionne uniquement avec une ligne déjà "vendue" existante — jamais
+  // avec une ligne "offerte" préservée (voir ouvrirEdition) : rallonger
+  // la quantité d'un cadeau via ce simple champ d'ajout le transformerait
+  // silencieusement en vente partielle, jamais voulu ici (cette modale
+  // n'offre aucun moyen d'ajouter un nouveau cadeau, seulement de ne pas
+  // perdre ceux déjà présents).
   function addEditLigne() {
     if (!editArticleSel || editQte < 1 || editQte > stockDispoEdition(editArticleSel)) return;
     setEditLignes((prev) => {
-      const existe = prev.find((l) => l.articleId === editArticleSel);
-      if (existe) return prev.map((l) => (l.articleId === editArticleSel ? { ...l, quantite: l.quantite + editQte } : l));
-      return [...prev, { articleId: editArticleSel, quantite: editQte }];
+      const existe = prev.find((l) => l.articleId === editArticleSel && !l.offert);
+      if (existe) return prev.map((l) => (l === existe ? { ...l, quantite: l.quantite + editQte } : l));
+      return [...prev, { articleId: editArticleSel, quantite: editQte, offert: false }];
     });
     setEditQte(1);
   }
@@ -187,11 +200,14 @@ export default function CommandeDetailPage() {
     editTypeLivraison === "livraison" ? zones.find((z) => z.zone === editZoneLivraison)?.frais || 0 : 0;
   const editTotalCa = editLignes.reduce((s, l) => {
     const art = articles.find((a) => a.id === l.articleId);
-    return s + (art ? art.prix_vente * l.quantite : 0);
+    if (!art) return s;
+    return s + (l.offert ? 0 : art.prix_vente) * l.quantite;
   }, 0);
   const editTotalMarge = editLignes.reduce((s, l) => {
     const art = articles.find((a) => a.id === l.articleId);
-    return s + (art ? (art.prix_vente - art.prix_achat - (art.frais_annexes || 0)) * l.quantite : 0);
+    if (!art) return s;
+    const prixVente = l.offert ? 0 : art.prix_vente;
+    return s + (prixVente - art.prix_achat - (art.frais_annexes || 0)) * l.quantite;
   }, 0);
   const editTotalAvecLivraison = editTotalCa + editFraisLivraison;
 
@@ -205,9 +221,12 @@ export default function CommandeDetailPage() {
       return {
         articleId: l.articleId,
         quantite: l.quantite,
-        prix_vente: art.prix_vente,
+        // Toujours 0 pour une ligne offerte, jamais le prix catalogue —
+        // même principe qu'à la création (voir app/(app)/nouvelle/page.js).
+        prix_vente: l.offert ? 0 : art.prix_vente,
         prix_achat: art.prix_achat,
         frais_annexes: art.frais_annexes || 0,
+        offert: l.offert,
       };
     });
     const ca = fullLignes.reduce((s, l) => s + l.prix_vente * l.quantite, 0);
@@ -242,6 +261,7 @@ export default function CommandeDetailPage() {
           prix_vente: l.prix_vente,
           prix_achat: l.prix_achat,
           frais_annexes: l.frais_annexes,
+          offert: l.offert,
         }))
       );
       if (insertError) throw insertError;
@@ -353,7 +373,14 @@ export default function CommandeDetailPage() {
                       </div>
                     ) : null}
                   </td>
-                  <td>{l.articles?.nom ?? "—"}</td>
+                  <td>
+                    {l.articles?.nom ?? "—"}
+                    {l.offert && (
+                      <span className="sb-badge sb-badge-amber" style={{ marginLeft: 6, fontSize: 11 }}>
+                        🎁 {t("receipt.cadeauOffertBadge")}
+                      </span>
+                    )}
+                  </td>
                   <td className="sb-mono" style={{ textAlign: "right" }}>
                     {fmt(l.prix_vente)}
                   </td>
@@ -493,15 +520,22 @@ export default function CommandeDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {editLignes.map((l) => {
+                    {editLignes.map((l, i) => {
                       const art = articles.find((a) => a.id === l.articleId);
                       return (
-                        <tr key={l.articleId}>
-                          <td>{art?.nom ?? "—"}</td>
+                        <tr key={i}>
+                          <td>
+                            {art?.nom ?? "—"}
+                            {l.offert && (
+                              <span className="sb-badge sb-badge-amber" style={{ marginLeft: 6, fontSize: 11 }}>
+                                🎁 {t("receipt.cadeauOffertBadge")}
+                              </span>
+                            )}
+                          </td>
                           <td className="sb-mono">
                             {l.quantite} {uniteLabel(art?.unite)}
                           </td>
-                          <td className="sb-mono">{fmt((art?.prix_vente || 0) * l.quantite)}</td>
+                          <td className="sb-mono">{fmt((l.offert ? 0 : art?.prix_vente || 0) * l.quantite)}</td>
                           <td>
                             <button className="sb-btn sb-btn-ghost" style={{ padding: "3px 6px" }} onClick={() => removeEditLigne(l.articleId)}>
                               <Trash2 size={12} />

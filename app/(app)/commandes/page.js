@@ -18,7 +18,7 @@ const STATUT_BADGE_CLASS = {
 };
 
 const COMMANDE_SELECT =
-  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, articles(nom, unite, image_url))";
+  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, offert, articles(nom, unite, image_url))";
 
 export default function CommandesPage() {
   const { business } = useAuth();
@@ -101,8 +101,14 @@ export default function CommandesPage() {
       [t("dashboard.colNumero")]: c.numero,
       [t("dashboard.colDate")]: new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue)),
       [t("commandes.colCliente")]: c.clients?.nom ?? "—",
+      // Cadeaux marqués explicitement dans le texte — jamais confondus
+      // avec un article vendu, y compris dans cet export comptable (voir
+      // supabase-articles-offerts-migration.sql).
       [t("commandes.colArticles")]: c.commande_lignes
-        .map((l) => `${l.articles?.nom ?? "—"} ×${l.quantite} ${uniteLabel(l.articles?.unite)}`)
+        .map(
+          (l) =>
+            `${l.articles?.nom ?? "—"} ×${l.quantite} ${uniteLabel(l.articles?.unite)}${l.offert ? ` (${t("commandes.exportOffert")})` : ""}`
+        )
         .join(", "),
       [t("commandes.colCa")]: c.ca,
       [t("commandes.colMargeReelle")]: c.marge,

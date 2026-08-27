@@ -594,6 +594,89 @@ import dynamique dans `genererPdfBlob()` pour ne pas alourdir le chargement
 initial de l'app — ces bibliothèques ne sont récupérées qu'au moment où
 un PDF est réellement demandé.
 
+## Articles offerts (cadeaux)
+
+Dans **Nouvelle commande**, une section « 🎁 Cadeaux offerts (facultatif) »
+distincte de la liste des articles vendus (`app/(app)/nouvelle/page.js`) —
+même sélecteur `ArticleSelect` + quantité, mais jamais d'article ajouté
+par défaut : tant que cette section reste vide, rien ne change nulle
+part dans l'app par rapport à avant cette fonctionnalité.
+
+**Une seule idée technique porte tout le reste** : une ligne offerte est
+une ligne de `commande_lignes` presque comme une autre (`offert = true`,
+`supabase-articles-offerts-migration.sql`), sauf que son `prix_vente` est
+toujours forcé à `0` — jamais le prix catalogue de l'article — quel que
+soit le prix de vente normal de l'article. Comme le CA d'une commande est
+déjà `somme(prix_vente × quantite)` et sa marge réelle déjà `somme((prix_vente
+− prix_achat − frais_annexes) × quantite)` (voir « Commandes : cycle de vie »
+plus haut), ces deux formules existantes — inchangées, jamais un cas
+particulier ajouté pour `offert` — donnent automatiquement le bon résultat :
+un cadeau n'ajoute jamais rien au CA, et son coût réel
+(`prix_achat + frais_annexes`, toujours renseigné normalement) réduit bien
+la marge. Ce même principe s'applique aux trois endroits qui recalculent
+CA/marge : la création (`nouvelle/page.js`), la modification d'une commande
+en attente (`commandes/[id]/page.js`) et l'aperçu en direct des deux pages.
+
+**Stock partagé entre vendus et offerts** : les deux sections puisent dans
+le même stock réel de l'article — `stockDispo(id)` soustrait la quantité
+déjà utilisée dans les deux listes à la fois, pas seulement celle des
+articles vendus, pour qu'un article ne puisse jamais être à la fois
+« encore disponible à la vente » et « encore disponible en cadeau »
+au-delà de ce qu'il reste physiquement. Une ligne offerte déduit le stock
+réel exactement comme une ligne vendue, au moment où la commande passe
+« Livrée » (`marquerLivree()`, aucune distinction `offert` dans cette
+boucle) — et compte donc aussi dans le **stock théorique** (voir section
+suivante) tant que la commande reste en attente : `enAttenteParArticle`
+somme déjà toutes les `commande_lignes` d'une commande en attente sans
+filtrer sur `offert`, un cadeau en attente de livraison réserve donc bien
+du stock comme un article vendu, sans aucun changement de code nécessaire
+à cet endroit.
+
+**Sur la confirmation** (écran, PDF, `components/Receipt.js`) : si la
+commande contient au moins une ligne offerte, une section « 🎁 CADEAUX
+OFFERTS » distincte apparaît sous la liste des articles vendus, chaque
+ligne portant une étiquette « 🎁 Cadeau offert » à la place d'un prix —
+sans cette ligne offerte, la section entière n'est jamais rendue, la
+confirmation reste identique à avant. Couleurs de cette étiquette
+(`CadeauBadge`) recopiées en dur depuis `--amber`/`--amber-bg` du thème
+clair, jamais `var(--amber)` directement : `Receipt.js` force déjà un
+fond blanc fixe partout (écran comme impression), indépendant du mode
+sombre — utiliser la variable CSS ferait apparaître la teinte assombrie
+pensée pour un fond sombre sur ce fond blanc, illisible (même raison que
+l'accent `#E07A29` déjà en dur dans ce fichier). Le message WhatsApp
+pré-rempli (texte, pas le PDF joint) porte la même section séparée en
+clair. La page de détail d'une commande (`commandes/[id]/page.js`)
+affiche la même étiquette (`sb-badge sb-badge-amber`, cette fois via les
+variables CSS habituelles — cette page-là suit bien le thème de l'app)
+à côté de chaque ligne offerte dans son propre tableau.
+
+**Modifier une commande en attente qui contient déjà un cadeau** : la
+modale d'édition ne permet pas d'en ajouter un nouveau (pas de section
+dédiée là-bas), mais préserve celui déjà présent — `ouvrirEdition()`
+recopie `offert` depuis chaque ligne existante, et `addEditLigne()` ne
+fusionne jamais une quantité ajoutée via le simple champ d'ajout dans une
+ligne déjà offerte (seulement dans une ligne vendue), pour ne jamais
+transformer silencieusement une partie d'un cadeau en vente. Limite
+connue, jamais rencontrée en pratique : un même article à la fois vendu
+ET offert dans une même commande n'est pas entièrement démêlable dans
+cette modale (elle n'a jamais distingué plus d'une ligne par article,
+même avant cette fonctionnalité) — seule la création (`nouvelle/page.js`,
+deux listes séparées) gère ce cas sans ambiguïté.
+
+**Jamais confondus avec une vente dans les rapports** : `offert = false`
+ajouté aux requêtes qui comptent des ventes par article —
+`app/(app)/statistiques/page.js` (produits les plus vendus),
+`app/api/cron/rapport-hebdo` (top vente de la semaine) et
+`app/(app)/clients/[id]/page.js` (dernier achat/produit favori d'une
+cliente, un cadeau n'étant pas un achat). Jamais ajouté en revanche aux
+requêtes de stock réservé (`app/(app)/articles/page.js`,
+`app/(app)/articles/[id]/page.js`) ni à Trésorerie, qui n'a de toute façon
+jamais besoin d'y toucher : elle ne lit que `commandes.ca`/`commandes.marge`,
+déjà corrects par construction. L'export Excel des commandes
+(`app/(app)/commandes/page.js`) ajoute `(offert)` en clair après chaque
+article concerné dans la colonne récapitulative, pour rester sans
+ambiguïté une fois hors de l'app.
+
 ## Stock théorique
 
 Le stock affiché sur la page Articles (`articles.stock`) est le stock réel.

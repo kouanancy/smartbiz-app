@@ -47,13 +47,16 @@ export default function ClientDetailPage() {
         // commande en attente ou annulée n'a jamais été "achetée"). Jointure
         // commande_lignes -> commandes!inner(...) exactement comme dans
         // app/(app)/articles/[id]/page.js (stock réservé), seul le statut
-        // filtré diffère ('livree' ici, 'en_attente' là-bas).
+        // filtré diffère ('livree' ici, 'en_attente' là-bas). offert = false :
+        // un cadeau n'est jamais un achat, ni pour la date du dernier achat
+        // ni pour le produit favori (voir supabase-articles-offerts-migration.sql).
         supabase
           .from("commande_lignes")
           .select("quantite, articles(nom), commandes!inner(business_id, client_id, statut, created_at)")
           .eq("commandes.business_id", business.id)
           .eq("commandes.client_id", params.id)
-          .eq("commandes.statut", "livree"),
+          .eq("commandes.statut", "livree")
+          .eq("offert", false),
       ]);
       if (!active) return;
       const lignes = commandesRes.data || [];
