@@ -678,6 +678,44 @@ l'édition d'une commande ; catégories pour un article) plutôt que de les
 recevoir de la page liste, dont ils sont maintenant complètement
 indépendants — chacun peut être ouvert directement par son URL.
 
+## Historique client enrichi
+
+Sur `app/(app)/clients/[id]/page.js`, deux nouveaux champs dans la grille
+de détail (« Dernier achat », « Produit favori »), calculés à partir des
+`commande_lignes` de cette cliente — uniquement celles dont la commande
+est `statut = 'livree'`, comme partout ailleurs dans l'app (une commande
+en attente ou annulée n'a jamais été réellement « achetée »). Requête
+dédiée (en plus de celle, déjà existante, qui alimente le nombre de
+commandes/total achats) : jointure `commande_lignes -> commandes!inner(...)`
+identique à celle déjà utilisée pour le stock réservé
+(`app/(app)/articles/[id]/page.js`), avec `articles(nom)` en plus pour
+connaître le nom de chaque article acheté. Le dernier achat est la date
+`created_at` la plus récente parmi ces lignes ; le produit favori est
+l'article dont la somme des `quantite` sur l'ensemble de l'historique est
+la plus élevée (pas seulement le plus récent, ni le plus cher — le plus
+souvent racheté). Aucune de ces deux valeurs n'est stockée : recalculée à
+chaque ouverture de la fiche, à partir des données déjà en base.
+
+## Statistiques des produits les plus vendus
+
+Nouvelle page dédiée `app/(app)/statistiques/page.js` (entrée de
+navigation propre dans `components/Sidebar.js`, entre Trésorerie et
+Stock/Articles) plutôt qu'une carte de plus sur un Dashboard déjà chargé
+— le sujet (« quoi remettre en avant, quoi arrêter de stocker ») mérite un
+espace propre, pas un encart parmi d'autres. Classement des articles par
+quantité totale vendue, uniquement sur les commandes livrées, avec un
+sélecteur de période à 3 choix (Mois / Trimestre / Année) — délibérément
+différent du sélecteur à 4 choix de Trésorerie (qui a en plus Semestre) :
+demande explicite, pour rester simple sur une page qui ne montre qu'un
+classement, pas une évolution dans le temps. Même principe de fenêtre
+« glissante » en mois que `PERIODE_MOIS` de `app/(app)/tresorerie/page.js`
+(ex. Trimestre = les 3 derniers mois à partir d'aujourd'hui), pas calée
+sur le calendrier. Une seule requête au chargement (toutes les
+`commande_lignes` livrées de la boutique, jointes à `commandes` et
+`articles(nom)`), le changement de période ne fait que refiltrer et
+ré-agréger côté client (`useMemo`) — pas de nouvel aller-retour réseau à
+chaque clic sur le sélecteur.
+
 ## Trésorerie
 
 Page dédiée (`/tresorerie`, `app/(app)/tresorerie/page.js`), accessible à
@@ -1627,7 +1665,8 @@ occuper l'espace même sur une phase à peu de fonctionnalités) + nom à
 gauche, liste de fonctionnalités à droite, chacune avec une icône, un
 nom, une description et une puce de statut (`CheckCircle2`, grisée tant
 que `disponible: false`, verte dès que passée à `true` dans
-`ROADMAP_PHASES`). Couleur distincte par phase — reprise des couleurs
+`ROADMAP_PHASES`, désormais dans `lib/roadmap.js` — voir plus bas).
+Couleur distincte par phase — reprise des couleurs
 déjà posées sur `.sb-landing` (`--accent`/`--muted`/`--amber`/`--coral`,
 `app/globals.css`) plutôt qu'une nouvelle palette, posée en variables
 CSS inline (`--phase-color`/`--phase-bg`) sur chaque capsule et sur
@@ -1648,9 +1687,13 @@ comme le reste du site vitrine. Contenu des 4 phases :
   en temps réel, données strictement confidentielles (isolation par
   boutique) — un résumé des fonctionnalités déjà livrées dans l'app,
   jamais une nouvelle description inventée.
-- **Phase 2 — Mieux piloter** (`disponible: false` partout) : historique
-  client enrichi, statistiques des produits les plus vendus, comparaison
-  du chiffre d'affaires au mois dernier, rapport hebdomadaire enrichi
+- **Phase 2 — Mieux piloter** (`disponible: true` pour historique client
+  enrichi, statistiques des produits les plus vendus et rapport
+  hebdomadaire enrichi — livrées, voir les sections dédiées plus haut ;
+  `disponible: false` encore pour comparaison du chiffre d'affaires au
+  mois dernier et export comptable consolidé) : historique client
+  enrichi, statistiques des produits les plus vendus, comparaison du
+  chiffre d'affaires au mois dernier, rapport hebdomadaire enrichi
   (WhatsApp/notification), export comptable consolidé.
 - **Phase 3 — Grandir en équipe** (`disponible: false` partout) :
   paiement partiel par acompte, plusieurs utilisateurs à droits limités,
@@ -1660,6 +1703,16 @@ comme le reste du site vitrine. Contenu des 4 phases :
   de parrainage, facturation, gestion multi-boutique, fidélisation des
   clientes, Marketplace Doka (catalogues de tous les commerçants
   centralisés dans un espace commun).
+
+**Statut piloté depuis `lib/roadmap.js`, pas depuis le texte de la page**
+: `ROADMAP_PHASES` (icônes, noms, descriptions, `disponible`) vivait à
+l'origine directement dans `app/feuille-de-route/page.js` ; extrait dans
+ce fichier séparé pour que faire passer une fonctionnalité de « pas
+encore disponible » à « disponible » (coche grise → verte sur la page
+publique, automatiquement, sans autre changement) se fasse en un seul
+endroit central, sans retoucher le texte de la page vitrine elle-même à
+chaque livraison. `app/feuille-de-route/page.js` ne fait plus
+qu'importer `{ ROADMAP_PHASES }` et l'afficher.
 
 **Pied de page complet** : liens `/cgu`, `/confidentialite`,
 `/mentions-legales`, `contact@doka.ci` (même adresse que
@@ -1896,6 +1949,71 @@ Supabase). Les confirmations de commande par e-mail
 (`businesses.notif_email`, `businesses.confirmation_email`) sont une
 fonctionnalité distincte, conservée telle quelle — voir « Centre de
 notifications » plus bas.
+
+## Rapport hebdomadaire enrichi
+
+Ne reprend pas l'ancien « Rapport de stock automatique » ci-dessus, retiré
+pour cause de redondance avec la page Articles : celui-ci résume toute
+l'activité de la semaine (CA, marge réelle, top vente, alertes de stock),
+pas seulement le stock — et surtout, il n'est plus envoyé par e-mail
+(jamais fiabilisé pour les alertes de paiement admin non plus, voir
+« Notifications push » plus bas) mais au choix du commerçant, par WhatsApp
+ou notification push. Désactivé par défaut
+(`businesses.rapport_hebdo_actif`), configurable dans Paramètres.
+
+**Migration** : `supabase-rapport-hebdo-migration.sql` — colonnes
+`businesses.rapport_hebdo_actif` (boolean, false par défaut),
+`rapport_hebdo_mode` (`'whatsapp'` ou `'push'`), `rapport_hebdo_jour_semaine`
+(0 = dimanche … 6 = samedi, convention PostgreSQL `extract(dow from ...)`,
+même principe que l'ancien `rapport_stock_jour_semaine` retiré) et
+`rapport_hebdo_dernier_envoi` (posée uniquement côté serveur, jamais par
+le client — absente du `GRANT UPDATE`, même piège que
+`visite_guidee_vue` documenté plus bas : sans ce grant, l'écriture depuis
+Paramètres échouerait silencieusement). Assouplit aussi la policy RLS de
+`push_subscriptions` (jusque-là réservée aux comptes admin, voir
+« Notifications push » plus bas) à toute boutique propriétaire de ses
+propres abonnements — un commerçant qui choisit le mode push doit pouvoir
+s'abonner sur son appareil comme un compte admin le fait déjà.
+
+**Contrainte du plan Vercel actuel — leçon tirée de l'ancien rapport de
+stock** : une seule exécution par jour, à heure fixe pour toutes les
+boutiques (voir `vercel.json`), jamais une granularité horaire par
+boutique — c'est exactement ce qui avait fait échouer le créneau horaire
+personnalisé de l'ancien rapport de stock
+(`supabase-rapport-stock-horaire-migration.sql`, retiré ensuite par
+`supabase-rapport-stock-retrait-heure-migration.sql`). Le rapport
+hebdomadaire ne propose donc qu'un jour de la semaine, jamais une heure,
+et tourne une fois par jour (`app/api/cron/rapport-hebdo`, 7h,
+`vercel.json`) en ne traitant que les boutiques dont c'est effectivement
+le jour choisi aujourd'hui.
+
+**Sélection atomique** : `boutiques_dues_rapport_hebdo()` (SECURITY
+DEFINER, jamais grantée à `authenticated`) sélectionne les boutiques dues
+et pose `rapport_hebdo_dernier_envoi = current_date` dans la même requête
+(`update ... returning`), même principe que
+`generer_notifications_expiration()` — une boutique due ne peut donc
+jamais recevoir deux rapports le même jour, même si la tâche planifiée
+tournait deux fois. Le contenu du rapport (CA/marge de la semaine, top
+vente, alertes de stock) est calculé côté route Node
+(`app/api/cron/rapport-hebdo/route.js`), pas en SQL pur — plus simple à
+lire/maintenir pour le petit nombre de boutiques dues chaque jour, même
+choix que pour les autres tâches planifiées de ce dépôt.
+
+**Mode WhatsApp** : aucune API WhatsApp Business n'existe dans cette app
+(voir `lib/format.js`/`toWhatsAppNumber` et `components/Receipt.js`) — le
+rapport est donc livré comme une notification en cloche (centre de
+notifications, voir plus bas) dont le lien est un `wa.me` pré-rempli avec
+le texte complet du rapport, sans numéro de destinataire (même principe
+que le partage générique de `app/(app)/catalogue/page.js` : le commerçant
+choisit lui-même à qui l'envoyer, y compris à lui-même). Jamais un envoi
+automatique réel — seulement un lien prêt à ouvrir.
+
+**Mode push** : vraie notification Web Push, envoyée directement depuis
+la route cron (pas via la route dédiée `app/api/push-admin-paiement`,
+réservée aux alertes de paiement admin) — plus simple, ce cron a déjà la
+clé service_role et les clés VAPID sous la main, pas besoin d'un aller-
+retour HTTP supplémentaire comme le fait le trigger Postgres de
+`notifier_admins_nouveau_justificatif()`.
 
 ## Logo Doka (marque de la plateforme)
 
@@ -2181,6 +2299,7 @@ app/
   (app)/nouvelle/          nouvelle commande
   (app)/commandes/         historique des commandes
   (app)/tresorerie/        évolution du CA et de la marge dans le temps
+  (app)/statistiques/      produits les plus vendus (voir « Statistiques des produits les plus vendus »)
   (app)/articles/          stock / articles / catégories / réappro
   (app)/clients/           clients
   (app)/catalogue/         catalogue partageable (WhatsApp / impression)
@@ -2192,6 +2311,7 @@ app/
   (app)/admin/paiements/   liste dédiée des paiements en attente (accès permanent, bouton + badge sur /admin)
   api/push-admin-paiement/    route serveur : notification push (web-push), appelée depuis Supabase (pg_net) à la soumission d'un justificatif
   api/cron/expiration-reminders/   route serveur : rappel d'abonnement qui expire (Vercel Cron)
+  api/cron/rapport-hebdo/     route serveur : rapport hebdomadaire (CA/marge/top vente/stock), WhatsApp ou push (Vercel Cron, voir « Rapport hebdomadaire enrichi »)
 components/
   Sidebar.js, Receipt.js, ImageUploadField.js, PlanGrid.js,
   FormuleEtPaiement.js, PremierPaiement.js, Reabonnement.js, CompteSuspendu.js,
@@ -2205,6 +2325,7 @@ lib/
   supabaseClient.js        client Supabase (browser)
   AuthProvider.js          contexte auth + création automatique de la ligne business
   push.js                  activation des notifications push (voir « Notifications push (Web Push) »)
+  roadmap.js               contenu de la feuille de route publique (voir « Site vitrine public »)
   constants.js, format.js
   i18n/                    dictionnaires fr.js / en.js + t() (voir « Langue » ci-dessus)
 public/
@@ -2310,7 +2431,9 @@ Implémentation en deux temps :
   branché, conformément à `smartbiz-backend-roadmap.md` — le paiement
   manuel Wave vérifié (voir section dédiée) fait le pont en attendant.
   **Resend** n'est branché que pour la notification admin de nouveau
-  justificatif ; les autres notifications prévues dans Paramètres
-  (confirmations de commande, rapports de stock) restent à faire.
+  justificatif ; la confirmation de commande par e-mail
+  (`businesses.confirmation_email`) reste à faire — le rapport
+  hebdomadaire, lui, ne passe plus par e-mail (voir « Rapport
+  hebdomadaire enrichi »).
 - Le prix de départ de l'abonnement (5 000 FCFA/mois) est une valeur
   indicative, modifiable à tout moment depuis Paramètres → Paiement Wave.
