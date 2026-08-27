@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, Download, MessageCircle, Printer, X } from "lucide-react";
+import { CheckCircle2, Download, Image as ImageIcon, MessageCircle, Printer, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { fmt as fmtBase, dateLocale, toWhatsAppNumber } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
@@ -355,6 +355,10 @@ export default function Receipt({ commande, business, onClose }) {
                 <span>{t("receipt.printAdresse")}</span>
                 <strong>{client?.adresse || "—"}</strong>
               </div>
+              <div>
+                <span>{t("receipt.printEmail")}</span>
+                <strong>{client?.email || "—"}</strong>
+              </div>
             </div>
             <div className="sb-receipt-print-info-block">
               <h3>{t("receipt.printLivraisonPaiement")}</h3>
@@ -377,26 +381,26 @@ export default function Receipt({ commande, business, onClose }) {
             </div>
           </div>
 
-          {/* Une seule table pour les articles vendus ET les cadeaux
-              offerts (jamais deux tables séparées avec leur propre
-              en-tête) — la ligne "diviseur" ci-dessous, avec juste un
-              intitulé sur toute la largeur, coûte beaucoup moins de
-              hauteur qu'un second <thead> complet. Photo retirée
-              (présente seulement dans l'aperçu à l'écran) : jamais
-              indispensable à la compréhension de la confirmation.
-              Document autorisé à déborder sur plusieurs pages si la
-              liste d'articles est longue (plus une exigence stricte
-              d'une seule page) — mais jamais une ligne coupée en plein
-              milieu entre deux pages (.sb-receipt-print-table tr,
-              break-inside: avoid, voir app/globals.css, même principe
-              que .sb-catalogue-card) et <thead> se répète nativement en
-              haut de chaque page suivante (comportement natif des
-              navigateurs pour un <table> qui déborde, sans CSS
-              supplémentaire) — un lecteur retrouve toujours les
-              en-têtes de colonnes en haut de chaque page. */}
+          {/* Mise en page d'origine (photo par article, table dédiée
+              aux cadeaux offerts avec son propre en-tête) — la
+              compaction extrême tentée pour tenir sur une seule page a
+              été abandonnée sur demande : le document est explicitement
+              autorisé à déborder sur plusieurs pages si la liste
+              d'articles est longue. Ce qui reste non négociable : jamais
+              une ligne coupée en plein milieu entre deux pages
+              (.sb-receipt-print-table tr, break-inside: avoid, voir
+              app/globals.css, même principe que .sb-catalogue-card) et
+              un <thead> qui se répète nativement en haut de chaque page
+              suivante (comportement natif des navigateurs pour un
+              <table> qui déborde, sans CSS supplémentaire) — un lecteur
+              retrouve toujours les en-têtes de colonnes en haut de
+              chaque page. Aucun emoji dans cette version imprimée : la
+              section cadeaux utilise un texte sobre (« Offert ») plutôt
+              que le badge à emoji visible à l'écran. */}
           <table className="sb-receipt-print-table">
             <thead>
               <tr>
+                <th className="sb-receipt-print-table-photo"></th>
                 <th>{t("receipt.tableArticle")}</th>
                 <th style={{ textAlign: "right" }}>{t("receipt.tablePrixUnitaire")}</th>
                 <th style={{ textAlign: "center" }}>{t("receipt.tableQuantite")}</th>
@@ -406,6 +410,15 @@ export default function Receipt({ commande, business, onClose }) {
             <tbody>
               {lignesVendues.map((l, i) => (
                 <tr key={`v-${i}`}>
+                  <td className="sb-receipt-print-table-photo">
+                    {l.image_url ? (
+                      <img src={l.image_url} alt="" />
+                    ) : (
+                      <div className="sb-receipt-print-table-photo-fallback">
+                        <ImageIcon size={14} />
+                      </div>
+                    )}
+                  </td>
                   <td>{l.nom}</td>
                   <td style={{ textAlign: "right" }}>{fmt(l.prix_vente)}</td>
                   <td style={{ textAlign: "center" }}>
@@ -414,28 +427,56 @@ export default function Receipt({ commande, business, onClose }) {
                   <td style={{ textAlign: "right" }}>{fmt(l.prix_vente * l.quantite)}</td>
                 </tr>
               ))}
-              {lignesOffertes.length > 0 && (
-                <tr style={{ breakAfter: "avoid", pageBreakAfter: "avoid" }}>
-                  <td
-                    colSpan={4}
-                    style={{ padding: "6px 8px 3px", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em", color: "#8A867F", border: "none" }}
-                  >
-                    {t("receipt.cadeauxTitrePrint")}
-                  </td>
-                </tr>
-              )}
-              {lignesOffertes.map((l, i) => (
-                <tr key={`o-${i}`}>
-                  <td>{l.nom}</td>
-                  <td style={{ textAlign: "right" }}>—</td>
-                  <td style={{ textAlign: "center" }}>
-                    {l.quantite} {uniteLabel(l.unite)}
-                  </td>
-                  <td style={{ textAlign: "right", fontWeight: 700 }}>{t("receipt.offertPrint")}</td>
-                </tr>
-              ))}
             </tbody>
           </table>
+
+          {lignesOffertes.length > 0 && (
+            <>
+              <p
+                style={{
+                  fontSize: 11,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  color: "#8A867F",
+                  margin: "14px 0 6px",
+                  breakAfter: "avoid",
+                  pageBreakAfter: "avoid",
+                }}
+              >
+                {t("receipt.cadeauxTitrePrint")}
+              </p>
+              <table className="sb-receipt-print-table">
+                <thead>
+                  <tr>
+                    <th className="sb-receipt-print-table-photo"></th>
+                    <th>{t("receipt.tableArticle")}</th>
+                    <th style={{ textAlign: "center" }}>{t("receipt.tableQuantite")}</th>
+                    <th style={{ textAlign: "right" }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lignesOffertes.map((l, i) => (
+                    <tr key={`o-${i}`}>
+                      <td className="sb-receipt-print-table-photo">
+                        {l.image_url ? (
+                          <img src={l.image_url} alt="" />
+                        ) : (
+                          <div className="sb-receipt-print-table-photo-fallback">
+                            <ImageIcon size={14} />
+                          </div>
+                        )}
+                      </td>
+                      <td>{l.nom}</td>
+                      <td style={{ textAlign: "center" }}>
+                        {l.quantite} {uniteLabel(l.unite)}
+                      </td>
+                      <td style={{ textAlign: "right", fontWeight: 700 }}>{t("receipt.offertPrint")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
 
           <div className="sb-receipt-print-totals">
             <div>
@@ -454,7 +495,9 @@ export default function Receipt({ commande, business, onClose }) {
             </div>
           </div>
 
-          <p className="sb-receipt-print-stamp">{t("receipt.stampConfirmee")}</p>
+          <div className="sb-receipt-print-stamp">
+            <span>{t("receipt.stampConfirmee")}</span>
+          </div>
 
           <div className="sb-receipt-print-footer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
             {platformLogo && <img src={platformLogo} alt="" style={{ height: 12, width: 12, objectFit: "contain" }} />}
