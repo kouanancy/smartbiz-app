@@ -1,6 +1,8 @@
+import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
 
 const RESEND_FROM = process.env.RESEND_FROM_EMAIL || "Doka <onboarding@resend.dev>";
+const VAPID_SUBJECT = "mailto:koua.nancy@gmail.com";
 
 // Route serveur (jamais exposée au navigateur) : seul endroit où
 // SUPABASE_SERVICE_ROLE_KEY est utilisée. Déclenchée une fois par jour par
@@ -43,39 +45,72 @@ export async function GET(request) {
 
   // generer_notifications_expiration() ne renvoie que les boutiques pour
   // lesquelles une notification a vraiment été créée cette fois-ci (grâce
-  // au ON CONFLICT (dedupe_key) DO NOTHING côté SQL) : l'e-mail n'est donc
-  // envoyé, comme la notification en base, qu'une seule fois par échéance —
-  // jamais à chaque exécution quotidienne tant que l'abonnement reste dans
-  // la fenêtre des 3 jours.
+  // au ON CONFLICT (dedupe_key) DO NOTHING côté SQL) : l'e-mail et la
+  // notification push ne sont donc envoyés, comme la notification en
+  // base, qu'une seule fois par échéance — jamais à chaque exécution
+  // quotidienne tant que l'abonnement reste dans la fenêtre des 3 jours.
   const resendApiKey = process.env.RESEND_API_KEY;
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+  const pushDisponible = Boolean(vapidPublicKey && vapidPrivateKey);
+  if (pushDisponible) webpush.setVapidDetails(VAPID_SUBJECT, vapidPublicKey, vapidPrivateKey);
+
   const resultats = [];
   for (const b of boutiques || []) {
-    if (!resendApiKey || !b.business_email) {
-      resultats.push({ business_id: b.business_id, email: false });
-      continue;
+    const dateTexte = new Date(b.subscription_expires_at).toLocaleDateString("fr-FR");
+    let emailEnvoye = false;
+    if (resendApiKey && b.business_email) {
+      try {
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: RESEND_FROM,
+            to: b.business_email,
+            subject: "Ton abonnement Doka expire bientôt",
+            text: `Bonjour ${b.business_name || ""},\n\nTon abonnement Doka expire le ${dateTexte}. Rends-toi dans Paramètres pour le renouveler et éviter toute interruption de service.`,
+          }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        emailEnvoye = true;
+      } catch (err) {
+        console.error(`Échec de l'e-mail de rappel d'expiration pour ${b.business_id} :`, err);
+      }
     }
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: RESEND_FROM,
-          to: b.business_email,
-          subject: "Ton abonnement Doka expire bientôt",
-          text: `Bonjour ${b.business_name || ""},\n\nTon abonnement Doka expire le ${new Date(
-            b.subscription_expires_at
-          ).toLocaleDateString("fr-FR")}. Rends-toi dans Paramètres pour le renouveler et éviter toute interruption de service.`,
-        }),
+
+    // Vraie notification Web Push, en plus de la cloche déjà posée par
+    // generer_notifications_expiration() — voir Paramètres, section
+    // « Notification push » (commune aux comptes admin et commerçant
+    // classique). Sans abonnement actif sur aucun appareil, la boucle
+    // ci-dessous ne trouve simplement rien à envoyer.
+    let pushEnvoyes = 0;
+    if (pushDisponible) {
+      const { data: abonnements } = await supabaseAdmin
+        .from("push_subscriptions")
+        .select("id, endpoint, p256dh, auth")
+        .eq("business_id", b.business_id);
+      const payload = JSON.stringify({
+        title: "Abonnement bientôt expiré",
+        body: `Ton abonnement Doka expire le ${dateTexte}.`,
+        url: "/parametres",
       });
-      if (!res.ok) throw new Error(await res.text());
-      resultats.push({ business_id: b.business_id, email: true });
-    } catch (err) {
-      console.error(`Échec de l'e-mail de rappel d'expiration pour ${b.business_id} :`, err);
-      resultats.push({ business_id: b.business_id, email: false });
+      const aSupprimer = [];
+      for (const abo of abonnements || []) {
+        try {
+          await webpush.sendNotification({ endpoint: abo.endpoint, keys: { p256dh: abo.p256dh, auth: abo.auth } }, payload);
+          pushEnvoyes += 1;
+        } catch (err) {
+          if (err.statusCode === 404 || err.statusCode === 410) aSupprimer.push(abo.id);
+          else console.error(`Échec d'envoi push de rappel d'expiration pour l'abonnement ${abo.id} :`, err.message || err);
+        }
+      }
+      if (aSupprimer.length > 0) await supabaseAdmin.from("push_subscriptions").delete().in("id", aSupprimer);
     }
+
+    resultats.push({ business_id: b.business_id, email: emailEnvoye, push: pushEnvoyes });
   }
 
   return Response.json({ notifiees: resultats.length, resultats });
