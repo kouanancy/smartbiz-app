@@ -549,12 +549,19 @@ création) → `livree` ou `annulee`.
   seconde bascule aussi les commandes déjà existantes vers `livree`
   (leur stock avait déjà été déduit sous l'ancien modèle).
 
-## Confirmation de commande : tient sur une seule page A4 + partage PDF WhatsApp
+## Confirmation de commande : mise en page dense, multi-page sans coupure + partage PDF WhatsApp
 
-**Une seule page A4, même avec plusieurs articles et des cadeaux** : la
-version imprimée/PDF (`components/Receipt.js`, bloc `.sb-receipt-print`)
-débordait sur 2 pages dès qu'une commande contenait plusieurs lignes.
-Corrigé par une compaction sur trois fronts, jamais un seul isolément :
+**Dense, et surtout jamais coupée n'importe où si la liste déborde sur
+plusieurs pages** : la version imprimée/PDF (`components/Receipt.js`, bloc
+`.sb-receipt-print`) n'a plus d'exigence stricte de tenir sur une seule
+page A4 — une commande avec beaucoup d'articles peut légitimement
+s'étaler sur 2 pages ou plus. Ce qui compte n'est pas le nombre de pages
+mais que la mise en page reste propre d'une page à l'autre : jamais une
+ligne d'article ou un bloc (infos client/livraison, totaux, tampon) coupé
+en plein milieu entre deux pages, et un en-tête de tableau cohérent qui se
+retrouve en haut de chaque page si le document se poursuit. Une compaction
+sur trois fronts reste appliquée pour limiter le nombre de pages en
+pratique, même si ce n'est plus l'objectif en soi :
 
 1. **Contenu réduit à l'essentiel** — en-tête boutique, N° commande,
    date, client (nom/téléphone/adresse, e-mail retiré : quasi toujours
@@ -592,10 +599,31 @@ impression) et le message WhatsApp pré-rempli gardent leurs emojis
 sobre utilisée uniquement dans `.sb-receipt-print`, sans toucher aux
 textes déjà affichés ailleurs.
 
-Vérifié avec le scénario le plus chargé (8 articles vendus + 2 cadeaux
-offerts, adresse de livraison longue, tous les champs remplis) : tient
-sur une seule page A4 avec de la marge, confirmé en générant un vrai PDF
-(Playwright `page.pdf()`) plutôt qu'en jugeant seulement au visuel écran.
+**Jamais de ligne ou de bloc coupé entre deux pages** : `break-inside:
+avoid` (+ l'équivalent legacy `page-break-inside: avoid`) est appliqué à
+chaque `<tr>` de `.sb-receipt-print-table`, ainsi qu'aux blocs
+`.sb-receipt-print-info` (infos client/livraison), `-totals` et `-stamp`.
+Contrairement au bug du catalogue (voir plus bas, section « Impression du
+catalogue »), cette règle fonctionne ici de façon fiable : un `<tr>` est
+un enfant natif d'un `<table>`, dont la fragmentation à l'impression est
+bien supportée par les navigateurs — pas un enfant de `display: grid` ou
+`flex`, où `break-inside: avoid` est ignoré silencieusement par le moteur
+d'impression de Chromium. La ligne diviseur « CADEAUX OFFERTS » porte en
+plus `break-after: avoid` (+ `page-break-after: avoid`) pour ne jamais
+rester seule en bas d'une page pendant que les lignes de cadeaux qui la
+suivent basculent sur la suivante. **En-tête cohérent sur les pages
+suivantes** : le `<thead>` de `.sb-receipt-print-table` se répète
+nativement en haut de chaque page que le tableau déborde à l'impression
+dans Chromium, sans CSS supplémentaire — un lecteur retrouve toujours les
+en-têtes de colonnes (Article, Prix unitaire, Quantité, Sous-total) même
+sur une page de continuation.
+
+Vérifié avec un scénario volontairement surchargé (20+ articles vendus +
+plusieurs cadeaux offerts, de quoi garantir un document sur 2 pages ou
+plus) : aucune ligne ni bloc coupé en plein milieu d'une page, `<thead>`
+répété correctement en haut de la page suivante — confirmé en générant un
+vrai PDF multi-page (Playwright `page.pdf()`) plutôt qu'en jugeant
+seulement au visuel écran, qui ne montre pas la pagination.
 
 **Partage direct par WhatsApp (PDF joint)** : `genererPdfBlob()` capture
 `.sb-receipt-print` (déjà stylé pour l'A4) via `jsPDF.html()` — qui

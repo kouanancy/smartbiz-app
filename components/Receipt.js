@@ -383,10 +383,17 @@ export default function Receipt({ commande, business, onClose }) {
               intitulé sur toute la largeur, coûte beaucoup moins de
               hauteur qu'un second <thead> complet. Photo retirée
               (présente seulement dans l'aperçu à l'écran) : jamais
-              indispensable à la compréhension de la confirmation, et
-              chaque ligne sans elle est nettement plus basse — l'un des
-              plus gros postes d'économie de hauteur pour tenir sur une
-              seule page A4 même avec plusieurs articles et des cadeaux. */}
+              indispensable à la compréhension de la confirmation.
+              Document autorisé à déborder sur plusieurs pages si la
+              liste d'articles est longue (plus une exigence stricte
+              d'une seule page) — mais jamais une ligne coupée en plein
+              milieu entre deux pages (.sb-receipt-print-table tr,
+              break-inside: avoid, voir app/globals.css, même principe
+              que .sb-catalogue-card) et <thead> se répète nativement en
+              haut de chaque page suivante (comportement natif des
+              navigateurs pour un <table> qui déborde, sans CSS
+              supplémentaire) — un lecteur retrouve toujours les
+              en-têtes de colonnes en haut de chaque page. */}
           <table className="sb-receipt-print-table">
             <thead>
               <tr>
@@ -408,7 +415,7 @@ export default function Receipt({ commande, business, onClose }) {
                 </tr>
               ))}
               {lignesOffertes.length > 0 && (
-                <tr>
+                <tr style={{ breakAfter: "avoid", pageBreakAfter: "avoid" }}>
                   <td
                     colSpan={4}
                     style={{ padding: "6px 8px 3px", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em", color: "#8A867F", border: "none" }}
