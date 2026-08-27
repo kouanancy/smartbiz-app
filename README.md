@@ -2013,9 +2013,15 @@ fonction SQL `boutiques_dues_rapport_stock()` et les colonnes
 `businesses.rapport_stock`/`rapport_stock_jour_semaine`/`rapport_stock_dernier_envoi`
 (`supabase-rapport-stock-retrait-migration.sql`, à exécuter une fois dans
 Supabase). Les confirmations de commande par e-mail
-(`businesses.notif_email`, `businesses.confirmation_email`) sont une
-fonctionnalité distincte, conservée telle quelle — voir « Centre de
-notifications » plus bas.
+(`businesses.notif_email`, `businesses.confirmation_email`) restent une
+fonctionnalité distincte, jamais implémentée (aucun code n'envoie
+réellement cet e-mail) — sa carte dans Paramètres a été retirée par la
+suite, redondante avec « Notification push » une fois celle-ci ouverte à
+toute boutique (voir « Notifications push (Web Push) » plus bas) ; les
+colonnes elles-mêmes restent en base, inutilisées, au cas où cette
+fonctionnalité serait construite plus tard — voir « Limitations connues »
+en fin de document pour le principe à suivre si c'est le cas (adresse de
+connexion par défaut, pas de champ à configurer séparément).
 
 ## Rapport hebdomadaire enrichi
 
@@ -2510,6 +2516,14 @@ Implémentation en deux temps :
   justificatif ; la confirmation de commande par e-mail
   (`businesses.confirmation_email`) reste à faire — le rapport
   hebdomadaire, lui, ne passe plus par e-mail (voir « Rapport
-  hebdomadaire enrichi »).
+  hebdomadaire enrichi »). Si cette confirmation de commande est
+  construite un jour, utiliser directement `businesses.email` (l'adresse
+  de connexion, déjà celle utilisée par le rappel d'expiration — voir
+  `generer_notifications_expiration()`) plutôt que
+  `businesses.notif_email` : la carte Paramètres qui permettait de saisir
+  une adresse de réception séparée a été retirée (redondante avec
+  « Notification push », voir plus haut), donc plus aucune UI ne renseigne
+  `notif_email` — s'appuyer dessus enverrait cette confirmation à une
+  adresse que le commerçant n'a plus aucun moyen de configurer.
 - Le prix de départ de l'abonnement (5 000 FCFA/mois) est une valeur
   indicative, modifiable à tout moment depuis Paramètres → Paiement Wave.
