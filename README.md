@@ -1428,6 +1428,40 @@ seules les notifications de paiement à vérifier passent par cette route,
 jamais le rapport hebdomadaire d'un commerçant classique (envoyé
 directement par `app/api/cron/rapport-hebdo`, voir plus bas).
 
+**Autres évènements poussés au commerçant** (au-delà du rapport
+hebdomadaire, voir « Rapport hebdomadaire enrichi » plus bas) — les deux
+notifications habituelles citées plus haut, désormais réellement
+poussées, pas seulement déposées dans le centre de notifications :
+
+- **Abonnement bientôt expiré** : `app/api/cron/expiration-reminders`
+  (même route, déjà déclenchée une fois par jour par Vercel Cron) envoie
+  désormais aussi une vraie notification push, en plus de l'e-mail
+  Resend existant, à chaque boutique retournée par
+  `generer_notifications_expiration()` — même déduplication que l'e-mail
+  (une seule fois par échéance, jamais à chaque exécution quotidienne
+  tant que l'abonnement reste dans la fenêtre des 3 jours). Aucune
+  migration SQL nécessaire : la fonction RPC ne change pas, seule la
+  route Node lit en plus `push_subscriptions` pour chaque boutique
+  concernée.
+- **Paiement validé** : `admin_mark_subscription_paid()`
+  (`supabase-confirmation-paiement-migration.sql`) insère déjà la
+  notification 🔔 "paiement_valide" en base, de façon synchrone, au
+  moment où l'administratrice clique « Marquer comme payé »
+  (`app/(app)/admin/commercants/[id]/page.js`, `marquerPaye()`). Une
+  nouvelle route, `app/api/admin/push-paiement-valide`, est appelée
+  juste après par ce même client pour ajouter la vraie notification push
+  par-dessus — **en best effort** : un échec ici (ex. VAPID absentes,
+  aucun appareil abonné) n'annule jamais la validation du paiement,
+  déjà faite par la RPC précédente, et n'affiche aucune erreur à
+  l'administratrice. Authentification par jeton (`Authorization: Bearer
+  <access_token de l'admin>` + vérification `is_admin_user()`), pas par
+  secret partagé — même schéma que `app/api/admin/supprimer-commercant` :
+  l'appelant est toujours un navigateur admin déjà authentifié, jamais
+  une tâche planifiée ni un trigger Postgres, donc pas besoin du
+  mécanisme `PUSH_ADMIN_SECRET`/Vault/`pg_net` utilisé par
+  `app/api/push-admin-paiement` ci-dessus. Aucune migration SQL
+  nécessaire non plus ici.
+
 **⚠️ Étapes manuelles requises, dans l'ordre :**
 
 1. Exécuter `supabase-push-notifications-migration.sql` puis
@@ -2351,7 +2385,8 @@ app/
   (app)/admin/commercants/[id]/   page de détail d'un commerçant (justificatif, actions)
   (app)/admin/paiements/   liste dédiée des paiements en attente (accès permanent, bouton + badge sur /admin)
   api/push-admin-paiement/    route serveur : notification push (web-push), appelée depuis Supabase (pg_net) à la soumission d'un justificatif
-  api/cron/expiration-reminders/   route serveur : rappel d'abonnement qui expire (Vercel Cron)
+  api/admin/push-paiement-valide/   route serveur : notification push au commerçant, appelée par le client admin juste après avoir marqué un paiement payé
+  api/cron/expiration-reminders/   route serveur : rappel d'abonnement qui expire, e-mail + notification push (Vercel Cron)
   api/cron/rapport-hebdo/     route serveur : rapport hebdomadaire (CA/marge/top vente/stock), notification push (Vercel Cron, voir « Rapport hebdomadaire enrichi »)
 components/
   Sidebar.js, Receipt.js, ImageUploadField.js, PlanGrid.js,

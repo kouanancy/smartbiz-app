@@ -76,6 +76,17 @@ export default function CommercantDetailPage() {
     if (commercant.owner_id === moi.owner_id) refreshBusiness();
     setPaiementEnAttente(null);
     setMsg(t("admin.paidSuccess"));
+
+    // Notification push au commerçant, en plus de la cloche déjà posée par
+    // admin_mark_subscription_paid ci-dessus — best effort (voir
+    // app/api/admin/push-paiement-valide) : le paiement est déjà validé
+    // quoi qu'il arrive ici, un échec de notification ne doit jamais
+    // remonter comme une erreur de validation.
+    fetch("/api/admin/push-paiement-valide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ businessId: commercant.id, expiresAt: data.subscription_expires_at }),
+    }).catch((err) => console.error("[admin] échec de la notification push de paiement validé :", err));
   }
 
   async function confirmerRejet() {
