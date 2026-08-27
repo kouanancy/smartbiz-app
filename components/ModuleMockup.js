@@ -51,7 +51,7 @@ export default function ModuleMockup({ type, imageSrc, imageAlt = "" }) {
               <span className="sb-mockup-kpi-value sb-mockup-kpi-value-emerald">32%</span>
             </div>
             <div className="sb-mockup-kpi">
-              <i className="sb-mockup-kpi-label">Clientes</i>
+              <i className="sb-mockup-kpi-label">Clients</i>
               <span className="sb-mockup-kpi-value sb-mockup-kpi-value-ink">56</span>
             </div>
           </div>
@@ -116,13 +116,13 @@ export default function ModuleMockup({ type, imageSrc, imageAlt = "" }) {
         <div className="sb-mockup sb-mockup-table" aria-hidden="true">
           <div className="sb-mockup-thead" />
           {[
-            { n: "#014", cliente: "Awa K.", ca: "24 500", pill: "ok", statut: "Livrée" },
-            { n: "#013", cliente: "Fatou D.", ca: "12 000", pill: "warn", statut: "En cours" },
-            { n: "#012", cliente: "Mariam S.", ca: "38 200", pill: "ok", statut: "Livrée" },
+            { n: "#014", client: "Awa K.", ca: "24 500", pill: "ok", statut: "Livrée" },
+            { n: "#013", client: "Fatou D.", ca: "12 000", pill: "warn", statut: "En cours" },
+            { n: "#012", client: "Mariam S.", ca: "38 200", pill: "ok", statut: "Livrée" },
           ].map((row) => (
             <div className="sb-mockup-trow" key={row.n}>
               <i className="sb-mockup-cell sb-mockup-cell-num">{row.n}</i>
-              <i className="sb-mockup-cell">{row.cliente}</i>
+              <i className="sb-mockup-cell">{row.client}</i>
               <i className="sb-mockup-cell sb-mockup-cell-muted">{row.ca}</i>
               <span className={`sb-mockup-pill sb-mockup-pill-${row.pill}`}>{row.statut}</span>
             </div>
