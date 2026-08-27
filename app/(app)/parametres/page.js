@@ -32,10 +32,7 @@ export default function ParametresPage() {
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const [nameDraft, setNameDraft] = useState(business?.name || "");
   const [logoDraft, setLogoDraft] = useState(business?.logo_url || "");
-  const [emailDraft, setEmailDraft] = useState(business?.notif_email || "");
-  const [confirmationEmail, setConfirmationEmail] = useState(business?.confirmation_email || false);
   const [savedMsg, setSavedMsg] = useState("");
-  const [notifMsg, setNotifMsg] = useState("");
   const [pushMsg, setPushMsg] = useState({ texte: "", ok: false });
   const [pushEnCours, setPushEnCours] = useState(false);
   const [pushActifSurAppareil, setPushActifSurAppareil] = useState(false);
@@ -121,16 +118,6 @@ export default function ParametresPage() {
 
   async function enregistrerLangue(l) {
     await updateBusiness({ langue: l });
-  }
-
-  async function enregistrerNotifications() {
-    const { error } = await updateBusiness({ notif_email: emailDraft.trim() || null });
-    setNotifMsg(error ? t("common.error", { message: error.message }) : t("parametres.notifSavedMsg"));
-  }
-
-  async function toggleConfirmationEmail(checked) {
-    setConfirmationEmail(checked);
-    await updateBusiness({ confirmation_email: checked });
   }
 
   async function toggleRapportHebdoActif(checked) {
@@ -335,45 +322,6 @@ export default function ParametresPage() {
           </button>
         </div>
         {zoneMsg && <p style={{ fontSize: 12, color: "var(--coral)", margin: "8px 2px 0" }}>{zoneMsg}</p>}
-      </div>
-
-      <div className="sb-card" style={{ marginBottom: 16 }}>
-        <div className="sb-section-title">{t("parametres.notificationsTitle")}</div>
-        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.notificationsSub")}</p>
-
-        {notifMsg && (
-          <div className="sb-badge sb-badge-emerald" style={{ marginBottom: 12, fontSize: 12.5, padding: "6px 10px" }}>
-            {notifMsg}
-          </div>
-        )}
-
-        <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 }}>{t("parametres.emailLabel")}</label>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          <input
-            className="sb-input"
-            type="email"
-            placeholder={t("parametres.emailPlaceholder")}
-            value={emailDraft}
-            onChange={(e) => {
-              setEmailDraft(e.target.value);
-              setNotifMsg("");
-            }}
-          />
-          <button className="sb-btn sb-btn-primary" onClick={enregistrerNotifications}>
-            {t("parametres.enregistrer")}
-          </button>
-        </div>
-
-        <div style={{ opacity: business?.notif_email ? 1 : 0.45, pointerEvents: business?.notif_email ? "auto" : "none" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 12, cursor: "pointer" }}>
-            <input type="checkbox" checked={confirmationEmail} onChange={(e) => toggleConfirmationEmail(e.target.checked)} />
-            {t("parametres.confirmationEmailLabel")}
-          </label>
-        </div>
-
-        {!business?.notif_email && (
-          <p style={{ fontSize: 11, color: "var(--text-faint)", margin: "12px 2px 0" }}>{t("parametres.emailRequiredNote")}</p>
-        )}
       </div>
 
       {/* Une seule section pour tous les comptes (admin ou commerçant
