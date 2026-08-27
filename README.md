@@ -549,53 +549,62 @@ création) → `livree` ou `annulee`.
   seconde bascule aussi les commandes déjà existantes vers `livree`
   (leur stock avait déjà été déduit sous l'ancien modèle).
 
-## Confirmation de commande : tient sur une seule page A4 + partage PDF WhatsApp
+## Confirmation de commande : mise en page d'origine, multi-page sans coupure + partage PDF WhatsApp
 
-**Une seule page A4, même avec plusieurs articles et des cadeaux** : la
-version imprimée/PDF (`components/Receipt.js`, bloc `.sb-receipt-print`)
-débordait sur 2 pages dès qu'une commande contenait plusieurs lignes.
-Corrigé par une compaction sur trois fronts, jamais un seul isolément :
-
-1. **Contenu réduit à l'essentiel** — en-tête boutique, N° commande,
-   date, client (nom/téléphone/adresse, e-mail retiré : quasi toujours
-   vide, jamais indispensable à la compréhension), articles achetés,
-   cadeaux offerts le cas échéant, livraison, paiement, total, mention
-   « Confirmée ». La miniature photo par article (`articles.image_url`)
-   a été retirée de cette version imprimée — jamais indispensable à la
-   compréhension d'une confirmation, et l'un des plus gros postes de
-   hauteur par ligne (chaque ligne forçait au moins 34px de haut pour la
-   vignette) ; elle reste visible dans l'aperçu à l'écran de
-   `app/(app)/commandes/[id]/page.js`.
-2. **Une seule table pour vendus et cadeaux** — jamais deux `<table>`
-   séparées avec chacune son propre `<thead>` (l'ancien design) : les
-   cadeaux offerts suivent maintenant les articles vendus dans la même
-   table, précédés d'une simple ligne diviseur en majuscules
-   (« CADEAUX OFFERTS »), avec « Offert » en texte sobre à la place du
-   prix — jamais l'ancien badge coloré, qui n'a de sens qu'à l'écran (voir
-   plus bas). Économise tout le poids d'un second en-tête de tableau.
-3. **Marges, espacements et tailles de police resserrés** partout dans
-   `.sb-receipt-print-*` (`app/globals.css`) — d'un jeu de valeurs pensé
-   pour l'aisance visuelle à un jeu pensé pour la densité, sans devenir
-   illisible (12px reste la plus petite taille de police du document).
-   Le tampon « CONFIRMÉE » en particulier passe d'un gros encart pivoté
-   avec bordure épaisse à une simple ligne de texte gras centrée — plus
-   sobre, et un des postes qui coûtait le plus de hauteur pour un rôle
-   purement décoratif.
+**Mise en page aérée d'origine, sans exigence de tenir sur une seule
+page** : la version imprimée/PDF (`components/Receipt.js`, bloc
+`.sb-receipt-print`) reprend l'agencement spacieux du design initial —
+miniature photo par article (`articles.image_url`, avec repli sur une
+icône générique si absente), champ e-mail du client, deux `<table>`
+distinctes pour les articles vendus et les cadeaux offerts (chacune avec
+son propre `<thead>`), et le tampon « CONFIRMÉE » en gros encart pivoté
+avec bordure — après une tentative de compaction extrême pour tenir sur
+une seule page A4, jugée trop dense et abandonnée sur demande. Une
+commande avec beaucoup d'articles peut légitimement s'étaler sur 2 pages
+ou plus ; ce qui compte n'est pas le nombre de pages mais que la mise en
+page reste propre d'une page à l'autre (voir plus bas).
 
 **Aucun emoji dans le document imprimé/PDF** (🎁, ✅...) — jamais un
-symbole graphique, seulement du texte : « CADEAUX OFFERTS » et
-« Offert » en toutes lettres. Ce choix ne concerne que cette version
+symbole graphique, seulement du texte : « CADEAUX OFFERTS » (titre de la
+seconde table) et « Offert » (à la place du prix, dans sa dernière
+colonne) en toutes lettres. Ce choix ne concerne que cette version
 imprimée/PDF : l'aperçu à l'écran (fenêtre modale ouverte avant
 impression) et le message WhatsApp pré-rempli gardent leurs emojis
 (`receipt.cadeauxTitle`, `CadeauBadge`) — deux clés i18n dédiées
 (`receipt.cadeauxTitrePrint`, `receipt.offertPrint`) portent la version
 sobre utilisée uniquement dans `.sb-receipt-print`, sans toucher aux
-textes déjà affichés ailleurs.
+textes déjà affichés ailleurs. Même principe pour le tampon : la mention
+« CONFIRMÉE » (`receipt.stampConfirmee`) n'a jamais repris le ✓ qu'elle
+portait à l'origine, seulement l'encart pivoté a été restauré.
 
-Vérifié avec le scénario le plus chargé (8 articles vendus + 2 cadeaux
-offerts, adresse de livraison longue, tous les champs remplis) : tient
-sur une seule page A4 avec de la marge, confirmé en générant un vrai PDF
-(Playwright `page.pdf()`) plutôt qu'en jugeant seulement au visuel écran.
+**Jamais de ligne ou de bloc coupé entre deux pages** — la seule
+contrainte de mise en page conservée de la tentative de compaction :
+`break-inside: avoid` (+ l'équivalent legacy `page-break-inside: avoid`)
+est appliqué à chaque `<tr>` de `.sb-receipt-print-table` (les deux
+tables, vendus et cadeaux), ainsi qu'aux blocs `.sb-receipt-print-info`
+(infos client/livraison), `-totals` et `-stamp`. Contrairement au bug du
+catalogue (voir plus bas, section « Impression du catalogue »), cette
+règle fonctionne ici de façon fiable : un `<tr>` est un enfant natif d'un
+`<table>`, dont la fragmentation à l'impression est bien supportée par
+les navigateurs — pas un enfant de `display: grid` ou `flex`, où
+`break-inside: avoid` est ignoré silencieusement par le moteur
+d'impression de Chromium. Le titre « CADEAUX OFFERTS » (un `<p>` juste
+avant sa table) porte en plus `break-after: avoid` (+
+`page-break-after: avoid`) pour ne jamais rester seul en bas d'une page
+pendant que sa table bascule sur la suivante. **En-tête cohérent sur les
+pages suivantes** : le `<thead>` de chaque `.sb-receipt-print-table` se
+répète nativement en haut de chaque page que la table déborde à
+l'impression dans Chromium, sans CSS supplémentaire — un lecteur retrouve
+toujours les en-têtes de colonnes même sur une page de continuation.
+
+Vérifié avec un scénario volontairement surchargé (14 articles vendus +
+3 cadeaux offerts, de quoi garantir un document sur 2 pages) : mise en
+page aérée avec photos, e-mail, deux tables distinctes et tampon en
+encart pivoté bien présents, aucune ligne ni bloc coupé en plein milieu
+d'une page, `<thead>` répété correctement en haut de la page suivante —
+confirmé en générant un vrai PDF multi-page (Playwright `page.pdf()`)
+plutôt qu'en jugeant seulement au visuel écran, qui ne montre pas la
+pagination.
 
 **Partage direct par WhatsApp (PDF joint)** : `genererPdfBlob()` capture
 `.sb-receipt-print` (déjà stylé pour l'A4) via `jsPDF.html()` — qui

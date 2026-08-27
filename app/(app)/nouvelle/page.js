@@ -116,6 +116,10 @@ export default function NouvelleCommandePage() {
       if (existe) return prev.map((l) => (l.articleId === articleSel ? { ...l, quantite: l.quantite + qte } : l));
       return [...prev, { articleId: articleSel, quantite: qte }];
     });
+    // Champ de recherche vidé (pas seulement la quantité) : prêt à taper
+    // le nom du prochain article immédiatement, sans avoir à effacer
+    // manuellement le nom de celui qu'on vient d'ajouter.
+    setArticleSel("");
     setQte(1);
   }
 
@@ -130,6 +134,7 @@ export default function NouvelleCommandePage() {
       if (existe) return prev.map((l) => (l.articleId === articleOffertSel ? { ...l, quantite: l.quantite + qteOffert } : l));
       return [...prev, { articleId: articleOffertSel, quantite: qteOffert }];
     });
+    setArticleOffertSel("");
     setQteOffert(1);
   }
 
