@@ -1213,29 +1213,47 @@ chaque groupe de 6 plutôt que laissé à l'appréciation du moteur
 d'impression, garantissant une page = 6 fiches maximum, toujours au même
 endroit, indépendamment du nombre total d'articles.
 
-Le nom d'article n'est **jamais tronqué**, ni à l'écran ni à l'impression
-— le texte complet s'affiche toujours, sur autant de lignes que
-nécessaire. C'est justement l'atomicité du groupe qui rend ça possible
-sans risque de coupure : un nom plus long agrandit sa fiche puis tout le
-groupe de 6 (les lignes du `grid` interne s'ajustent normalement à la
-plus haute cellule de chaque rangée), mais le groupe entier bascule alors
-en bloc sur la page suivante s'il ne tient plus sur la page courante — le
-`break-inside: avoid` posé sur le groupe (pas sur les fiches, voir
-ci-dessus) garantit cette bascule en bloc quelle que soit la hauteur
-atteinte. À l'écran, `.sb-catalogue-page-group` passe en `display:
-contents` (hors `@media print`) : le regroupement par 6 devient invisible
-pour la mise en page, les fiches rejoignent directement la grille
-responsive habituelle (`repeat(auto-fill, minmax(160px, 1fr))`) comme si
-le regroupement n'existait pas — ce mécanisme ne change donc strictement
-rien à l'affichage à l'écran, seulement à l'impression/PDF.
+**Hauteur de fiche fixe et prévisible à l'impression — nom tronqué au
+milieu sur une seule ligne.** Une première version laissait le nom
+d'article libre de retourner à la ligne à l'impression, misant
+uniquement sur l'atomicité du groupe (ci-dessus) pour éviter les
+coupures. Ça ne suffisait pas dans les faits : plusieurs noms longs réunis
+dans un même groupe de 6 pouvaient rendre le groupe entier plus haut
+qu'une page A4 complète — et dans ce cas, `break-inside: avoid` ne peut
+plus rien faire (un bloc plus haut qu'une page entière ne bascule vers
+aucune page où il tiendrait), Chromium le fragmentait quand même. Corrigé
+en bornant la hauteur de chaque fiche plutôt qu'en espérant qu'elle
+tienne : `.sb-catalogue-nom` est limité à **une seule ligne** à
+l'impression (hauteur fixe `17px`, `overflow: hidden`), le nom étant
+pré-tronqué **au milieu** par `tronquerMilieuNom()`
+(`app/(app)/catalogue/page.js`) avant d'être rendu, plutôt que de
+compter sur `text-overflow: ellipsis` (qui ne tronque qu'en fin de
+texte). Le dernier mot du nom — presque toujours la couleur de l'article
+dans ce contexte (ex. « Blond », « Noir », « Rouge ») — reste donc
+toujours entièrement visible : « Perruque Lace Front 20 Pouces Naturelle
+Blond » devient « Perruque Lace Front… Blond », jamais « Perruque Lace
+Front 20 Pouces Nat… » qui masquerait l'information la plus utile en fin
+de nom. Le nom complet reste inchangé en base de données (`articles.nom`)
+et intégralement affiché à l'écran (aucune troncature côté navigateur) —
+deux rendus distincts coexistent dans le DOM
+(`.sb-catalogue-nom-screen` / `.sb-catalogue-nom-print`), un seul visible
+à la fois selon `@media print` (`app/globals.css`).
 
-Vérifié en générant deux vrais PDF via Playwright `page.pdf()` (pas
-seulement un aperçu écran, qui ne montre pas la pagination) : 12 articles
-(2 groupes pleins de 6, dont un nom volontairement très long, affiché en
-entier sur 6 lignes sans troncature) → page 1 = bannière boutique + 6
-fiches en 3×2, page 2 = 6 fiches en 3×2, aucune fiche coupée ; 10 articles
-(un groupe plein de 6 + un groupe partiel de 4) → page 2 affiche
-exactement 4 fiches sans page vide supplémentaire après.
+Chaque fiche a désormais une hauteur fixe et prévisible (miniature carrée
++ 1 ligne de nom + 1 ligne de prix) : un groupe de 6 tient toujours
+largement dans la hauteur imprimable d'une page A4 (297mm - 2×16mm de
+marge `@page`), y compris sur la première page où la bannière boutique
+réduit l'espace disponible. Vérifié en générant deux vrais PDF via
+Playwright `page.pdf()` (pas seulement un aperçu écran, qui ne montre ni
+la pagination ni le rendu réel de la troncature) : 12 articles incluant 3
+noms volontairement longs (« Perruque Lace Front 20 Pouces Naturelle
+Blond », « Robe longue en wax imprimé fait main taille unique Rouge »,
+« Sac à main en cuir véritable fait main artisanal Noir ») → chaque nom
+tronqué correctement sur une seule ligne avec la couleur finale visible,
+toutes les fiches d'un même groupe alignées à la même hauteur, page 1 =
+bannière + 6 fiches, page 2 = 6 fiches, aucune fiche coupée ; à l'écran,
+les mêmes noms restent affichés en entier, non tronqués, sur plusieurs
+lignes.
 
 ## Espace Administration
 
