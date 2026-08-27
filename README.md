@@ -549,19 +549,53 @@ création) → `livree` ou `annulee`.
   seconde bascule aussi les commandes déjà existantes vers `livree`
   (leur stock avait déjà été déduit sous l'ancien modèle).
 
-## Confirmation de commande : photo des articles + partage PDF WhatsApp
+## Confirmation de commande : tient sur une seule page A4 + partage PDF WhatsApp
 
-**Photo dans le tableau imprimé** : chaque ligne de la version A4
-(`components/Receipt.js`, bloc `.sb-receipt-print`) affiche la miniature de
-l'article (`articles.image_url`) à côté de son nom, avec le même
-pictogramme de repli (`ImageIcon` de lucide-react) qu'ailleurs dans l'app
-(`ArticleSelect.js`) si l'article n'a pas de photo. `image_url` voyage
-avec chaque ligne de commande (`nouvelle/page.js` au moment de la
-création, `commandes/page.js` au moment d'un réaffichage/réimpression) —
-jamais stockée dans `commande_lignes` elle-même (qui ne fige que les
-montants), toujours relue depuis `articles` au moment d'afficher un reçu,
-donc reflète la photo actuelle de l'article, pas celle du jour de la
-commande.
+**Une seule page A4, même avec plusieurs articles et des cadeaux** : la
+version imprimée/PDF (`components/Receipt.js`, bloc `.sb-receipt-print`)
+débordait sur 2 pages dès qu'une commande contenait plusieurs lignes.
+Corrigé par une compaction sur trois fronts, jamais un seul isolément :
+
+1. **Contenu réduit à l'essentiel** — en-tête boutique, N° commande,
+   date, client (nom/téléphone/adresse, e-mail retiré : quasi toujours
+   vide, jamais indispensable à la compréhension), articles achetés,
+   cadeaux offerts le cas échéant, livraison, paiement, total, mention
+   « Confirmée ». La miniature photo par article (`articles.image_url`)
+   a été retirée de cette version imprimée — jamais indispensable à la
+   compréhension d'une confirmation, et l'un des plus gros postes de
+   hauteur par ligne (chaque ligne forçait au moins 34px de haut pour la
+   vignette) ; elle reste visible dans l'aperçu à l'écran de
+   `app/(app)/commandes/[id]/page.js`.
+2. **Une seule table pour vendus et cadeaux** — jamais deux `<table>`
+   séparées avec chacune son propre `<thead>` (l'ancien design) : les
+   cadeaux offerts suivent maintenant les articles vendus dans la même
+   table, précédés d'une simple ligne diviseur en majuscules
+   (« CADEAUX OFFERTS »), avec « Offert » en texte sobre à la place du
+   prix — jamais l'ancien badge coloré, qui n'a de sens qu'à l'écran (voir
+   plus bas). Économise tout le poids d'un second en-tête de tableau.
+3. **Marges, espacements et tailles de police resserrés** partout dans
+   `.sb-receipt-print-*` (`app/globals.css`) — d'un jeu de valeurs pensé
+   pour l'aisance visuelle à un jeu pensé pour la densité, sans devenir
+   illisible (12px reste la plus petite taille de police du document).
+   Le tampon « CONFIRMÉE » en particulier passe d'un gros encart pivoté
+   avec bordure épaisse à une simple ligne de texte gras centrée — plus
+   sobre, et un des postes qui coûtait le plus de hauteur pour un rôle
+   purement décoratif.
+
+**Aucun emoji dans le document imprimé/PDF** (🎁, ✅...) — jamais un
+symbole graphique, seulement du texte : « CADEAUX OFFERTS » et
+« Offert » en toutes lettres. Ce choix ne concerne que cette version
+imprimée/PDF : l'aperçu à l'écran (fenêtre modale ouverte avant
+impression) et le message WhatsApp pré-rempli gardent leurs emojis
+(`receipt.cadeauxTitle`, `CadeauBadge`) — deux clés i18n dédiées
+(`receipt.cadeauxTitrePrint`, `receipt.offertPrint`) portent la version
+sobre utilisée uniquement dans `.sb-receipt-print`, sans toucher aux
+textes déjà affichés ailleurs.
+
+Vérifié avec le scénario le plus chargé (8 articles vendus + 2 cadeaux
+offerts, adresse de livraison longue, tous les champs remplis) : tient
+sur une seule page A4 avec de la marge, confirmé en générant un vrai PDF
+(Playwright `page.pdf()`) plutôt qu'en jugeant seulement au visuel écran.
 
 **Partage direct par WhatsApp (PDF joint)** : `genererPdfBlob()` capture
 `.sb-receipt-print` (déjà stylé pour l'A4) via `jsPDF.html()` — qui
@@ -1130,6 +1164,32 @@ document imprimé/PDF (`document.title`, mis à jour juste avant
 `afterprint`) ainsi qu'au sous-titre du bandeau affiché sur la page —
 utile pour distinguer plusieurs PDF imprimés séparément par catégorie
 (ex. « Catalogue — Chez Aïcha Beauté — Mèches »).
+
+**Fiches produit jamais coupées entre deux pages** : quand le catalogue
+déborde sur plusieurs pages à l'impression, `.sb-catalogue-card` porte
+déjà `break-inside: avoid` depuis toujours — mais restait sans effet,
+une fiche continuant de se couper en plein milieu au changement de page.
+Cause : `.sb-catalogue-grid` est en `display: grid` à l'écran, et
+`break-inside: avoid` sur un enfant direct d'une grille CSS n'est pas
+respecté de façon fiable par le moteur de pagination à l'impression de
+Chromium (limitation connue de ce moteur avec `display: grid`/`flex`, pas
+un bug de cette app). Corrigé en basculant `.sb-catalogue-grid` en
+`display: flex; flex-wrap: wrap` **uniquement dans `@media print`**
+(l'écran garde `display: grid`, inchangé), chaque `.sb-catalogue-card`
+recevant une largeur explicite en pourcentage (`calc((100% - 32px) / 3)`
+pour 3 colonnes) à la place des colonnes de grille — un conteneur flex
+laisse `break-inside: avoid` fonctionner correctement sur ses enfants.
+`page-break-inside: avoid` (alias historique de la même règle) ajouté en
+plus pour la compatibilité avec d'anciens moteurs de rendu. Le nombre de
+colonnes et l'espacement restent ainsi strictement identiques d'une page
+à l'autre (3 colonnes, `gap: 16px`), aucune logique de pagination
+personnalisée ajoutée par ailleurs — une dernière ligne partiellement
+remplie en bas d'une page reste possible (comportement normal de la
+pagination navigateur une fois qu'aucune fiche ne se coupe plus), pas
+quelque chose que ce correctif tente d'éliminer entièrement. Vérifié en
+générant un vrai PDF de 24 articles (Playwright `page.pdf()`, 3 pages de
+9 fiches) : chaque page garde 3 colonnes régulières, aucune fiche à
+cheval sur deux pages.
 
 ## Espace Administration
 

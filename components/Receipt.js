@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, Download, Image as ImageIcon, MessageCircle, Printer, X } from "lucide-react";
+import { CheckCircle2, Download, MessageCircle, Printer, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { fmt as fmtBase, dateLocale, toWhatsAppNumber } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
@@ -355,10 +355,6 @@ export default function Receipt({ commande, business, onClose }) {
                 <span>{t("receipt.printAdresse")}</span>
                 <strong>{client?.adresse || "—"}</strong>
               </div>
-              <div>
-                <span>{t("receipt.printEmail")}</span>
-                <strong>{client?.email || "—"}</strong>
-              </div>
             </div>
             <div className="sb-receipt-print-info-block">
               <h3>{t("receipt.printLivraisonPaiement")}</h3>
@@ -381,10 +377,19 @@ export default function Receipt({ commande, business, onClose }) {
             </div>
           </div>
 
+          {/* Une seule table pour les articles vendus ET les cadeaux
+              offerts (jamais deux tables séparées avec leur propre
+              en-tête) — la ligne "diviseur" ci-dessous, avec juste un
+              intitulé sur toute la largeur, coûte beaucoup moins de
+              hauteur qu'un second <thead> complet. Photo retirée
+              (présente seulement dans l'aperçu à l'écran) : jamais
+              indispensable à la compréhension de la confirmation, et
+              chaque ligne sans elle est nettement plus basse — l'un des
+              plus gros postes d'économie de hauteur pour tenir sur une
+              seule page A4 même avec plusieurs articles et des cadeaux. */}
           <table className="sb-receipt-print-table">
             <thead>
               <tr>
-                <th className="sb-receipt-print-table-photo"></th>
                 <th>{t("receipt.tableArticle")}</th>
                 <th style={{ textAlign: "right" }}>{t("receipt.tablePrixUnitaire")}</th>
                 <th style={{ textAlign: "center" }}>{t("receipt.tableQuantite")}</th>
@@ -393,16 +398,7 @@ export default function Receipt({ commande, business, onClose }) {
             </thead>
             <tbody>
               {lignesVendues.map((l, i) => (
-                <tr key={i}>
-                  <td className="sb-receipt-print-table-photo">
-                    {l.image_url ? (
-                      <img src={l.image_url} alt="" />
-                    ) : (
-                      <div className="sb-receipt-print-table-photo-fallback">
-                        <ImageIcon size={14} />
-                      </div>
-                    )}
-                  </td>
+                <tr key={`v-${i}`}>
                   <td>{l.nom}</td>
                   <td style={{ textAlign: "right" }}>{fmt(l.prix_vente)}</td>
                   <td style={{ textAlign: "center" }}>
@@ -411,48 +407,28 @@ export default function Receipt({ commande, business, onClose }) {
                   <td style={{ textAlign: "right" }}>{fmt(l.prix_vente * l.quantite)}</td>
                 </tr>
               ))}
+              {lignesOffertes.length > 0 && (
+                <tr>
+                  <td
+                    colSpan={4}
+                    style={{ padding: "6px 8px 3px", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.05em", color: "#8A867F", border: "none" }}
+                  >
+                    {t("receipt.cadeauxTitrePrint")}
+                  </td>
+                </tr>
+              )}
+              {lignesOffertes.map((l, i) => (
+                <tr key={`o-${i}`}>
+                  <td>{l.nom}</td>
+                  <td style={{ textAlign: "right" }}>—</td>
+                  <td style={{ textAlign: "center" }}>
+                    {l.quantite} {uniteLabel(l.unite)}
+                  </td>
+                  <td style={{ textAlign: "right", fontWeight: 700 }}>{t("receipt.offertPrint")}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
-
-          {lignesOffertes.length > 0 && (
-            <>
-              <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "#8A867F", margin: "14px 0 6px" }}>
-                {t("receipt.cadeauxTitle")}
-              </p>
-              <table className="sb-receipt-print-table">
-                <thead>
-                  <tr>
-                    <th className="sb-receipt-print-table-photo"></th>
-                    <th>{t("receipt.tableArticle")}</th>
-                    <th style={{ textAlign: "center" }}>{t("receipt.tableQuantite")}</th>
-                    <th style={{ textAlign: "right" }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lignesOffertes.map((l, i) => (
-                    <tr key={i}>
-                      <td className="sb-receipt-print-table-photo">
-                        {l.image_url ? (
-                          <img src={l.image_url} alt="" />
-                        ) : (
-                          <div className="sb-receipt-print-table-photo-fallback">
-                            <ImageIcon size={14} />
-                          </div>
-                        )}
-                      </td>
-                      <td>{l.nom}</td>
-                      <td style={{ textAlign: "center" }}>
-                        {l.quantite} {uniteLabel(l.unite)}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <CadeauBadge t={t} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
 
           <div className="sb-receipt-print-totals">
             <div>
@@ -471,9 +447,7 @@ export default function Receipt({ commande, business, onClose }) {
             </div>
           </div>
 
-          <div className="sb-receipt-print-stamp">
-            <span>{t("receipt.stampConfirmee")}</span>
-          </div>
+          <p className="sb-receipt-print-stamp">{t("receipt.stampConfirmee")}</p>
 
           <div className="sb-receipt-print-footer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
             {platformLogo && <img src={platformLogo} alt="" style={{ height: 12, width: 12, objectFit: "contain" }} />}
