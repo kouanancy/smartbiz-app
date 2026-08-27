@@ -1174,31 +1174,64 @@ document imprimé/PDF (`document.title`, mis à jour juste avant
 utile pour distinguer plusieurs PDF imprimés séparément par catégorie
 (ex. « Catalogue — Chez Aïcha Beauté — Mèches »).
 
-**Fiches produit jamais coupées entre deux pages** : quand le catalogue
-déborde sur plusieurs pages à l'impression, `.sb-catalogue-card` porte
-déjà `break-inside: avoid` depuis toujours — mais restait sans effet,
-une fiche continuant de se couper en plein milieu au changement de page.
-Cause : `.sb-catalogue-grid` est en `display: grid` à l'écran, et
-`break-inside: avoid` sur un enfant direct d'une grille CSS n'est pas
-respecté de façon fiable par le moteur de pagination à l'impression de
-Chromium (limitation connue de ce moteur avec `display: grid`/`flex`, pas
-un bug de cette app). Corrigé en basculant `.sb-catalogue-grid` en
-`display: flex; flex-wrap: wrap` **uniquement dans `@media print`**
-(l'écran garde `display: grid`, inchangé), chaque `.sb-catalogue-card`
-recevant une largeur explicite en pourcentage (`calc((100% - 32px) / 3)`
-pour 3 colonnes) à la place des colonnes de grille — un conteneur flex
-laisse `break-inside: avoid` fonctionner correctement sur ses enfants.
-`page-break-inside: avoid` (alias historique de la même règle) ajouté en
-plus pour la compatibilité avec d'anciens moteurs de rendu. Le nombre de
-colonnes et l'espacement restent ainsi strictement identiques d'une page
-à l'autre (3 colonnes, `gap: 16px`), aucune logique de pagination
-personnalisée ajoutée par ailleurs — une dernière ligne partiellement
-remplie en bas d'une page reste possible (comportement normal de la
-pagination navigateur une fois qu'aucune fiche ne se coupe plus), pas
-quelque chose que ce correctif tente d'éliminer entièrement. Vérifié en
-générant un vrai PDF de 24 articles (Playwright `page.pdf()`, 3 pages de
-9 fiches) : chaque page garde 3 colonnes régulières, aucune fiche à
-cheval sur deux pages.
+**Fiches produit jamais coupées entre deux pages — grille fixe de 6
+fiches par page, saut de page forcé** : deux tentatives précédentes
+(`break-inside: avoid` sur `.sb-catalogue-card`, d'abord en `display:
+grid`, puis en `display: flex` avec des largeurs explicites) laissaient
+malgré tout des fiches coupées en pratique — `break-inside: avoid` posé
+directement sur un enfant d'une grille/d'un flex n'est pas respecté de
+façon fiable par le moteur de pagination à l'impression de Chromium
+(limitation connue de ce moteur), quelle que soit la disposition utilisée
+pour arranger ces enfants. Plutôt que de continuer à laisser Chromium
+décider où couper, `app/(app)/catalogue/page.js` répartit maintenant les
+articles filtrés en groupes fixes de 6 (`chunk(filtres,
+ARTICLES_PAR_PAGE_IMPRESSION)`, une fiche = un groupe = une page à
+l'impression) et rend chaque groupe dans un wrapper dédié
+(`.sb-catalogue-page-group`) entre la grille et les fiches :
+
+```
+.sb-catalogue-grid > .sb-catalogue-page-group (× N groupes de 6) > .sb-catalogue-card (× 6)
+```
+
+Le point clé, différent des deux tentatives précédentes : `break-inside:
+avoid` n'est plus posé sur les fiches (les enfants du groupe), mais sur
+le **groupe lui-même** (`app/globals.css`, `@media print`). Un
+`.sb-catalogue-page-group` est certes `display: grid` en interne (3
+colonnes × 2 lignes, `.sb-catalogue-grid` passant lui-même en `display:
+block` à l'impression pour ne plus être une grille), mais vu depuis son
+parent, c'est un bloc normal du flux — exactement le cas où `break-inside:
+avoid` fonctionne de façon fiable dans Chromium (même principe que
+`.sb-receipt-print-table tr`, voir plus haut : la limitation ne touche
+que les ENFANTS d'un display: grid/flex, jamais un conteneur qui l'est
+lui-même vu de l'extérieur). Si un groupe de 6 ne tient pas en entier sur
+la page courante, il bascule intégralement sur la suivante — jamais une
+fiche coupée en plein milieu. En plus de cette protection, chaque groupe
+porte `break-after: page` (sauf le dernier, `break-after: auto` via
+`:last-child`, pour ne jamais ajouter une page vide en trop après le
+dernier groupe partiel) : le saut de page est ainsi **forcé** après
+chaque groupe de 6 plutôt que laissé à l'appréciation du moteur
+d'impression, garantissant une page = 6 fiches maximum, toujours au même
+endroit, indépendamment du nombre total d'articles.
+
+Pour borner la hauteur d'une fiche à quelque chose de prévisible (un nom
+d'article anormalement long ne doit jamais, à lui seul, faire déborder un
+groupe de la hauteur d'une page A4 déjà vérifiée tenir), `.sb-catalogue-nom`
+est tronqué à 2 lignes (`-webkit-line-clamp: 2`) **à l'impression
+uniquement** — l'écran affiche toujours le nom complet, sans troncage.
+À l'écran, `.sb-catalogue-page-group` passe en `display: contents` (hors
+`@media print`) : le regroupement par 6 devient invisible pour la mise en
+page, les fiches rejoignent directement la grille responsive habituelle
+(`repeat(auto-fill, minmax(160px, 1fr))`) comme si le regroupement
+n'existait pas — ce mécanisme ne change donc strictement rien à
+l'affichage à l'écran, seulement à l'impression/PDF.
+
+Vérifié en générant deux vrais PDF via Playwright `page.pdf()` (pas
+seulement un aperçu écran, qui ne montre pas la pagination) : 12 articles
+(2 groupes pleins de 6, y compris un nom volontairement très long pour
+vérifier le troncage à 2 lignes) → page 1 = bannière boutique + 6 fiches
+en 3×2, page 2 = 6 fiches en 3×2, aucune fiche coupée ; 10 articles (un
+groupe plein de 6 + un groupe partiel de 4) → page 2 affiche exactement 4
+fiches sans page vide supplémentaire après.
 
 ## Espace Administration
 

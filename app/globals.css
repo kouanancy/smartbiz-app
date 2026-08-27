@@ -1221,6 +1221,14 @@ a {
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 18px;
 }
+/* À l'écran, le regroupement par page d'impression (voir @media print
+   plus bas) est invisible : display: contents fait disparaître le
+   wrapper .sb-catalogue-page-group de la mise en page, ses fiches
+   rejoignent directement la grille responsive .sb-catalogue-grid comme
+   si le regroupement n'existait pas. */
+.sb-catalogue-page-group {
+  display: contents;
+}
 .sb-catalogue-card {
   background: var(--card);
   border: 1px solid var(--line);
@@ -1421,26 +1429,52 @@ a {
     max-height: none;
     overflow: visible;
   }
-  /* display: flex plutôt que grid : `break-inside: avoid` sur un enfant
-     direct de display: grid n'est pas respecté de façon fiable par le
-     moteur de pagination à l'impression de Chromium (limitation connue,
-     déjà documentée pour ce genre de mise en page) — la fiche se coupait
-     donc en plein milieu à un changement de page malgré la règle déjà
-     présente sur .sb-catalogue-card. Un conteneur flex avec des largeurs
-     explicites (3 colonnes, mêmes espacements qu'à l'écran) reproduit la
-     même disposition visuelle tout en laissant `break-inside: avoid`
-     fonctionner correctement sur chaque fiche. */
+  /* Grille de 6 fiches maximum par page (3 colonnes × 2 lignes), avec un
+     saut de page FORCÉ après chaque groupe — jamais le moteur d'impression
+     qui décide où couper. La tentative précédente (`break-inside: avoid`
+     directement sur chaque .sb-catalogue-card, enfant direct d'une grille/
+     d'un flex) ne fonctionnait pas de façon fiable dans Chromium : cette
+     limitation ne touche que les ENFANTS d'un display: grid/flex, pas un
+     conteneur qui EST lui-même grid/flex vu depuis l'extérieur. En
+     regroupant les fiches par 6 dans un wrapper .sb-catalogue-page-group
+     (display: grid en interne, mais un simple bloc normal du point de vue
+     de son parent .sb-catalogue-grid, passé en display: block), le
+     `break-inside: avoid` posé sur ce wrapper est respecté de façon
+     fiable : le groupe entier bascule sur la page suivante s'il ne tient
+     pas en entier sur la page courante, jamais une fiche coupée en plein
+     milieu. Le nom d'article est borné à 2 lignes (webkit-line-clamp,
+     impression uniquement) pour garantir une hauteur de fiche prévisible
+     — sans borne, un nom anormalement long pourrait à lui seul faire
+     déborder un groupe de la hauteur de page déjà vérifiée (voir README).
+     Vérifié avec un vrai PDF de 12 articles (2 groupes de 6, 2 pages) :
+     aucune fiche coupée, page 1 = bannière + 6 fiches, page 2 = 6 fiches. */
   .sb-catalogue-grid {
-    display: flex;
-    flex-wrap: wrap;
+    display: block;
+  }
+  .sb-catalogue-page-group {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    break-after: page;
+    page-break-after: always;
+  }
+  .sb-catalogue-page-group:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
   .sb-catalogue-card {
-    width: calc((100% - 32px) / 3);
     break-inside: avoid;
     page-break-inside: avoid;
     box-shadow: none;
     transform: none;
+  }
+  .sb-catalogue-nom {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 }
 
