@@ -429,7 +429,7 @@ formule) mais grisée (`opacity: 0.6`), non cliquable, avec un badge
 (`parametres.formuleIndisponible`) à la place du bouton habituel.
 Exception volontaire : une boutique dont c'est déjà la formule active
 (`planActuel`) la voit normalement sélectionnable, pour ne jamais bloquer
-le paiement/renouvellement d'une cliente déjà en Premium géré — seule une
+le paiement/renouvellement d'un client déjà en Premium géré — seule une
 **nouvelle** sélection est bloquée. `components/PlanGrid.js` gère ce cas
 automatiquement (donc aussi le site vitrine, réabonnement, premier
 paiement et changement de formule, tous basés dessus) ;
@@ -524,7 +524,7 @@ création) → `livree` ou `annulee`.
 - **À la création**, quel que soit le mode boutique/livraison choisi, la
   commande démarre `en_attente` et **le stock n'est pas encore déduit**. Le
   volet « Livraison » du formulaire (boutique/livraison, zone, frais) reste
-  purement indicatif du mode choisi par la cliente — indépendant de ce
+  purement indicatif du mode choisi par le client — indépendant de ce
   statut de suivi.
 - **« Livré »** (uniquement sur une commande en attente) déclenche le
   déstockage définitif — un article insuffisant en stock réel bloque
@@ -667,8 +667,8 @@ deux listes séparées) gère ce cas sans ambiguïté.
 ajouté aux requêtes qui comptent des ventes par article —
 `app/(app)/statistiques/page.js` (produits les plus vendus),
 `app/api/cron/rapport-hebdo` (top vente de la semaine) et
-`app/(app)/clients/[id]/page.js` (dernier achat/produit favori d'une
-cliente, un cadeau n'étant pas un achat). Jamais ajouté en revanche aux
+`app/(app)/clients/[id]/page.js` (dernier achat/produit favori d'un
+client, un cadeau n'étant pas un achat). Jamais ajouté en revanche aux
 requêtes de stock réservé (`app/(app)/articles/page.js`,
 `app/(app)/articles/[id]/page.js`) ni à Trésorerie, qui n'a de toute façon
 jamais besoin d'y toucher : elle ne lit que `commandes.ca`/`commandes.marge`,
@@ -765,7 +765,7 @@ indépendants — chacun peut être ouvert directement par son URL.
 
 Sur `app/(app)/clients/[id]/page.js`, deux nouveaux champs dans la grille
 de détail (« Dernier achat », « Produit favori »), calculés à partir des
-`commande_lignes` de cette cliente — uniquement celles dont la commande
+`commande_lignes` de ce client — uniquement celles dont la commande
 est `statut = 'livree'`, comme partout ailleurs dans l'app (une commande
 en attente ou annulée n'a jamais été réellement « achetée »). Requête
 dédiée (en plus de celle, déjà existante, qui alimente le nombre de
@@ -1061,7 +1061,7 @@ navigation, donc cohérent quel que soit le thème de l'app.
 `businesses.langue` (`'fr' | 'en'`, `'fr'` par défaut pour tout nouveau
 compte) contrôle la langue de **toute** l'interface d'administration
 (Dashboard, Nouvelle commande, Articles, Clients, Commandes, Catalogue,
-Paramètres) ainsi que des documents destinés aux clientes générés dans la
+Paramètres) ainsi que des documents destinés aux clients générés dans la
 langue du commerçant : le reçu de confirmation (aperçu, message WhatsApp,
 impression PDF) et le catalogue partageable (texte copié/WhatsApp, version
 imprimée). Choix modifiable dans Paramètres → Langue, sans rechargement.
@@ -1086,6 +1086,33 @@ fichier `lib/i18n/<code>.js` avec les mêmes clés, l'enregistrer dans
 `DICTS` (`lib/i18n/index.js`) et l'ajouter au sélecteur de Paramètres.
 Nécessite la migration `supabase-businesses-langue-migration.sql` (voir
 Démarrage).
+
+## Formulations neutres, sans marqueur de genre
+
+Le français en `lib/i18n/fr.js` évite volontairement tout marqueur de
+genre pour désigner un rôle générique (le client, le commerçant) — jamais
+« cliente », « commerçante » ou un accord féminin implicite, y compris
+dans les messages générés automatiquement (WhatsApp, `Receipt.js`) et sur
+le site vitrine (`components/LandingPage.js`, `lib/roadmap.js`). Le
+tutoiement déjà en place partout reste inchangé : il ne porte lui-même
+aucune marque de genre en français (contrairement à un participe passé ou
+un adjectif prédicatif accordés avec « tu »), donc rien à modifier de ce
+côté. `lib/i18n/en.js` n'était pas concerné (l'anglais ne genre pas ces
+mots) — seules ses clés internes contenaient encore le mot « cliente »
+(ex. `clienteLabel`), jamais affiché, volontairement laissées telles
+quelles pour ne pas renommer inutilement des identifiants partagés avec
+`fr.js` (voir plus bas, ce ne sont que des noms de clé).
+
+**Deux exceptions délibérées, jamais neutralisées** : `components/LandingPage.js`
+attribue « Fondatrice de Doka » à Nancy Koné dans la section « Notre
+histoire » — un fait biographique sur une personne réelle et nommée, pas
+une formulation générique à neutraliser (l'écrire au masculin
+la décrirait incorrectement). Deux des trois photos du carrousel héros
+(`HERO_CAROUSEL_IMAGES`) ont un texte alternatif « Commerçante
+consultant... » : ce sont de vraies photos de personnes réelles
+différentes (pas une illustration générique), le texte alternatif décrit
+donc fidèlement ce que chaque photo montre réellement — le neutraliser
+rendrait la description fausse pour l'accessibilité plutôt que neutre.
 
 ## Catalogue
 
@@ -1758,7 +1785,7 @@ lignes de tableau avec vignette photo + badge de stock OK/Faible/Rupture
 pour Stock (`app/(app)/articles/page.js`, mêmes couleurs que
 `common.badgeOk`/`badgeFaible`/`badgeRupture`), vrai tableau — jamais une
 liste d'avatars, qui n'existe nulle part dans l'app — pour Clients
-(`app/(app)/clients/page.js`), tableau N°/Cliente/CA/Statut pour Commandes
+(`app/(app)/clients/page.js`), tableau N°/Client/CA/Statut pour Commandes
 (`app/(app)/commandes/page.js`), grille de fiches produit pour Catalogue
 (`app/(app)/catalogue/page.js`), courbe d'évolution + deux totaux pour
 Trésorerie) et une description — reprise telle quelle quand elle existait
@@ -1851,7 +1878,7 @@ comme le reste du site vitrine. Contenu des 4 phases :
   paiement pour les abonnements.
 - **Phase 4 — Se structurer** (`disponible: false` partout) : programme
   de parrainage, facturation, gestion multi-boutique, fidélisation des
-  clientes, Marketplace Doka (catalogues de tous les commerçants
+  clients, Marketplace Doka (catalogues de tous les commerçants
   centralisés dans un espace commun).
 
 **Statut piloté depuis `lib/roadmap.js`, pas depuis le texte de la page**
