@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Pencil, RotateCcw, Trash2, UserX, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt as fmtBase } from "@/lib/format";
+import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 import ClearableInput from "@/components/ClearableInput";
 
@@ -21,6 +21,7 @@ export default function ClientDetailPage() {
   const [client, setClient] = useState(undefined);
   const [stats, setStats] = useState({ count: 0, total: 0 });
   const [clientsPourDoublon, setClientsPourDoublon] = useState([]);
+  const [historique, setHistorique] = useState({ dernierAchat: null, produitFavori: null });
 
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState(null);
@@ -37,15 +38,46 @@ export default function ClientDetailPage() {
     if (!business?.id || !params.id) return;
     let active = true;
     async function load() {
-      const [, commandesRes, clientsRes] = await Promise.all([
+      const [, commandesRes, clientsRes, achatsRes] = await Promise.all([
         chargerClient(),
         supabase.from("commandes").select("ca").eq("business_id", business.id).eq("client_id", params.id),
         supabase.from("clients").select("id,nom,telephone").eq("business_id", business.id),
+        // Historique enrichi (dernier achat, produit favori) : uniquement
+        // les commandes livrées, comme partout ailleurs dans l'app (une
+        // commande en attente ou annulée n'a jamais été "achetée"). Jointure
+        // commande_lignes -> commandes!inner(...) exactement comme dans
+        // app/(app)/articles/[id]/page.js (stock réservé), seul le statut
+        // filtré diffère ('livree' ici, 'en_attente' là-bas).
+        supabase
+          .from("commande_lignes")
+          .select("quantite, articles(nom), commandes!inner(business_id, client_id, statut, created_at)")
+          .eq("commandes.business_id", business.id)
+          .eq("commandes.client_id", params.id)
+          .eq("commandes.statut", "livree"),
       ]);
       if (!active) return;
       const lignes = commandesRes.data || [];
       setStats({ count: lignes.length, total: lignes.reduce((s, c) => s + c.ca, 0) });
       setClientsPourDoublon(clientsRes.data || []);
+
+      let dernierAchat = null;
+      const quantitesParArticle = new Map();
+      (achatsRes.data || []).forEach((ligne) => {
+        const createdAt = ligne.commandes?.created_at;
+        if (createdAt && (!dernierAchat || createdAt > dernierAchat)) dernierAchat = createdAt;
+        const nom = ligne.articles?.nom;
+        if (!nom) return;
+        quantitesParArticle.set(nom, (quantitesParArticle.get(nom) || 0) + ligne.quantite);
+      });
+      let produitFavori = null;
+      let quantiteMax = 0;
+      quantitesParArticle.forEach((quantite, nom) => {
+        if (quantite > quantiteMax) {
+          quantiteMax = quantite;
+          produitFavori = nom;
+        }
+      });
+      setHistorique({ dernierAchat, produitFavori });
     }
     load();
     return () => {
@@ -203,6 +235,20 @@ export default function ClientDetailPage() {
               {t("clients.colTotalAchats")}
             </div>
             <div className="sb-mono" style={{ fontSize: 14, fontWeight: 600 }}>{fmt(stats.total)}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
+              {t("clients.colDernierAchat")}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>
+              {historique.dernierAchat ? new Date(historique.dernierAchat).toLocaleDateString(dateLocale(business?.langue)) : "—"}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
+              {t("clients.colProduitFavori")}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{historique.produitFavori || "—"}</div>
           </div>
         </div>
 

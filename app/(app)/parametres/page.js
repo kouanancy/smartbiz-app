@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell, CheckCircle2, FileText, Palette, Plus, Truck, X } from "lucide-react";
+import { Bell, CheckCircle2, FileText, MessageCircle, Palette, Plus, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { activerNotificationsPush } from "@/lib/push";
@@ -11,6 +11,20 @@ import { THEMES, MODES_AFFICHAGE } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import ImageUploadField from "@/components/ImageUploadField";
 import PaiementAbonnement from "@/components/PaiementAbonnement";
+
+// Ordre d'affichage naturel (semaine française, commence lundi) — les
+// valeurs stockées suivent la convention PostgreSQL extract(dow from ...)
+// (0 = dimanche ... 6 = samedi, voir supabase-rapport-hebdo-migration.sql),
+// d'où Dimanche en dernier malgré sa valeur 0, la plus basse.
+const JOURS_SEMAINE = [
+  { value: 1, key: "lundi" },
+  { value: 2, key: "mardi" },
+  { value: 3, key: "mercredi" },
+  { value: 4, key: "jeudi" },
+  { value: 5, key: "vendredi" },
+  { value: 6, key: "samedi" },
+  { value: 0, key: "dimanche" },
+];
 
 export default function ParametresPage() {
   const { business, setBusiness } = useAuth();
@@ -24,6 +38,29 @@ export default function ParametresPage() {
   const [notifMsg, setNotifMsg] = useState("");
   const [pushMsg, setPushMsg] = useState({ texte: "", ok: false });
   const [pushEnCours, setPushEnCours] = useState(false);
+  const [rapportHebdoActif, setRapportHebdoActif] = useState(business?.rapport_hebdo_actif || false);
+  const [rapportHebdoMode, setRapportHebdoMode] = useState(business?.rapport_hebdo_mode || "whatsapp");
+  const [rapportHebdoJour, setRapportHebdoJour] = useState(business?.rapport_hebdo_jour_semaine ?? 0);
+  const [rapportPushMsg, setRapportPushMsg] = useState({ texte: "", ok: false });
+  const [rapportPushEnCours, setRapportPushEnCours] = useState(false);
+
+  // Mode push du rapport hebdomadaire : même fonction que la carte admin
+  // ci-dessous (lib/push.js), désormais utilisable par toute boutique —
+  // voir supabase-rapport-hebdo-migration.sql, qui assouplit la policy RLS
+  // de push_subscriptions au-delà des seuls comptes admin.
+  async function onClickActiverPushRapport() {
+    setRapportPushMsg({ texte: "", ok: false });
+    setRapportPushEnCours(true);
+    const resultat = await activerNotificationsPush(business.id);
+    setRapportPushEnCours(false);
+    if (resultat.ok) {
+      setRapportPushMsg({ texte: t("parametres.pushActive"), ok: true });
+      return;
+    }
+    if (resultat.reason === "unsupported") setRapportPushMsg({ texte: t("parametres.pushUnsupported"), ok: false });
+    else if (resultat.reason === "permission_denied") setRapportPushMsg({ texte: t("parametres.pushPermissionRefusee"), ok: false });
+    else setRapportPushMsg({ texte: t("parametres.pushErreur", { message: resultat.message || resultat.reason }), ok: false });
+  }
 
   // Réservé au compte admin (bouton masqué ci-dessous pour les autres) —
   // voir lib/push.js et README, section « Notifications push (Web Push) ».
@@ -96,6 +133,21 @@ export default function ParametresPage() {
   async function toggleConfirmationEmail(checked) {
     setConfirmationEmail(checked);
     await updateBusiness({ confirmation_email: checked });
+  }
+
+  async function toggleRapportHebdoActif(checked) {
+    setRapportHebdoActif(checked);
+    await updateBusiness({ rapport_hebdo_actif: checked });
+  }
+
+  async function enregistrerRapportHebdoMode(mode) {
+    setRapportHebdoMode(mode);
+    await updateBusiness({ rapport_hebdo_mode: mode });
+  }
+
+  async function enregistrerRapportHebdoJour(jour) {
+    setRapportHebdoJour(jour);
+    await updateBusiness({ rapport_hebdo_jour_semaine: jour });
   }
 
   async function ajouterZone() {
@@ -330,6 +382,73 @@ export default function ParametresPage() {
           <p style={{ fontSize: 11, color: "var(--text-faint)", margin: "12px 2px 0" }}>{t("parametres.emailRequiredNote")}</p>
         )}
       </div>
+
+      {/* Sans objet pour un compte admin (aucune activité commerciale
+          propre à résumer chaque semaine) — même exclusion que les cartes
+          Abonnement/Formule plus bas. Désactivé par défaut
+          (rapport_hebdo_actif = false, voir
+          supabase-rapport-hebdo-migration.sql) : rien n'est jamais envoyé
+          sans cette activation explicite. */}
+      {!business?.is_admin && (
+        <div className="sb-card" style={{ marginBottom: 16 }}>
+          <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <MessageCircle size={15} /> {t("parametres.rapportHebdoTitle")}
+          </div>
+          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.rapportHebdoSub")}</p>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 14, cursor: "pointer" }}>
+            <input type="checkbox" checked={rapportHebdoActif} onChange={(e) => toggleRapportHebdoActif(e.target.checked)} />
+            {t("parametres.rapportHebdoActifLabel")}
+          </label>
+
+          <div style={{ opacity: rapportHebdoActif ? 1 : 0.45, pointerEvents: rapportHebdoActif ? "auto" : "none" }}>
+            <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 }}>{t("parametres.rapportHebdoModeLabel")}</label>
+            <div className="sb-toggle-group" style={{ display: "inline-flex", marginBottom: 14 }}>
+              {[
+                { key: "whatsapp", label: t("parametres.rapportHebdoModeWhatsapp") },
+                { key: "push", label: t("parametres.rapportHebdoModePush") },
+              ].map((opt) => (
+                <button
+                  key={opt.key}
+                  className={`sb-toggle-item${rapportHebdoMode === opt.key ? " active" : ""}`}
+                  onClick={() => enregistrerRapportHebdoMode(opt.key)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 }}>{t("parametres.rapportHebdoJourLabel")}</label>
+            <div className="sb-toggle-group" style={{ display: "inline-flex", flexWrap: "wrap", marginBottom: rapportHebdoMode === "push" ? 14 : 0 }}>
+              {JOURS_SEMAINE.map((j) => (
+                <button
+                  key={j.value}
+                  className={`sb-toggle-item${rapportHebdoJour === j.value ? " active" : ""}`}
+                  onClick={() => enregistrerRapportHebdoJour(j.value)}
+                >
+                  {t(`parametres.jours.${j.key}`)}
+                </button>
+              ))}
+            </div>
+
+            {rapportHebdoMode === "push" && (
+              <div>
+                {rapportPushMsg.texte && (
+                  <div
+                    className={`sb-badge ${rapportPushMsg.ok ? "sb-badge-emerald" : "sb-badge-coral"}`}
+                    style={{ display: "block", marginBottom: 10, fontSize: 12.5, padding: "8px 12px" }}
+                  >
+                    {rapportPushMsg.texte}
+                  </div>
+                )}
+                <button className="sb-btn sb-btn-ghost" onClick={onClickActiverPushRapport} disabled={rapportPushEnCours} type="button">
+                  <Bell size={14} /> {rapportPushEnCours ? t("parametres.pushActivating") : t("parametres.pushActiverBtn")}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Réservé aux comptes admin : c'est l'administratrice qui doit être
           alertée d'un nouveau justificatif à vérifier, jamais un
