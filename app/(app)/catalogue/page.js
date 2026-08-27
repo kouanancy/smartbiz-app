@@ -26,11 +26,22 @@ function chunk(arr, size) {
 
 // Longueur maximale (en caractères) du nom affiché sur une fiche à
 // l'impression, avant troncature au milieu — voir tronquerMilieuNom
-// ci-dessous. Calée pour tenir sur 3 lignes dans une carte de 3 colonnes
-// (~185px de large utile) en 13px gras — hauteur de zone de nom fixée en
-// conséquence dans .sb-catalogue-nom (app/globals.css) — vérifiée
-// visuellement via un PDF de test (voir README).
-const LONGUEUR_NOM_IMPRESSION = 78;
+// ci-dessous. Un nombre de caractères ne prédit qu'approximativement le
+// nombre de lignes réellement occupées après retour à la ligne : des noms
+// de produits denses, avec beaucoup de mots courts et de majuscules (ex.
+// "Outre Melted Hairline Kinky Soft Edges Glueless HD Lace Front Wig")
+// remplissent moins bien chaque ligne qu'un nom au phrasé plus fluide, et
+// peuvent déborder sur une 4e ligne avec un seuil trop généreux — vécu en
+// pratique avec un vrai catalogue (PDF fourni par l'utilisatrice) où le
+// nom se coupait en plein milieu d'un mot, SANS points de suspension
+// visibles, perdant entièrement la couleur qu'on cherche justement à
+// préserver. Seuil abaissé à 52 (au lieu de 78) pour une marge de
+// sécurité large sur ce type de nom ; .sb-catalogue-nom-print porte en
+// plus -webkit-line-clamp: 3 (app/globals.css) comme filet de sécurité —
+// si ce texte déjà tronqué dépasse malgré tout 3 lignes, le navigateur le
+// coupe proprement avec ses propres points de suspension plutôt que de
+// couper un caractère en plein milieu sans aucun indicateur.
+const LONGUEUR_NOM_IMPRESSION = 52;
 
 // Tronque au milieu plutôt qu'à la fin : le dernier mot du nom (presque
 // toujours la couleur pour les articles vendus ici, ex. "Blond", "Noir")
