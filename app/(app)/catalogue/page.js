@@ -24,6 +24,31 @@ function chunk(arr, size) {
   return out;
 }
 
+// Longueur maximale (en caractères) du nom affiché sur une fiche à
+// l'impression, avant troncature au milieu — voir tronquerMilieuNom
+// ci-dessous. Calée pour tenir sur une ligne dans une carte de 3
+// colonnes (~185px de large utile) en 13px gras, vérifiée visuellement
+// via un PDF de test (voir README).
+const LONGUEUR_NOM_IMPRESSION = 26;
+
+// Tronque au milieu plutôt qu'à la fin : le dernier mot du nom (presque
+// toujours la couleur pour les articles vendus ici, ex. "Blond", "Noir")
+// reste entièrement visible, seul le milieu du nom disparaît derrière des
+// points de suspension. « Perruque Lace Front 20 Pouces Naturelle Blond »
+// devient « Perruque Lace Front 20… Blond » plutôt que « Perruque Lace
+// Front 20 Pouces N…» qui masquerait la couleur. Uniquement pour
+// l'affichage imprimé (voir .sb-catalogue-nom-print dans globals.css) —
+// le nom complet reste toujours affiché à l'écran et enregistré tel quel
+// en base de données, seul ce rendu imprimé est raccourci.
+function tronquerMilieuNom(nom, maxLen = LONGUEUR_NOM_IMPRESSION) {
+  if (nom.length <= maxLen) return nom;
+  const mots = nom.trim().split(/\s+/);
+  const dernierMot = mots[mots.length - 1];
+  const longueurDebut = Math.max(maxLen - dernierMot.length - 1, 10);
+  const debut = nom.slice(0, longueurDebut).trimEnd();
+  return `${debut}… ${dernierMot}`;
+}
+
 export default function CataloguePage() {
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
@@ -180,7 +205,10 @@ export default function CataloguePage() {
                       {a.nom.slice(0, 1).toUpperCase()}
                     </div>
                   )}
-                  <div className="sb-catalogue-nom">{a.nom}</div>
+                  <div className="sb-catalogue-nom">
+                    <span className="sb-catalogue-nom-screen">{a.nom}</span>
+                    <span className="sb-catalogue-nom-print">{tronquerMilieuNom(a.nom)}</span>
+                  </div>
                   <div className="sb-catalogue-prix">
                     {fmt(a.prix_vente)} <span className="sb-catalogue-unite">/ {uniteLabel(a.unite)}</span>
                   </div>
