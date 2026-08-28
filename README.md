@@ -1162,10 +1162,11 @@ rendrait la description fausse pour l'accessibilité plutôt que neutre.
 Le bouton « Imprimer / PDF » imprime exactement ce qui est affiché à
 l'écran : la grille d'articles (`.sb-catalogue-grid`) est déjà filtrée par
 `filtreCategorie` avant d'être rendue, pour l'écran comme pour
-l'impression — seuls les boutons/filtres eux-mêmes sont masqués à
-l'impression (classe `.sb-no-print`), pas les données. Filtrer sur une
-catégorie puis imprimer ne produit donc que les articles de cette
-catégorie.
+l'impression — seuls certains éléments propres à l'écran (boutons,
+filtres, titre « Catalogue » + son sous-titre, voir plus bas) sont
+masqués à l'impression (classe `.sb-no-print`), jamais les données.
+Filtrer sur une catégorie puis imprimer ne produit donc que les articles
+de cette catégorie.
 
 Quand un filtre de catégorie est actif, son nom s'ajoute au titre du
 document imprimé/PDF (`document.title`, mis à jour juste avant
@@ -1173,6 +1174,39 @@ document imprimé/PDF (`document.title`, mis à jour juste avant
 `afterprint`) ainsi qu'au sous-titre du bandeau affiché sur la page —
 utile pour distinguer plusieurs PDF imprimés séparément par catégorie
 (ex. « Catalogue — Chez Aïcha Beauté — Mèches »).
+
+**Page 1 jamais vide : le titre écran « Catalogue » + son compteur
+d'articles sont masqués à l'impression.** Bug constaté en pratique sur un
+vrai catalogue (PDF fourni par une utilisatrice) : la page 1 du PDF
+n'affichait que le bandeau boutique, tous les articles commençant
+seulement page 2 — la page 1 restait donc quasiment vide malgré une large
+marge mesurée en test. Cause : le `<h1>Catalogue</h1>` + son sous-titre
+(« 17 articles disponibles à partager ») au-dessus du bandeau n'étaient
+jamais masqués à l'impression (contrairement aux boutons/filtres juste à
+côté, déjà en `.sb-no-print`) — cette hauteur en plus, propre à l'écran,
+suffisait à repousser le premier groupe de 6 fiches hors des limites de
+la page 1. Comme `.sb-catalogue-page-group` est un bloc atomique
+(`break-inside: avoid`, voir plus bas) qui bascule entièrement sur la
+page suivante dès qu'il ne tient plus en entier, tout le premier groupe
+disparaissait de la page 1 d'un coup plutôt que de simplement en occuper
+un peu moins — d'où une page 1 presque blanche plutôt qu'un débordement
+progressif. Les tests précédant ce correctif ne reproduisaient pas ce
+titre écran (une omission dans le montage de test, pas dans le code
+réel), ce qui a laissé le bug invisible malgré une marge confortable
+mesurée par ailleurs. Corrigé en masquant ce titre + sous-titre à
+l'impression (`.sb-no-print`, `app/(app)/catalogue/page.js`) : redondant
+avec le bandeau `.sb-catalogue-banner` juste en dessous, qui affiche déjà
+le nom de la boutique et la tagline « Catalogue des produits disponibles
+» — un en-tête imprimé suffisant à lui seul. Solution volontairement
+générique plutôt que calée sur un nombre d'articles précis : elle
+récupère de la hauteur pour n'importe quel catalogue, court ou long, sans
+dépendre du contenu réel des fiches. Vérifié en reconstituant la
+structure exacte de la page réelle (titre + sous-titre + boutons +
+filtres + bandeau + grille, pas seulement bandeau + grille comme dans les
+tests précédents) avec les 17 articles du catalogue qui posait
+problème : page 1 affiche désormais le bandeau **et** les 6 premières
+fiches, page 2 les 6 suivantes, page 3 les 5 dernières — 3 pages au lieu
+de 4, plus aucune page vide.
 
 **Fiches produit jamais coupées entre deux pages — grille fixe de 6
 fiches par page, saut de page forcé** : deux tentatives précédentes
