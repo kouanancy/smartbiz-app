@@ -38,6 +38,7 @@ export default function ParametresPage() {
   const [pushActifSurAppareil, setPushActifSurAppareil] = useState(false);
   const [rapportHebdoActif, setRapportHebdoActif] = useState(business?.rapport_hebdo_actif || false);
   const [rapportHebdoJour, setRapportHebdoJour] = useState(business?.rapport_hebdo_jour_semaine ?? 0);
+  const [rapportHebdoMsg, setRapportHebdoMsg] = useState("");
 
   // Indicateur d'état visible dès l'arrivée sur la page, sans attendre un
   // clic sur le bouton — vérifie l'abonnement du navigateur lui-même (voir
@@ -120,14 +121,32 @@ export default function ParametresPage() {
     await updateBusiness({ langue: l });
   }
 
+  // Mise à jour optimiste (coche/jour affichés immédiatement) mais annulée
+  // en cas d'échec de l'update, avec un message visible — auparavant
+  // l'erreur était silencieusement ignorée, laissant la case cochée à
+  // l'écran alors que rien n'était réellement enregistré en base (ex. si
+  // une migration SQL n'a pas été appliquée sur le projet Supabase et que
+  // la colonne/le grant manque) : une source plausible de rapport
+  // hebdomadaire "activé" en apparence mais jamais réellement envoyé.
   async function toggleRapportHebdoActif(checked) {
     setRapportHebdoActif(checked);
-    await updateBusiness({ rapport_hebdo_actif: checked });
+    setRapportHebdoMsg("");
+    const { error } = await updateBusiness({ rapport_hebdo_actif: checked });
+    if (error) {
+      setRapportHebdoActif(!checked);
+      setRapportHebdoMsg(t("common.error", { message: error.message }));
+    }
   }
 
   async function enregistrerRapportHebdoJour(jour) {
+    const precedent = rapportHebdoJour;
     setRapportHebdoJour(jour);
-    await updateBusiness({ rapport_hebdo_jour_semaine: jour });
+    setRapportHebdoMsg("");
+    const { error } = await updateBusiness({ rapport_hebdo_jour_semaine: jour });
+    if (error) {
+      setRapportHebdoJour(precedent);
+      setRapportHebdoMsg(t("common.error", { message: error.message }));
+    }
   }
 
   async function ajouterZone() {
@@ -364,6 +383,12 @@ export default function ParametresPage() {
           {t("parametres.rapportHebdoActifLabel")}
         </label>
         <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.rapportHebdoSub")}</p>
+
+        {rapportHebdoMsg && (
+          <div className="sb-badge sb-badge-coral" style={{ display: "block", marginBottom: 12, fontSize: 12.5, padding: "8px 12px" }}>
+            {rapportHebdoMsg}
+          </div>
+        )}
 
         <div style={{ opacity: rapportHebdoActif ? 1 : 0.45, pointerEvents: rapportHebdoActif ? "auto" : "none" }}>
           <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 }}>{t("parametres.rapportHebdoJourLabel")}</label>

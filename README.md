@@ -2404,7 +2404,7 @@ connexion par défaut, pas de champ à configurer séparément).
 
 Ne reprend pas l'ancien « Rapport de stock automatique » ci-dessus, retiré
 pour cause de redondance avec la page Articles : celui-ci résume toute
-l'activité de la semaine (CA, marge réelle, top vente, alertes de stock),
+l'activité de la semaine (CA, marge réelle, top ventes, alertes de stock),
 pas seulement le stock — et surtout, il n'est plus envoyé par e-mail
 (jamais fiabilisé pour les alertes de paiement admin non plus, voir
 « Notifications push » plus haut) mais par **notification push**, seul
@@ -2412,6 +2412,76 @@ canal disponible (voir plus bas). Désactivé par défaut
 (`businesses.rapport_hebdo_actif`), configurable dans Paramètres, carte
 « Notification push » (partagée avec l'activation push elle-même — voir
 « Notifications push » plus haut).
+
+**La notification n'est plus qu'une annonce, jamais le contenu chiffré
+directement.** Auparavant, le corps de la notification push affichait
+déjà le résumé du rapport (« CA : X — Marge : Y — Top vente : Z ») — visible
+telle quelle même verrouillé, sur l'écran de veille d'un téléphone.
+Remplacé par un message générique unique
+(`rapportHebdo.pushBody`, ex. « Votre rapport hebdomadaire est prêt,
+consultez-le maintenant. »), identique pour la notification en cloche et
+la notification push, dans la langue de la boutique
+(`t(b.langue, "rapportHebdo.pushBody")`, `app/api/cron/rapport-hebdo`).
+Cliquer dessus (cloche ou push, même mécanisme de clic générique déjà en
+place — `components/NotificationBell.js` pour la cloche,
+`data.url` + `notificationclick` dans `public/sw.js` pour le push) ouvre
+directement `/rapport-hebdo` (`app/(app)/rapport-hebdo/page.js`), jamais
+`/dashboard` comme avant.
+
+**Le rapport lui-même vit sur sa propre page, consultable à tout
+moment** — pas seulement au moment de la notification. Un bouton
+« Rapport hebdo » sur le Dashboard (`app/(app)/dashboard/page.js`) mène à
+la même page. Celle-ci recalcule elle-même, à chaque consultation, une
+fenêtre glissante des 7 derniers jours (CA/marge des commandes livrées,
+top 5 des ventes hors cadeaux offerts, articles en alerte de stock —
+mêmes règles et mêmes seuils que partout ailleurs dans l'app : Dashboard,
+Trésorerie, Statistiques) plutôt que d'afficher un instantané figé au
+moment de l'envoi de la notification — pas besoin de stocker une copie du
+contenu du rapport en base pour ça, la page interroge simplement
+Supabase à la demande, exactement comme les autres pages de rapport
+(Trésorerie, Statistiques). En conséquence, la route cron elle-même ne
+calcule plus rien de tout ça : son seul rôle restant est de déterminer
+les boutiques dues aujourd'hui et de leur envoyer l'annonce (voir
+ci-dessous).
+
+**Impression au format A4, jamais de section coupée entre deux pages** :
+bouton « Imprimer le rapport » en haut de la page
+(`rapportHebdo.imprimerBtn`), même mécanisme `window.print()` que
+Trésorerie/Catalogue/Reçu. Mise en page dédiée
+(`.sb-rapport-hebdo-print`, `app/globals.css`) rendue via un portail dans
+`<body>` (même principe que `.sb-tresorerie-print`), largeur ancrée à
+`178mm` (`210mm - 2×16mm` de marge `@page`, cohérent avec le catalogue —
+voir « Impression fiable quel que soit l'appareil » plus haut) plutôt que
+fluide. Le rapport a deux sections de longueur variable (jusqu'à 5 ventes,
+un nombre quelconque d'alertes de stock) qui peuvent à elles seules
+déborder sur plusieurs pages selon le nombre d'articles en alerte — même
+principe déjà établi pour le reçu et le catalogue : `break-inside: avoid`
+sur chaque `<tr>` (fiable sur un enfant natif de `<table>`, jamais sur un
+enfant direct de `display: grid`/`flex`) empêche toute ligne d'être coupée
+en plein milieu, `break-after: avoid` sur chaque titre de section
+(`.sb-rapport-hebdo-print-section-title`) l'empêche de rester seul en bas
+d'une page pendant que son tableau bascule sur la suivante, et le
+`<thead>` de chaque tableau se répète nativement en haut de chaque page
+de continuation (même comportement natif des navigateurs déjà exploité
+pour le reçu et le catalogue, sans CSS supplémentaire).
+
+**Une erreur d'enregistrement des réglages n'est plus silencieuse** :
+`toggleRapportHebdoActif()`/`enregistrerRapportHebdoJour()`
+(`app/(app)/parametres/page.js`) ignoraient auparavant l'erreur retournée
+par la mise à jour Supabase — la case à cocher restait affichée comme
+activée à l'écran même si l'écriture avait échoué en base (ex. si une
+migration SQL n'a pas été appliquée sur le projet et qu'une colonne ou un
+`GRANT` manque), donnant une fausse impression d'activation sans que le
+rapport ne soit jamais réellement programmé. Corrigé : l'état local est
+maintenant annulé et un message d'erreur affiché (même schéma que
+`pushMsg` un peu plus haut sur la même page) si l'écriture échoue —
+symétrique à `pushActifSurAppareil`
+(`lib/push.js`), qui ne confirme lui aussi qu'un état côté navigateur,
+jamais que l'abonnement est effectivement bien enregistré côté serveur
+dans `push_subscriptions` : un abonnement affiché comme actif sur
+l'appareil mais absent (ou périmé) côté serveur est une autre cause
+plausible de notification jamais reçue malgré un indicateur d'état
+rassurant, à vérifier directement dans la table le cas échéant.
 
 **Migration** : `supabase-rapport-hebdo-migration.sql` — colonnes
 `businesses.rapport_hebdo_actif` (boolean, false par défaut),
@@ -2457,14 +2527,10 @@ et pose `rapport_hebdo_dernier_envoi = current_date` dans la même requête
 (`update ... returning`), même principe que
 `generer_notifications_expiration()` — une boutique due ne peut donc
 jamais recevoir deux rapports le même jour, même si la tâche planifiée
-tournait deux fois. Le contenu du rapport (CA/marge de la semaine, top
-vente, alertes de stock) est calculé côté route Node
-(`app/api/cron/rapport-hebdo/route.js`), pas en SQL pur — plus simple à
-lire/maintenir pour le petit nombre de boutiques dues chaque jour, même
-choix que pour les autres tâches planifiées de ce dépôt.
+tournait deux fois.
 
 **Livraison** : notification en cloche systématique (centre de
-notifications, voir plus bas — la boutique voit toujours son rapport dans
+notifications, voir plus bas — la boutique voit toujours l'annonce dans
 l'app, même sans push activé sur aucun appareil) et, si le commerçant a
 activé le push sur au moins un appareil, une vraie notification Web Push
 en plus — envoyée directement depuis la route cron elle-même (pas via la
@@ -2472,6 +2538,9 @@ route dédiée `app/api/push-admin-paiement`, réservée aux alertes de
 paiement admin) : plus simple, ce cron a déjà la clé service_role et les
 clés VAPID sous la main, pas besoin d'un aller-retour HTTP supplémentaire
 comme le fait le trigger Postgres de `notifier_admins_nouveau_justificatif()`.
+La route ne calcule plus elle-même CA/marge/top ventes/alertes de stock
+(voir ci-dessus) : sa seule tâche restante est de déterminer les
+boutiques dues et de leur envoyer l'annonce générique.
 
 ## Logo Doka (marque de la plateforme)
 
@@ -2770,7 +2839,8 @@ app/
   api/push-admin-paiement/    route serveur : notification push (web-push), appelée depuis Supabase (pg_net) à la soumission d'un justificatif
   api/admin/push-paiement-valide/   route serveur : notification push au commerçant, appelée par le client admin juste après avoir marqué un paiement payé
   api/cron/expiration-reminders/   route serveur : rappel d'abonnement qui expire, e-mail + notification push (Vercel Cron)
-  api/cron/rapport-hebdo/     route serveur : rapport hebdomadaire (CA/marge/top vente/stock), notification push (Vercel Cron, voir « Rapport hebdomadaire enrichi »)
+  api/cron/rapport-hebdo/     route serveur : annonce (cloche + notification push, message générique) que le rapport hebdomadaire est prêt (Vercel Cron, voir « Rapport hebdomadaire enrichi »)
+  (app)/rapport-hebdo/     page du rapport hebdomadaire (CA/marge/top ventes/alertes de stock, fenêtre glissante 7 jours) — accessible via le bouton du Dashboard ou en cliquant sur l'annonce, imprimable en PDF
 components/
   Sidebar.js, Receipt.js, ImageUploadField.js, PlanGrid.js,
   FormuleEtPaiement.js, PremierPaiement.js, Reabonnement.js, CompteSuspendu.js,
