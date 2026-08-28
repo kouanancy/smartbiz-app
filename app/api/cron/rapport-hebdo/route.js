@@ -1,9 +1,8 @@
 import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
-import { fmt } from "@/lib/format";
+import { t } from "@/lib/i18n";
 
 const VAPID_SUBJECT = "mailto:koua.nancy@gmail.com";
-const JOURS_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Route serveur (jamais exposée au navigateur) : déclenchée une fois par
 // jour par Vercel Cron (voir vercel.json), même mécanisme que
@@ -19,6 +18,16 @@ const JOURS_MS = 7 * 24 * 60 * 60 * 1000;
 // boutique) : c'est exactement la leçon tirée de l'ancien "Rapport de
 // stock automatique" (retiré, voir README), qui avait dû abandonner un
 // créneau horaire personnalisé pour cette même raison.
+//
+// Cette route ne calcule plus elle-même le contenu du rapport (CA, marge,
+// top ventes, alertes de stock) : cette annonce ne fait plus que
+// notifier — le contenu chiffré n'apparaît jamais dans une notification
+// (visible même verrouillé sur l'écran d'un téléphone), seulement une
+// fois la page /rapport-hebdo ouverte, qui recalcule elle-même la même
+// fenêtre glissante de 7 jours à la demande (voir
+// app/(app)/rapport-hebdo/page.js) — page consultable à tout moment,
+// pas seulement au moment de cette notification (bouton "Rapport hebdo"
+// du Dashboard).
 export async function GET(request) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
@@ -56,75 +65,31 @@ export async function GET(request) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  const depuis = new Date(Date.now() - JOURS_MS).toISOString();
   const resultats = [];
 
   for (const b of boutiques || []) {
     try {
-      // CA / marge réelle de la semaine — uniquement les commandes
-      // livrées, comme partout ailleurs dans l'app (Dashboard, Trésorerie).
-      const { data: commandes } = await supabaseAdmin
-        .from("commandes")
-        .select("ca, marge")
-        .eq("business_id", b.business_id)
-        .eq("statut", "livree")
-        .gte("created_at", depuis);
-      const ca = (commandes || []).reduce((s, c) => s + c.ca, 0);
-      const marge = (commandes || []).reduce((s, c) => s + c.marge, 0);
-
-      // Top vente de la semaine — même idiome de jointure que
-      // app/(app)/statistiques/page.js, restreint aux 7 derniers jours.
-      // offert = false : un cadeau n'est jamais une vente.
-      const { data: lignes } = await supabaseAdmin
-        .from("commande_lignes")
-        .select("quantite, articles(nom), commandes!inner(business_id, statut, created_at)")
-        .eq("commandes.business_id", b.business_id)
-        .eq("commandes.statut", "livree")
-        .eq("offert", false)
-        .gte("commandes.created_at", depuis);
-      const quantitesParArticle = new Map();
-      (lignes || []).forEach((l) => {
-        const nom = l.articles?.nom;
-        if (!nom) return;
-        quantitesParArticle.set(nom, (quantitesParArticle.get(nom) || 0) + l.quantite);
-      });
-      let topVente = null;
-      let topQuantite = 0;
-      quantitesParArticle.forEach((quantite, nom) => {
-        if (quantite > topQuantite) {
-          topQuantite = quantite;
-          topVente = nom;
-        }
-      });
-
-      // Alertes de stock — mêmes seuils que le ticker "Presque en rupture"
-      // du Dashboard (stock <= seuil).
-      const { data: articles } = await supabaseAdmin
-        .from("articles")
-        .select("stock, seuil")
-        .eq("business_id", b.business_id);
-      const alertesStock = (articles || []).filter((a) => a.stock <= a.seuil).length;
-
-      const devise = b.devise || "FCFA";
-      const resumeCourt = `CA : ${fmt(ca, devise)} — Marge : ${fmt(marge, devise)}${topVente ? ` — Top vente : ${topVente}` : ""}`;
+      const langue = b.langue || "fr";
+      const message = t(langue, "rapportHebdo.pushBody");
 
       // Canal unique : notification push (voir Paramètres, section
-      // « Notification push », commune à tous les comptes — plus de choix
-      // WhatsApp/push, voir supabase-rapport-hebdo-push-uniquement-migration.sql).
-      // Notification en cloche (historique consultable en app) systématique
-      // + vraie notification Web Push si le commerçant a activé le push sur
-      // au moins un appareil — sinon la boutique voit son rapport dans le
+      // « Notification push », commune à tous les comptes). Notification
+      // en cloche (historique consultable en app) systématique + vraie
+      // notification Web Push si le commerçant a activé le push sur au
+      // moins un appareil — sinon la boutique voit son rapport dans le
       // centre de notifications à sa prochaine connexion, sans erreur.
+      // Les deux pointent vers /rapport-hebdo, jamais /dashboard : cliquer
+      // dessus doit ouvrir directement la page du rapport.
       await supabaseAdmin
         .from("notifications")
-        .insert({ business_id: b.business_id, type: "rapport_hebdo", message: resumeCourt, lien: "/dashboard" });
+        .insert({ business_id: b.business_id, type: "rapport_hebdo", message, lien: "/rapport-hebdo" });
 
       if (pushDisponible) {
         const { data: abonnements } = await supabaseAdmin
           .from("push_subscriptions")
           .select("id, endpoint, p256dh, auth")
           .eq("business_id", b.business_id);
-        const payload = JSON.stringify({ title: "Rapport hebdomadaire", body: resumeCourt, url: "/dashboard" });
+        const payload = JSON.stringify({ title: t(langue, "rapportHebdo.title"), body: message, url: "/rapport-hebdo" });
         const aSupprimer = [];
         for (const abo of abonnements || []) {
           try {

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ChevronRight } from "lucide-react";
+import { AlertTriangle, ChevronRight, FileText } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -175,8 +175,15 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <h1 className="sb-h1">{t("dashboard.title")}</h1>
-      <p className="sb-sub">{t("dashboard.subtitle")}</p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <h1 className="sb-h1">{t("dashboard.title")}</h1>
+          <p className="sb-sub">{t("dashboard.subtitle")}</p>
+        </div>
+        <Link href="/rapport-hebdo" className="sb-btn sb-btn-primary">
+          <FileText size={13} /> {t("dashboard.rapportHebdoBtn")}
+        </Link>
+      </div>
 
       <div className="sb-grid-stats">
         <div className="sb-card">
