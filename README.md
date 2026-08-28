@@ -1175,6 +1175,59 @@ document imprimé/PDF (`document.title`, mis à jour juste avant
 utile pour distinguer plusieurs PDF imprimés séparément par catégorie
 (ex. « Catalogue — Chez Aïcha Beauté — Mèches »).
 
+**Impression fiable quel que soit l'appareil : format de page fixé
+explicitement + contenu ancré en unités physiques absolues.** Signalé en
+pratique : le PDF du catalogue ne s'affichait pas correctement depuis un
+téléphone, contrairement à l'ordinateur, malgré la grille de 6 fiches/page
+déjà en place. Deux garde-fous, tous deux déjà utilisés ailleurs dans
+l'app pour les mêmes raisons (reçu, rapport de trésorerie, revenus — voir
+plus bas), manquaient pour le catalogue :
+
+1. **`@page { size: A4; margin: 16mm; }`** fixé explicitement (répété au
+   début du bloc `@media print` du catalogue, en plus de la même règle
+   déjà présente près du reçu — `@page` est un at-rule global, la
+   répétition est sans risque tant que les valeurs concordent). Sans
+   cette règle, chaque navigateur/OS choisit son propre format de page
+   par défaut à l'impression (souvent Letter plutôt qu'A4 selon la
+   locale) — une différence de format à elle seule suffit à expliquer une
+   mise en page différente entre deux appareils.
+2. **`.sb-main` ancré à `max-width: 178mm` (210mm - 2×16mm de marge
+   `@page`), `margin: 0 auto`**, plutôt que de laisser sa largeur fluide
+   hériter de celle de la fenêtre qui déclenche l'impression. Sans cet
+   ancrage, un navigateur/pipeline d'impression mobile qui ignore `@page`
+   (limitation connue et documentée de certains moteurs mobiles,
+   indépendante de cette app — déjà le sujet du commentaire sur
+   `max-width: 100vw` juste au-dessus dans le code) dimensionnerait
+   `.sb-main` sur la largeur de l'écran du téléphone plutôt que sur la
+   largeur imprimable réelle d'une page A4. Comme la grille du catalogue
+   (`.sb-catalogue-page-group`, 3 colonnes en `1fr`, `gap: 16px`) est
+   proportionnée à la largeur de son conteneur, toute la mise en page
+   (largeur des fiches, nombre de fiches qui tiennent par page) en
+   dépendrait indirectement sans cet ancrage — désynchronisant
+   l'impression mobile de l'impression ordinateur. `1fr` et les `px` fixes
+   (gap, hauteurs de fiche) restent inchangés : une fois le conteneur
+   ancré en mm, ils deviennent indirectement, eux aussi, indépendants de
+   la fenêtre du navigateur.
+
+Vérifié avec Playwright `page.pdf({ preferCSSPageSize: true })` (sans
+cette option, Playwright ignore `@page` et impose son propre format par
+défaut — Letter — ce qui aurait invalidé la vérification de ce correctif
+précis) sous deux configurations Chromium différentes : un viewport
+« ordinateur » (1280×800, user agent desktop) et un viewport « téléphone »
+(390×844, ratio d'écran 3, tactile, user agent Mobile Safari/iPhone — seul
+le viewport/UA change, le moteur de rendu Chromium reste le même dans ce
+bac à sable, qui ne dispose pas d'un binaire WebKit/Safari réel ; limite
+de l'environnement de test à noter, la même mise en page CSS reste
+appliquée par n'importe quel moteur qui respecte les standards). Les deux
+PDF obtenus sont en A4 réel (594,96 × 841,92 pts), 3 pages identiques
+(bannière + 6 fiches / 6 fiches / 5 fiches), taille de fichier identique
+au octet près. Testé aussi le cas volontairement pire (`page.pdf()` sans
+`preferCSSPageSize`, simulant un moteur qui ignore `@page`) sous les deux
+mêmes viewports : le format de page retombe alors sur Letter par défaut
+des deux côtés, mais le contenu du catalogue reste ancré à 178mm et
+centré, identique entre les deux, au lieu de s'étirer différemment selon
+la largeur de l'écran d'origine.
+
 **Page 1 jamais vide : le titre écran « Catalogue » + son compteur
 d'articles sont masqués à l'impression.** Bug constaté en pratique sur un
 vrai catalogue (PDF fourni par une utilisatrice) : la page 1 du PDF

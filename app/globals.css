@@ -1415,11 +1415,23 @@ a {
 }
 
 @media print {
+  /* Format de page fixé explicitement plutôt que laissé au choix de
+     l'appareil/navigateur (répété ici volontairement — la même règle
+     existe aussi plus bas près du reçu ; @page est un at-rule global,
+     redondant mais jamais conflictuel tant que les valeurs concordent).
+     Sans cette règle, chaque navigateur/OS retient son propre format par
+     défaut (souvent Letter plutôt qu'A4 selon la locale), ce qui suffit à
+     lui seul à expliquer une mise en page différente entre ordinateur et
+     téléphone. */
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
   /* html/body ont un max-width: 100vw à l'écran (garde-fou anti-scroll
      horizontal, voir en tête de fichier) — sur certains navigateurs
      mobiles, l'impression/export PDF calcule 100vw à partir de la largeur
      de l'écran du téléphone plutôt que de la page A4 réellement imprimée
-     (@page plus bas), ce qui laisse tout le contenu imprimé collé à
+     (@page ci-dessus), ce qui laisse tout le contenu imprimé collé à
      gauche au lieu d'être centré sur la page. On retire cette contrainte
      à l'impression : elle n'a de sens qu'à l'écran. */
   html,
@@ -1434,10 +1446,28 @@ a {
     display: block;
     background: #fff;
   }
+  /* max-width en mm (unité physique absolue, jamais relative à la
+     fenêtre du navigateur) plutôt que de laisser .sb-main hériter d'une
+     largeur fluide (100% de son parent) : même principe déjà appliqué à
+     .sb-receipt-print, .sb-tresorerie-print et .sb-revenus-print. Sur un
+     navigateur mobile qui ignore @page (limitation connue et fréquente
+     des pipelines d'impression/export PDF mobiles, indépendante de cette
+     app), .sb-main se retrouverait sinon dimensionné sur la largeur de
+     l'écran du téléphone plutôt que sur la largeur imprimable réelle
+     d'une page A4 (210mm - 2×16mm de marge @page) -- et comme la grille
+     du catalogue (.sb-catalogue-page-group, 3 colonnes en `1fr`) est
+     dimensionnée en proportion de cette largeur, toute la mise en page
+     (largeur des fiches, nombre de fiches qui tiennent par page) en
+     dépendrait indirectement, désynchronisant l'impression mobile de
+     l'impression ordinateur. Ancrer .sb-main à 178mm rend cette largeur
+     fixe et fiable quel que soit l'appareil, indépendamment du support
+     ou non de @page par le navigateur qui imprime. */
   .sb-main {
     padding: 0;
     max-height: none;
     overflow: visible;
+    max-width: 178mm;
+    margin: 0 auto;
   }
   /* Grille de 6 fiches maximum par page (3 colonnes × 2 lignes), avec un
      saut de page FORCÉ après chaque groupe — jamais le moteur d'impression
