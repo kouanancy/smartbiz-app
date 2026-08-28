@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from "recharts";
@@ -14,6 +15,7 @@ import { exportToExcel, dateFichier } from "@/lib/exportExcel";
 
 const MOIS_A_AFFICHER = 12;
 const PERIODE_MOIS = { mois: 1, trimestre: 3, semestre: 6, annee: 12 };
+const PERIODES = ["semaine", "mois", "trimestre", "semestre", "annee"];
 
 // Un mois par entrée, du plus ancien (11 mois avant aujourd'hui) au plus
 // récent (mois courant) — sert à la fois de source pour le tableau des 12
@@ -60,10 +62,47 @@ function buildSemaines(commandes, t) {
   return buckets;
 }
 
+// Un jour par entrée pour les 7 derniers jours glissants (aujourd'hui
+// inclus) — répartition de la semaine en cours, même niveau de détail
+// qu'offre buildSemaines() pour le mois courant (semaine -> jours, comme
+// mois -> semaines). "labelFull" (ex. "22 août") sert à construire la
+// plage affichée dans l'en-tête du rapport imprimé (periodeRangeLabel).
+function buildJoursSemaine(commandes, lang) {
+  const now = new Date();
+  const buckets = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    buckets.push({
+      key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
+      label: capitalize(d.toLocaleDateString(dateLocale(lang), { weekday: "short" }).replace(".", "")),
+      labelFull: d.toLocaleDateString(dateLocale(lang), { day: "2-digit", month: "long" }),
+      ca: 0,
+      marge: 0,
+    });
+  }
+  commandes.forEach((c) => {
+    const d = new Date(c.created_at);
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const b = buckets.find((x) => x.key === key);
+    if (b) {
+      b.ca += c.ca;
+      b.marge += c.marge;
+    }
+  });
+  return buckets;
+}
+
 const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
-// Ex. "Mai à Juillet 2026" (trimestre/semestre/année) ou "Juillet 2026" (mois).
-function periodeRangeLabel(periode, moisBuckets) {
+// Ex. "22 août à 28 août" (semaine), "Mai à Juillet 2026" (trimestre/
+// semestre/année) ou "Juillet 2026" (mois).
+function periodeRangeLabel(periode, moisBuckets, joursSemaineBuckets) {
+  if (periode === "semaine") {
+    const premier = joursSemaineBuckets[0];
+    const dernier = joursSemaineBuckets[joursSemaineBuckets.length - 1];
+    if (!premier || !dernier) return "";
+    return `${premier.labelFull} à ${dernier.labelFull}`;
+  }
   if (periode === "mois") {
     return capitalize(moisBuckets[moisBuckets.length - 1]?.labelFull || "");
   }
@@ -93,6 +132,7 @@ function renderBarValueLabel(formatter, color) {
 }
 
 export default function TresoreriePage() {
+  const router = useRouter();
   const { business } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
   const fmtCompact = (n) => fmtCompactBase(n, business?.devise);
@@ -102,6 +142,22 @@ export default function TresoreriePage() {
   const [loading, setLoading] = useState(true);
   const [periode, setPeriode] = useState("trimestre");
   const [platformLogo, setPlatformLogo] = useState("");
+
+  // Destination de la notification push hebdomadaire (voir
+  // app/api/cron/rapport-hebdo) : /tresorerie?periode=semaine ouvre
+  // directement cette page avec la période réglée sur "Semaine", plutôt
+  // que sur "Trimestre" par défaut. Lu une seule fois au montage
+  // (window.location.search, jamais useSearchParams — même principe déjà
+  // en place pour ?tour=1 sur le Dashboard) puis retiré de l'URL une fois
+  // appliqué, pour ne pas re-déclencher si la page est rafraîchie/partagée.
+  useEffect(() => {
+    const periodeParam = new URLSearchParams(window.location.search).get("periode");
+    if (PERIODES.includes(periodeParam)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- window.location n'est lisible que côté client, ce déclenchement ponctuel (au montage) ne peut pas se faire pendant le rendu
+      setPeriode(periodeParam);
+      router.replace("/tresorerie");
+    }
+  }, [router]);
 
   // Logo Doka pour le pied de page "Propulsé par Doka" du rapport imprimé —
   // indépendant du logo de boutique, affiché dans l'en-tête.
@@ -144,8 +200,9 @@ export default function TresoreriePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- t change de comportement en même temps que business?.langue
     [commandes, business?.langue]
   );
+  const joursSemaineBuckets = useMemo(() => buildJoursSemaine(commandes, business?.langue), [commandes, business?.langue]);
 
-  const chartData = periode === "mois" ? semaineBuckets : moisBuckets.slice(-PERIODE_MOIS[periode]);
+  const chartData = periode === "semaine" ? joursSemaineBuckets : periode === "mois" ? semaineBuckets : moisBuckets.slice(-PERIODE_MOIS[periode]);
   const totaux = chartData.reduce((acc, b) => ({ ca: acc.ca + b.ca, marge: acc.marge + b.marge }), { ca: 0, marge: 0 });
   const tableRows = [...moisBuckets].reverse();
   const aucuneDonnee = chartData.every((b) => b.ca === 0 && b.marge === 0);
@@ -220,7 +277,7 @@ export default function TresoreriePage() {
               {t("tresorerie.evolutionTitle")}
             </div>
             <div className="sb-toggle-group">
-              {["mois", "trimestre", "semestre", "annee"].map((key) => (
+              {PERIODES.map((key) => (
                 <button
                   key={key}
                   className={`sb-toggle-item${periode === key ? " active" : ""}`}
@@ -309,7 +366,12 @@ export default function TresoreriePage() {
               </div>
               <div className="sb-tresorerie-print-title">
                 <h1>{t("tresorerie.rapportTitle")}</h1>
-                <p>{t("tresorerie.rapportPeriode", { periode: t(`tresorerie.${periode}`), range: periodeRangeLabel(periode, moisBuckets) })}</p>
+                <p>
+                  {t("tresorerie.rapportPeriode", {
+                    periode: t(`tresorerie.${periode}`),
+                    range: periodeRangeLabel(periode, moisBuckets, joursSemaineBuckets),
+                  })}
+                </p>
               </div>
             </div>
 
