@@ -19,15 +19,15 @@ const VAPID_SUBJECT = "mailto:koua.nancy@gmail.com";
 // stock automatique" (retiré, voir README), qui avait dû abandonner un
 // créneau horaire personnalisé pour cette même raison.
 //
-// Cette route ne calcule plus elle-même le contenu du rapport (CA, marge,
-// top ventes, alertes de stock) : cette annonce ne fait plus que
-// notifier — le contenu chiffré n'apparaît jamais dans une notification
-// (visible même verrouillé sur l'écran d'un téléphone), seulement une
-// fois la page /rapport-hebdo ouverte, qui recalcule elle-même la même
-// fenêtre glissante de 7 jours à la demande (voir
-// app/(app)/rapport-hebdo/page.js) — page consultable à tout moment,
-// pas seulement au moment de cette notification (bouton "Rapport hebdo"
-// du Dashboard).
+// Cette route ne calcule elle-même aucun contenu de rapport (CA, marge,
+// top ventes, alertes de stock) : cette annonce ne fait que notifier —
+// le contenu chiffré n'apparaît jamais dans une notification (visible
+// même verrouillé sur l'écran d'un téléphone). Redirige directement vers
+// Trésorerie (app/(app)/tresorerie/page.js) avec la période réglée sur
+// "semaine" (?periode=semaine), plutôt que vers une page dédiée — un
+// rapport hebdomadaire séparé aurait fait doublon avec les modules déjà
+// existants (Trésorerie pour le CA/marge, Statistiques pour le top
+// ventes, Dashboard pour les alertes de stock).
 export async function GET(request) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
@@ -78,18 +78,23 @@ export async function GET(request) {
       // notification Web Push si le commerçant a activé le push sur au
       // moins un appareil — sinon la boutique voit son rapport dans le
       // centre de notifications à sa prochaine connexion, sans erreur.
-      // Les deux pointent vers /rapport-hebdo, jamais /dashboard : cliquer
-      // dessus doit ouvrir directement la page du rapport.
+      // Les deux pointent vers /tresorerie?periode=semaine, jamais une
+      // page dédiée : cliquer dessus doit ouvrir directement Trésorerie
+      // avec le CA/la marge de la semaine déjà affichés.
       await supabaseAdmin
         .from("notifications")
-        .insert({ business_id: b.business_id, type: "rapport_hebdo", message, lien: "/rapport-hebdo" });
+        .insert({ business_id: b.business_id, type: "rapport_hebdo", message, lien: "/tresorerie?periode=semaine" });
 
       if (pushDisponible) {
         const { data: abonnements } = await supabaseAdmin
           .from("push_subscriptions")
           .select("id, endpoint, p256dh, auth")
           .eq("business_id", b.business_id);
-        const payload = JSON.stringify({ title: t(langue, "rapportHebdo.title"), body: message, url: "/rapport-hebdo" });
+        const payload = JSON.stringify({
+          title: t(langue, "rapportHebdo.title"),
+          body: message,
+          url: "/tresorerie?periode=semaine",
+        });
         const aSupprimer = [];
         for (const abo of abonnements || []) {
           try {

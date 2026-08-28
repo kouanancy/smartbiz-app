@@ -708,8 +708,7 @@ deux listes séparées) gère ce cas sans ambiguïté.
 
 **Jamais confondus avec une vente dans les rapports** : `offert = false`
 ajouté aux requêtes qui comptent des ventes par article —
-`app/(app)/statistiques/page.js` (produits les plus vendus),
-`app/api/cron/rapport-hebdo` (top vente de la semaine) et
+`app/(app)/statistiques/page.js` (produits les plus vendus) et
 `app/(app)/clients/[id]/page.js` (dernier achat/produit favori d'un
 client, un cadeau n'étant pas un achat). Jamais ajouté en revanche aux
 requêtes de stock réservé (`app/(app)/articles/page.js`,
@@ -838,9 +837,10 @@ une neuvième entrée de navigation pour une fonctionnalité encore annexe ;
 directement accessible par son URL. Classement des articles par
 quantité totale vendue, uniquement sur les commandes livrées, avec un
 sélecteur de période à 3 choix (Mois / Trimestre / Année) — délibérément
-différent du sélecteur à 4 choix de Trésorerie (qui a en plus Semestre) :
-demande explicite, pour rester simple sur une page qui ne montre qu'un
-classement, pas une évolution dans le temps. Même principe de fenêtre
+différent du sélecteur à 5 choix de Trésorerie (qui a en plus Semaine et
+Semestre) : demande explicite, pour rester simple sur une page qui ne
+montre qu'un classement, pas une évolution dans le temps. Même principe
+de fenêtre
 « glissante » en mois que `PERIODE_MOIS` de `app/(app)/tresorerie/page.js`
 (ex. Trimestre = les 3 derniers mois à partir d'aujourd'hui), pas calée
 sur le calendrier. Une seule requête au chargement (toutes les
@@ -863,12 +863,16 @@ derniers mois glissants) :
 
 - **Totaux cumulés** (CA total, marge totale) sur la période sélectionnée.
 - **Graphique** combinant CA et marge (deux barres groupées, via
-  `ComposedChart` de `recharts`) avec un sélecteur Mois / Trimestre /
-  Semestre / Année. « Mois » détaille par semaine (même découpage que
-  l'évolution du Dashboard) ; les trois autres découpent par mois et
-  reprennent simplement les N derniers mois d'un même tableau de 12 mois
-  calculé une fois — Trimestre = les 3 derniers, Semestre = les 6
-  derniers, Année = les 12.
+  `ComposedChart` de `recharts`) avec un sélecteur Semaine / Mois /
+  Trimestre / Semestre / Année. « Semaine » détaille par jour les 7
+  derniers jours glissants (`buildJoursSemaine()`) — destination de la
+  notification hebdomadaire, voir « Rapport hebdomadaire (annonce vers
+  Trésorerie) » plus bas, ouverte via `/tresorerie?periode=semaine`.
+  « Mois » détaille par semaine (même découpage que l'évolution du
+  Dashboard) ; les trois autres découpent par mois et reprennent
+  simplement les N derniers mois d'un même tableau de 12 mois calculé une
+  fois — Trimestre = les 3 derniers, Semestre = les 6 derniers, Année =
+  les 12.
 - **Tableau récapitulatif** des 12 derniers mois (CA, marge), du plus
   récent au plus ancien — indépendant de la période choisie pour le
   graphique.
@@ -1545,9 +1549,14 @@ boutiques.
   l'abonnement `actif`, nombre de comptes en `essai` — ces deux derniers
   recalculés depuis la même liste de boutiques (`admin_list_businesses`)
   que le tableau des commerçants plus bas.
-- **Graphique d'évolution** : revenu mensuel encaissé, avec le même
-  sélecteur Mois / Trimestre / Semestre / Année que la Trésorerie (« Mois »
-  détaille par semaine, les trois autres par mois glissants).
+- **Graphique d'évolution** : revenu mensuel encaissé, avec un sélecteur
+  Mois / Trimestre / Semestre / Année (« Mois » détaille par semaine, les
+  trois autres par mois glissants) — même principe que le sélecteur de
+  Trésorerie avant l'ajout de l'option « Semaine » propre à Trésorerie
+  (voir « Rapport hebdomadaire (annonce vers Trésorerie) » plus bas),
+  jamais reprise ici : ce graphique montre un revenu plateforme mensuel,
+  pas un CA/marge par boutique qu'une notification hebdomadaire aurait
+  besoin d'ouvrir directement sur la semaine en cours.
 - **Tableau détaillé** : tous les paiements validés (boutique, montant,
   date de validation), triable en cliquant l'en-tête « Date de validation »
   — le plus récent en premier par défaut. Un bouton « Supprimer » par
@@ -1777,7 +1786,7 @@ la carte « Notification push » et son bouton sont strictement identiques
 pour un compte admin et un commerçant classique — mais ce que ce canal
 transporte diffère. Un commerçant classique y reçoit ses notifications
 habituelles (ex. abonnement bientôt expiré) et le rapport hebdomadaire
-(voir « Rapport hebdomadaire enrichi » plus bas) ; un compte admin y
+(voir « Rapport hebdomadaire (annonce vers Trésorerie) » plus bas) ; un compte admin y
 reçoit ses notifications propres (nouveau paiement à vérifier, ce
 mécanisme-ci) — jamais les notifications d'un commerçant classique
 (abonnement expiré...), un compte admin n'ayant pas d'abonnement.
@@ -1806,7 +1815,7 @@ jamais le rapport hebdomadaire d'un commerçant classique (envoyé
 directement par `app/api/cron/rapport-hebdo`, voir plus bas).
 
 **Autres évènements poussés au commerçant** (au-delà du rapport
-hebdomadaire, voir « Rapport hebdomadaire enrichi » plus bas) — les deux
+hebdomadaire, voir « Rapport hebdomadaire (annonce vers Trésorerie) » plus bas) — les deux
 notifications habituelles citées plus haut, désormais réellement
 poussées, pas seulement déposées dans le centre de notifications :
 
@@ -2400,70 +2409,68 @@ fonctionnalité serait construite plus tard — voir « Limitations connues »
 en fin de document pour le principe à suivre si c'est le cas (adresse de
 connexion par défaut, pas de champ à configurer séparément).
 
-## Rapport hebdomadaire enrichi
+## Rapport hebdomadaire (annonce vers Trésorerie)
 
-Ne reprend pas l'ancien « Rapport de stock automatique » ci-dessus, retiré
-pour cause de redondance avec la page Articles : celui-ci résume toute
-l'activité de la semaine (CA, marge réelle, top ventes, alertes de stock),
-pas seulement le stock — et surtout, il n'est plus envoyé par e-mail
-(jamais fiabilisé pour les alertes de paiement admin non plus, voir
-« Notifications push » plus haut) mais par **notification push**, seul
-canal disponible (voir plus bas). Désactivé par défaut
-(`businesses.rapport_hebdo_actif`), configurable dans Paramètres, carte
-« Notification push » (partagée avec l'activation push elle-même — voir
-« Notifications push » plus haut).
+Désactivé par défaut (`businesses.rapport_hebdo_actif`), configurable
+dans Paramètres, carte « Notification push » (partagée avec l'activation
+push elle-même — voir « Notifications push » plus haut) : une fois par
+semaine, au jour choisi, une **notification push d'annonce** informe que
+le rapport de la semaine est prêt.
 
-**La notification n'est plus qu'une annonce, jamais le contenu chiffré
-directement.** Auparavant, le corps de la notification push affichait
-déjà le résumé du rapport (« CA : X — Marge : Y — Top vente : Z ») — visible
-telle quelle même verrouillé, sur l'écran de veille d'un téléphone.
-Remplacé par un message générique unique
+**Jamais de page de rapport dédiée — annonce redirigeant directement vers
+Trésorerie.** Une première version construisait une page séparée
+(`/rapport-hebdo`) qui recalculait elle-même CA/marge/top ventes/alertes
+de stock. Retirée : son contenu faisait entièrement doublon avec des
+modules déjà existants et déjà bien plus complets sur chaque point —
+Trésorerie pour le CA/la marge, Statistiques pour le top ventes, Dashboard
+pour les alertes de stock — pour un gain d'information nul et une surface
+de code à maintenir en plus. La notification renvoie maintenant
+directement vers **Trésorerie**, avec une nouvelle option de période
+« Semaine » qui affiche le CA et la marge réelle de la semaine en cours.
+
+**Le corps de la notification reste un message générique, jamais le
+contenu chiffré directement** — un choix conservé de la version
+précédente : le résumé (CA, marge...) n'apparaît jamais dans le texte de
+la notification elle-même (visible même verrouillé, sur l'écran de veille
+d'un téléphone), seulement un message unique
 (`rapportHebdo.pushBody`, ex. « Votre rapport hebdomadaire est prêt,
 consultez-le maintenant. »), identique pour la notification en cloche et
 la notification push, dans la langue de la boutique
 (`t(b.langue, "rapportHebdo.pushBody")`, `app/api/cron/rapport-hebdo`).
-Cliquer dessus (cloche ou push, même mécanisme de clic générique déjà en
-place — `components/NotificationBell.js` pour la cloche,
-`data.url` + `notificationclick` dans `public/sw.js` pour le push) ouvre
-directement `/rapport-hebdo` (`app/(app)/rapport-hebdo/page.js`), jamais
-`/dashboard` comme avant.
 
-**Le rapport lui-même vit sur sa propre page, consultable à tout
-moment** — pas seulement au moment de la notification. Un bouton
-« Rapport hebdo » sur le Dashboard (`app/(app)/dashboard/page.js`) mène à
-la même page. Celle-ci recalcule elle-même, à chaque consultation, une
-fenêtre glissante des 7 derniers jours (CA/marge des commandes livrées,
-top 5 des ventes hors cadeaux offerts, articles en alerte de stock —
-mêmes règles et mêmes seuils que partout ailleurs dans l'app : Dashboard,
-Trésorerie, Statistiques) plutôt que d'afficher un instantané figé au
-moment de l'envoi de la notification — pas besoin de stocker une copie du
-contenu du rapport en base pour ça, la page interroge simplement
-Supabase à la demande, exactement comme les autres pages de rapport
-(Trésorerie, Statistiques). En conséquence, la route cron elle-même ne
-calcule plus rien de tout ça : son seul rôle restant est de déterminer
-les boutiques dues aujourd'hui et de leur envoyer l'annonce (voir
-ci-dessous).
+**« Semaine » comme nouvelle option de période dans le sélecteur déjà
+existant de Trésorerie** (`app/(app)/tresorerie/page.js`, à côté de
+Mois/Trimestre/Semestre/Année) : une répartition jour par jour des 7
+derniers jours glissants (`buildJoursSemaine()`, même niveau de détail
+qu'offre déjà `buildSemaines()` pour le mois courant — semaine → jours,
+comme mois → semaines), dont la somme alimente directement les cartes CA
+total/Marge totale déjà en place — aucun nouveau composant, seulement une
+nouvelle donnée pour un mécanisme déjà générique
+(`chartData`/`totaux` ne connaissent pas la notion de « semaine »,
+seulement un tableau de buckets à sommer). Le tableau récapitulatif des 12
+derniers mois sous le graphique, lui, reste inchangé quelle que soit la
+période choisie (déjà le cas pour Mois/Trimestre/Semestre/Année avant ce
+changement).
 
-**Impression au format A4, jamais de section coupée entre deux pages** :
-bouton « Imprimer le rapport » en haut de la page
-(`rapportHebdo.imprimerBtn`), même mécanisme `window.print()` que
-Trésorerie/Catalogue/Reçu. Mise en page dédiée
-(`.sb-rapport-hebdo-print`, `app/globals.css`) rendue via un portail dans
-`<body>` (même principe que `.sb-tresorerie-print`), largeur ancrée à
-`178mm` (`210mm - 2×16mm` de marge `@page`, cohérent avec le catalogue —
-voir « Impression fiable quel que soit l'appareil » plus haut) plutôt que
-fluide. Le rapport a deux sections de longueur variable (jusqu'à 5 ventes,
-un nombre quelconque d'alertes de stock) qui peuvent à elles seules
-déborder sur plusieurs pages selon le nombre d'articles en alerte — même
-principe déjà établi pour le reçu et le catalogue : `break-inside: avoid`
-sur chaque `<tr>` (fiable sur un enfant natif de `<table>`, jamais sur un
-enfant direct de `display: grid`/`flex`) empêche toute ligne d'être coupée
-en plein milieu, `break-after: avoid` sur chaque titre de section
-(`.sb-rapport-hebdo-print-section-title`) l'empêche de rester seul en bas
-d'une page pendant que son tableau bascule sur la suivante, et le
-`<thead>` de chaque tableau se répète nativement en haut de chaque page
-de continuation (même comportement natif des navigateurs déjà exploité
-pour le reçu et le catalogue, sans CSS supplémentaire).
+**Notification → `/tresorerie?periode=semaine`, lu une seule fois au
+montage.** Cliquer sur la notification (cloche ou push, même mécanisme de
+clic générique déjà en place — `components/NotificationBell.js`,
+`data.url` + `notificationclick` dans `public/sw.js`) ouvre Trésorerie
+avec ce paramètre de requête. La page le lit via
+`new URLSearchParams(window.location.search)` dans un `useEffect` au
+montage (même principe déjà en place pour `?tour=1` sur le Dashboard,
+jamais le hook `useSearchParams` de Next — évite l'obligation d'un
+`<Suspense>` autour de toute la page rien que pour ce cas), règle
+`periode` sur "semaine" puis nettoie l'URL (`router.replace("/tresorerie")`)
+pour ne pas re-déclencher si la page est rafraîchie ou partagée.
+
+**Le bouton d'impression/export déjà existant sur Trésorerie sert aussi
+pour ce cas — aucun système d'impression séparé.** Le rapport imprimé
+(`.sb-tresorerie-print`, portail dans `<body>`, largeur ancrée à `178mm`)
+affiche déjà des totaux dépendants de la période sélectionnée : avec
+« Semaine » active, le CA/la marge imprimés reflètent donc automatiquement
+la semaine en cours, sans aucune modification du mécanisme d'impression
+lui-même.
 
 **Une erreur d'enregistrement des réglages n'est plus silencieuse** :
 `toggleRapportHebdoActif()`/`enregistrerRapportHebdoJour()`
@@ -2538,9 +2545,9 @@ route dédiée `app/api/push-admin-paiement`, réservée aux alertes de
 paiement admin) : plus simple, ce cron a déjà la clé service_role et les
 clés VAPID sous la main, pas besoin d'un aller-retour HTTP supplémentaire
 comme le fait le trigger Postgres de `notifier_admins_nouveau_justificatif()`.
-La route ne calcule plus elle-même CA/marge/top ventes/alertes de stock
-(voir ci-dessus) : sa seule tâche restante est de déterminer les
-boutiques dues et de leur envoyer l'annonce générique.
+La route ne calcule aucun contenu de rapport elle-même : sa seule tâche
+est de déterminer les boutiques dues et de leur envoyer l'annonce
+générique.
 
 ## Logo Doka (marque de la plateforme)
 
@@ -2839,8 +2846,7 @@ app/
   api/push-admin-paiement/    route serveur : notification push (web-push), appelée depuis Supabase (pg_net) à la soumission d'un justificatif
   api/admin/push-paiement-valide/   route serveur : notification push au commerçant, appelée par le client admin juste après avoir marqué un paiement payé
   api/cron/expiration-reminders/   route serveur : rappel d'abonnement qui expire, e-mail + notification push (Vercel Cron)
-  api/cron/rapport-hebdo/     route serveur : annonce (cloche + notification push, message générique) que le rapport hebdomadaire est prêt (Vercel Cron, voir « Rapport hebdomadaire enrichi »)
-  (app)/rapport-hebdo/     page du rapport hebdomadaire (CA/marge/top ventes/alertes de stock, fenêtre glissante 7 jours) — accessible via le bouton du Dashboard ou en cliquant sur l'annonce, imprimable en PDF
+  api/cron/rapport-hebdo/     route serveur : annonce (cloche + notification push, message générique) que le rapport hebdomadaire est prêt, renvoie vers /tresorerie?periode=semaine (Vercel Cron, voir « Rapport hebdomadaire (annonce vers Trésorerie) »)
 components/
   Sidebar.js, Receipt.js, ImageUploadField.js, PlanGrid.js,
   FormuleEtPaiement.js, PremierPaiement.js, Reabonnement.js, CompteSuspendu.js,
