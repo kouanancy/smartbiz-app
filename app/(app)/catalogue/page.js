@@ -171,7 +171,18 @@ export default function CataloguePage() {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
-        <div>
+        {/* Masqué à l'impression (sb-no-print) : redondant avec le bandeau
+            .sb-catalogue-banner juste en dessous (nom de la boutique +
+            tagline "Catalogue des produits disponibles"), qui joue déjà le
+            rôle d'en-tête imprimé. Cette hauteur en trop, propre à l'écran,
+            repoussait le premier groupe de 6 fiches hors de la page 1 —
+            .sb-catalogue-page-group étant atomique (break-inside: avoid,
+            voir globals.css), tout le groupe basculait alors en bloc sur
+            la page 2 dès qu'il ne restait plus assez de place après ce
+            titre + le bandeau, laissant la page 1 quasiment vide malgré
+            une marge confortable mesurée en test (le test ne reproduisait
+            pas cet en-tête réel, d'où le bug resté invisible jusqu'ici). */}
+        <div className="sb-no-print">
           <h1 className="sb-h1">{t("catalogue.title")}</h1>
           <p className="sb-sub">{t("catalogue.subtitleCount", { n: disponibles.length })}</p>
         </div>
