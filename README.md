@@ -2155,7 +2155,9 @@ comme le reste du site vitrine. Contenu des 4 phases :
 - **Phase 4 — Se structurer** (`disponible: false` partout) : programme
   de parrainage, facturation, gestion multi-boutique, fidélisation des
   clients, Marketplace Doka (catalogues de tous les commerçants
-  centralisés dans un espace commun).
+  centralisés dans un espace commun), module prestation de services
+  (vente de services — installation, coiffure, retouches, etc. — pas
+  seulement des produits physiques en stock).
 
 **Statut piloté depuis `lib/roadmap.js`, pas depuis le texte de la page**
 : `ROADMAP_PHASES` (icônes, noms, descriptions, `disponible`) vivait à
