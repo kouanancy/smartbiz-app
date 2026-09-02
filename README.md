@@ -386,9 +386,12 @@ Administration, par l'équipe Doka.
 
 **À l'inscription** (`app/login/page.js`) : l'onglet « Créer un compte »
 s'ouvre désormais sur une étape de choix de formule (les trois cartes,
-avec accroche/description/avantages) avant le formulaire habituel
-(nom de boutique/e-mail/mot de passe/CGU) — un lien « Changer » permet d'y
-revenir. Le choix voyage dans les métadonnées utilisateur Supabase
+avec prix affiché à côté du nom — même donnée `PLAN_PRICES`/`fmt` que
+`PlanGrid`, en FCFA par défaut puisqu'aucune boutique/devise n'existe
+encore à ce stade — puis accroche/description/avantages) avant le
+formulaire habituel (nom de boutique/e-mail/mot de passe/CGU) — un lien
+« Changer » permet d'y revenir. Le choix voyage dans les métadonnées
+utilisateur Supabase
 (`options.data.plan` de `supabase.auth.signUp`, même mécanisme que
 `business_name`) et est repris par `ensureBusiness`
 (`lib/AuthProvider.js`) à la création de la ligne `businesses`, avec

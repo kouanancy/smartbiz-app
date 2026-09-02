@@ -6,7 +6,8 @@ import Link from "next/link";
 import { Eye, EyeOff, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { PLANS, PLANS_INDISPONIBLES } from "@/lib/constants";
+import { PLANS, PLANS_INDISPONIBLES, PLAN_PRICES } from "@/lib/constants";
+import { fmt } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 import FloatingBlobs from "@/components/FloatingBlobs";
 import PlatformLogo from "@/components/PlatformLogo";
@@ -185,6 +186,15 @@ export default function LoginPage() {
                   <div className="sb-plan-card-head">
                     <strong>{t(`common.plans.${key}.nom`)}</strong>
                   </div>
+                  <div className="sb-plan-card-price">
+                    {fmt(PLAN_PRICES[key].mensuel)}
+                    <span>{t("parametres.formulePrixSuffixe")}</span>
+                  </div>
+                  {PLAN_PRICES[key].installation && (
+                    <p className="sb-plan-card-installation">
+                      {t("parametres.formuleInstallation", { montant: fmt(PLAN_PRICES[key].installation) })}
+                    </p>
+                  )}
                   <p className="sb-plan-card-accroche">{t(`common.plans.${key}.accroche`)}</p>
                   <p className="sb-plan-card-description">{t(`common.plans.${key}.description`)}</p>
                   <ul className="sb-plan-card-avantages">
