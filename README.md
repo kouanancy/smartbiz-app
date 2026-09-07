@@ -2521,6 +2521,22 @@ fonction existante, d'où l'ordre `drop function` → `alter table drop
 column` → nouvelle `create function`. **À exécuter après**
 `supabase-rapport-hebdo-migration.sql`, jamais avant.
 
+**Correctif — colonne ambiguë `devise`
+(`supabase-rapport-hebdo-devise-ambigue-migration.sql`)** : la fonction
+`boutiques_dues_rapport_hebdo()` échouait en production avec `column
+reference "devise" is ambiguous` (PostgreSQL 42702). Cause : `returns
+table (..., devise text, langue text)` déclare implicitement une
+variable PL/pgSQL par colonne de sortie — `devise` et `langue` portent
+alors exactement le même nom que les colonnes `businesses.devise` et
+`businesses.langue` lues par le `returning` de la requête interne,
+rendant `returning id, name, devise, langue` ambigu (`business_id`/
+`business_name` échappaient au problème puisque la requête renvoie
+`id`/`name`, jamais `business_id`/`business_name`). Corrigé en
+qualifiant explicitement `businesses.devise`/`businesses.langue` dans le
+`returning` — signature de retour inchangée, donc `create or replace
+function` suffit (contrairement au correctif ci-dessus). **À exécuter
+après** `supabase-rapport-hebdo-push-uniquement-migration.sql`.
+
 **Contrainte du plan Vercel actuel — leçon tirée de l'ancien rapport de
 stock** : une seule exécution par jour, à heure fixe pour toutes les
 boutiques (voir `vercel.json`), jamais une granularité horaire par
