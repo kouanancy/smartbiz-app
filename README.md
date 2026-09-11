@@ -374,6 +374,88 @@ justificatif fonctionne quand même, seule cette notification est ignorée.
     signalé par la notification ci-dessus, jusqu'à un nouvel envoi ou
     l'échéance réelle.
 
+## Mot de passe oublié / changement de mot de passe
+
+Deux parcours distincts, tous deux basés sur l'API Auth de Supabase — ce
+dépôt ne stocke ni ne vérifie lui-même aucun mot de passe.
+
+**Mot de passe oublié** (`app/login/page.js`) : un lien « Mot de passe
+oublié ? » sous le champ mot de passe (visible seulement en mode
+Connexion, jamais en Inscription) ouvre un écran dédié — même principe
+que l'écran « Confirme ton adresse » après inscription (remplace
+entièrement tabs/formulaire tant qu'actif, jamais mélangé). Un e-mail
+suffit, envoyé via `supabase.auth.resetPasswordForEmail(email, {
+redirectTo: "<origine>/reinitialiser-mot-de-passe" })`. Le message de
+confirmation est **volontairement identique que l'adresse corresponde ou
+non à un compte existant** (« Si un compte existe avec cette adresse... »)
+— Supabase ne renvoie de toute façon jamais d'erreur dans ce cas précis,
+justement pour ne pas révéler si une adresse est inscrite (protection
+contre l'énumération de comptes).
+
+**Nouveau mot de passe** (`app/reinitialiser-mot-de-passe/page.js`,
+nouvelle page autonome, hors du groupe `(app)` — même position
+architecturale que `app/login/page.js` : toujours en français, jamais
+wrappée par le paywall de `app/(app)/layout.js`, qui n'aurait aucun sens
+tant qu'aucun nouveau mot de passe n'a encore été choisi). Le clic sur le
+lien reçu par e-mail place un jeton de récupération dans l'URL, que
+supabase-js échange automatiquement contre une session dès le chargement
+de la page (`detectSessionInUrl`, activé par défaut) — cette page se
+contente de vérifier via `getSession()`/`onAuthStateChange()` qu'une
+session existe avant d'autoriser le formulaire (`pretAChanger`), puis
+appelle `supabase.auth.updateUser({ password })`. Sans session détectée
+(lien déjà utilisé, expiré, ou page ouverte directement sans passer par
+l'e-mail), affiche « Lien invalide ou expiré » avec un retour vers
+`/login` plutôt qu'un formulaire qui échouerait silencieusement.
+
+**Changer son mot de passe depuis le compte** (`app/(app)/parametres/page.js`,
+nouvelle section « Sécurité », visible pour tous les comptes y compris
+admin) : ancien mot de passe + nouveau + confirmation. Supabase Auth n'a
+pas d'endpoint dédié pour vérifier un mot de passe sans changer de
+session, donc la confirmation réutilise `supabase.auth.signInWithPassword()`
+avec l'e-mail déjà connu (`business.email`) — un échec signifie « mot de
+passe actuel incorrect », un succès revalide au passage la session avant
+l'`updateUser()`, sans effet de bord puisque c'est déjà le compte
+connecté. Volontairement plus strict que le parcours « mot de passe
+oublié » ci-dessus (qui n'exige rien de l'ancien mot de passe) : un
+commerçant déjà connecté peut avoir laissé son appareil sans
+surveillance, l'ancien mot de passe reste donc la seule confirmation
+possible qu'il s'agit bien du titulaire du compte.
+
+**`lib/authErrors.js`** : la correspondance erreur Supabase → message
+clair en français (`getAuthErrorMessage`), jusqu'ici dupliquée nulle part
+ailleurs (une seule fonction locale à `app/login/page.js`), extraite ici
+et réutilisée par les trois écrans ci-dessus plus la connexion/inscription
+d'origine — un seul endroit à mettre à jour si Supabase change un message
+d'erreur ou si un nouveau cas apparaît (ex. « New password should be
+different », « Auth session missing »).
+
+**Configuration Supabase requise, hors de ce dépôt (aucun code ne peut la
+remplacer)** :
+
+- **Authentication → URL Configuration → Redirect URLs** : ajouter
+  `<origine du site>/reinitialiser-mot-de-passe` (ou un motif générique
+  couvrant déjà cette route) à la liste des URLs autorisées — sans ça,
+  Supabase ignore silencieusement `redirectTo` et renvoie vers la Site
+  URL par défaut du projet, page qui n'existe pas forcément.
+- **Expéditeur des e-mails (Resend, `contact@doka.ci`)** : comme pour
+  l'e-mail de confirmation d'inscription (voir plus haut, « aucun e-mail
+  n'est envoyé par le code de ce dépôt, entièrement géré par Supabase
+  Auth »), l'e-mail de réinitialisation est envoyé par Supabase Auth
+  lui-même, pas par une route de ce dépôt (contrairement à l'e-mail Resend
+  de rappel d'expiration, `app/api/cron/expiration-reminders`, qui lui
+  est bien envoyé depuis le code). Pour qu'il parte réellement via Resend
+  avec `contact@doka.ci` comme expéditeur, il faut configurer un
+  fournisseur SMTP personnalisé dans **Authentication → Emails → SMTP
+  Settings** du projet Supabase (host/port/identifiants SMTP de Resend,
+  domaine `doka.ci` vérifié côté Resend, adresse d'expédition
+  `contact@doka.ci`) — cette configuration ne se fait que dans le
+  dashboard Supabase, jamais dans ce code, et n'a pas pu être vérifiée
+  depuis cet environnement (aucun accès réseau sortant vers Supabase).
+  Sans SMTP personnalisé configuré, Supabase envoie quand même l'e-mail
+  via son propre service par défaut (volumes très limités, adresse
+  d'expédition générique Supabase) — fonctionnel pour tester le parcours,
+  mais pas la présentation finale attendue.
+
 ## Formule (plan)
 
 Indépendante du statut d'abonnement ci-dessus (essai/actif/expiré...), la

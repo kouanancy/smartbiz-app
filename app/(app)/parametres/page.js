@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell, CheckCircle2, Circle, FileText, Palette, Plus, Truck, X } from "lucide-react";
+import { Bell, CheckCircle2, Circle, FileText, Lock, Palette, Plus, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { activerNotificationsPush, verifierAbonnementPushActif } from "@/lib/push";
 import { fmt as fmtBase } from "@/lib/format";
 import { THEMES, MODES_AFFICHAGE } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
+import { getAuthErrorMessage } from "@/lib/authErrors";
 import ImageUploadField from "@/components/ImageUploadField";
 import PaiementAbonnement from "@/components/PaiementAbonnement";
 
@@ -39,6 +40,11 @@ export default function ParametresPage() {
   const [rapportHebdoActif, setRapportHebdoActif] = useState(business?.rapport_hebdo_actif || false);
   const [rapportHebdoJour, setRapportHebdoJour] = useState(business?.rapport_hebdo_jour_semaine ?? 0);
   const [rapportHebdoMsg, setRapportHebdoMsg] = useState("");
+  const [motDePasseActuel, setMotDePasseActuel] = useState("");
+  const [nouveauMotDePasse, setNouveauMotDePasse] = useState("");
+  const [confirmMotDePasse, setConfirmMotDePasse] = useState("");
+  const [securiteMsg, setSecuriteMsg] = useState({ texte: "", ok: false });
+  const [securiteEnCours, setSecuriteEnCours] = useState(false);
 
   // Indicateur d'état visible dès l'arrivée sur la page, sans attendre un
   // clic sur le bouton — vérifie l'abonnement du navigateur lui-même (voir
@@ -146,6 +152,49 @@ export default function ParametresPage() {
     if (error) {
       setRapportHebdoJour(precedent);
       setRapportHebdoMsg(t("common.error", { message: error.message }));
+    }
+  }
+
+  // Supabase Auth n'a pas d'endpoint dédié pour vérifier un mot de passe
+  // sans changer de session : on réutilise signInWithPassword() comme
+  // confirmation (email de la boutique déjà connu, jamais ressaisi) — un
+  // échec signifie "mot de passe actuel incorrect", un succès revalide au
+  // passage la session avant l'update, sans effet de bord puisque c'est
+  // déjà le compte connecté. Contrairement au lien "mot de passe oublié"
+  // (app/login/page.js) qui n'exige rien de l'ancien mot de passe, cette
+  // confirmation reste utile ici : un commerçant déjà connecté peut avoir
+  // laissé son appareil sans surveillance.
+  async function changerMotDePasse(e) {
+    e.preventDefault();
+    setSecuriteMsg({ texte: "", ok: false });
+
+    if (nouveauMotDePasse.length < 6) {
+      setSecuriteMsg({ texte: t("parametres.motDePasseTropCourt"), ok: false });
+      return;
+    }
+    if (nouveauMotDePasse !== confirmMotDePasse) {
+      setSecuriteMsg({ texte: t("parametres.motDePasseNeCorrespondentPas"), ok: false });
+      return;
+    }
+
+    setSecuriteEnCours(true);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: business.email, password: motDePasseActuel });
+      if (signInError) {
+        setSecuriteMsg({ texte: t("parametres.motDePasseActuelIncorrect"), ok: false });
+        return;
+      }
+      const { error: updateError } = await supabase.auth.updateUser({ password: nouveauMotDePasse });
+      if (updateError) throw updateError;
+      setSecuriteMsg({ texte: t("parametres.motDePasseChangeSuccess"), ok: true });
+      setMotDePasseActuel("");
+      setNouveauMotDePasse("");
+      setConfirmMotDePasse("");
+    } catch (err) {
+      console.error("Erreur lors du changement de mot de passe :", err);
+      setSecuriteMsg({ texte: getAuthErrorMessage(err), ok: false });
+    } finally {
+      setSecuriteEnCours(false);
     }
   }
 
@@ -433,6 +482,60 @@ export default function ParametresPage() {
           </div>
         </>
       )}
+
+      <div className="sb-card" style={{ marginBottom: 16 }}>
+        <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Lock size={15} /> {t("parametres.securiteTitle")}
+        </div>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.securiteSub")}</p>
+
+        {securiteMsg.texte && (
+          <div
+            className={`sb-badge ${securiteMsg.ok ? "sb-badge-emerald" : "sb-badge-coral"}`}
+            style={{ display: "block", marginBottom: 12, fontSize: 12.5, padding: "8px 12px" }}
+          >
+            {securiteMsg.texte}
+          </div>
+        )}
+
+        <form onSubmit={changerMotDePasse}>
+          <div className="sb-field" style={{ marginBottom: 10 }}>
+            <label>{t("parametres.motDePasseActuelLabel")}</label>
+            <input
+              className="sb-input"
+              type="password"
+              required
+              value={motDePasseActuel}
+              onChange={(e) => setMotDePasseActuel(e.target.value)}
+            />
+          </div>
+          <div className="sb-field" style={{ marginBottom: 10 }}>
+            <label>{t("parametres.nouveauMotDePasseLabel")}</label>
+            <input
+              className="sb-input"
+              type="password"
+              required
+              minLength={6}
+              value={nouveauMotDePasse}
+              onChange={(e) => setNouveauMotDePasse(e.target.value)}
+            />
+          </div>
+          <div className="sb-field" style={{ marginBottom: 12 }}>
+            <label>{t("parametres.confirmerMotDePasseLabel")}</label>
+            <input
+              className="sb-input"
+              type="password"
+              required
+              minLength={6}
+              value={confirmMotDePasse}
+              onChange={(e) => setConfirmMotDePasse(e.target.value)}
+            />
+          </div>
+          <button className="sb-btn sb-btn-primary" type="submit" disabled={securiteEnCours}>
+            {securiteEnCours ? t("common.loading") : t("parametres.changerMotDePasseBtn")}
+          </button>
+        </form>
+      </div>
 
       <div className="sb-card">
         <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
