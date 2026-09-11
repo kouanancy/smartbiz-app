@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/AuthProvider";
 import { PLANS, PLANS_INDISPONIBLES, PLAN_PRICES } from "@/lib/constants";
 import { fmt } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
+import { getAuthErrorMessage } from "@/lib/authErrors";
 import FloatingBlobs from "@/components/FloatingBlobs";
 import PlatformLogo from "@/components/PlatformLogo";
 import HomeLink from "@/components/HomeLink";
@@ -36,6 +37,17 @@ export default function LoginPage() {
   // c'est actif) pour qu'il n'y ait aucune ambiguïté sur l'étape en cours.
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  // Écran "mot de passe oublié", même principe que awaitingConfirmation
+  // ci-dessus (remplace entièrement tabs/formulaire tant qu'actif, jamais
+  // mélangé) — resetSent affiche un message volontairement identique que
+  // l'adresse corresponde ou non à un compte existant (Supabase ne
+  // renvoie de toute façon aucune erreur dans ce cas précis, justement
+  // pour ne jamais révéler si une adresse est inscrite).
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState("");
 
   useEffect(() => {
     if (session) router.replace("/dashboard");
@@ -120,6 +132,27 @@ export default function LoginPage() {
     }
   }
 
+  async function handleForgotPassword(e) {
+    e.preventDefault();
+    setResetError("");
+    setResetLoading(true);
+    // redirectTo doit figurer dans la liste des Redirect URLs autorisées du
+    // projet Supabase (Authentication → URL Configuration), sans quoi
+    // Supabase ignore ce paramètre et renvoie vers la Site URL par défaut —
+    // voir README, section « Mot de passe oublié / changement de mot de
+    // passe ».
+    const { error: err } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/reinitialiser-mot-de-passe`,
+    });
+    setResetLoading(false);
+    if (err) {
+      console.error("Erreur lors de la demande de réinitialisation :", err);
+      setResetError(getAuthErrorMessage(err));
+      return;
+    }
+    setResetSent(true);
+  }
+
   return (
     <div className="sb-auth-screen">
       <HomeLink />
@@ -137,6 +170,72 @@ export default function LoginPage() {
               Confirme ton adresse
             </h1>
             <p style={{ fontSize: 13, color: "var(--muted)" }}>Vérifie ta boîte mail pour confirmer ton adresse et activer ton compte.</p>
+          </div>
+        ) : forgotPasswordOpen ? (
+          <div>
+            <h1 className="sb-h1" style={{ marginBottom: 4 }}>
+              Mot de passe oublié
+            </h1>
+            {resetSent ? (
+              <>
+                <p style={{ fontSize: 13, color: "var(--muted)", margin: "8px 0 16px" }}>
+                  Si un compte existe avec l&apos;adresse <strong>{resetEmail}</strong>, un e-mail contenant un lien de
+                  réinitialisation vient d&apos;être envoyé. Pense à vérifier tes spams.
+                </p>
+                <button
+                  type="button"
+                  className="sb-btn sb-btn-emerald"
+                  style={{ width: "100%", justifyContent: "center" }}
+                  onClick={() => {
+                    setForgotPasswordOpen(false);
+                    setResetSent(false);
+                    setResetEmail("");
+                  }}
+                >
+                  Retour à la connexion
+                </button>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 13, color: "var(--muted)", margin: "8px 0 16px" }}>
+                  Indique l&apos;adresse e-mail de ton compte, on t&apos;envoie un lien pour choisir un nouveau mot de
+                  passe.
+                </p>
+                {resetError && <div className="sb-auth-error">{resetError}</div>}
+                <form onSubmit={handleForgotPassword}>
+                  <div className="sb-auth-field">
+                    <label>E-mail</label>
+                    <input
+                      className="sb-input"
+                      type="email"
+                      required
+                      placeholder="ex. maboutique@gmail.com"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                    />
+                  </div>
+                  <button
+                    className="sb-btn sb-btn-emerald"
+                    style={{ width: "100%", justifyContent: "center" }}
+                    type="submit"
+                    disabled={resetLoading}
+                  >
+                    {resetLoading ? "Un instant…" : "Envoyer le lien de réinitialisation"}
+                  </button>
+                </form>
+                <button
+                  type="button"
+                  className="sb-auth-plan-change"
+                  style={{ display: "block", margin: "14px auto 0" }}
+                  onClick={() => {
+                    setForgotPasswordOpen(false);
+                    setResetError("");
+                  }}
+                >
+                  ← Retour à la connexion
+                </button>
+              </>
+            )}
           </div>
         ) : (
         <>
@@ -262,6 +361,21 @@ export default function LoginPage() {
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
+            {mode === "login" && (
+              <button
+                type="button"
+                className="sb-auth-plan-change"
+                style={{ display: "block", marginTop: 6 }}
+                onClick={() => {
+                  setForgotPasswordOpen(true);
+                  setResetEmail(email);
+                  setResetSent(false);
+                  setResetError("");
+                }}
+              >
+                Mot de passe oublié ?
+              </button>
+            )}
           </div>
           {mode === "signup" && (
             <label className="sb-auth-consent">
@@ -311,32 +425,4 @@ export default function LoginPage() {
       </div>
     </div>
   );
-}
-
-function getAuthErrorMessage(err) {
-  const message = typeof err?.message === "string" ? err.message : "";
-  const status = err?.status;
-
-  if (message.includes("Invalid login credentials")) return "E-mail ou mot de passe incorrect.";
-  if (message.includes("User already registered")) return "Un compte existe déjà avec cet e-mail.";
-  if (message.includes("Email not confirmed"))
-    return "Confirme d'abord ton adresse e-mail (lien envoyé à l'inscription).";
-  if (message.includes("rate limit"))
-    return "Trop de tentatives — patiente quelques minutes avant de réessayer.";
-  if (message.toLowerCase().includes("password"))
-    return "Le mot de passe ne respecte pas les critères requis (6 caractères minimum).";
-
-  // La librairie Supabase renvoie parfois un message vide ou "{}" quand la
-  // réponse du serveur ne correspond à aucun format attendu (ex. panne
-  // réseau, mauvaise URL de projet, service temporairement indisponible).
-  // Dans ce cas on affiche un message clair plutôt que de montrer ce texte
-  // brut — le détail exact reste visible dans la console du navigateur.
-  const isUnusableMessage = !message || message === "{}" || message === "[object Object]";
-  if (isUnusableMessage) {
-    return status
-      ? `Le service d'authentification est inaccessible ou a répondu de façon inattendue (code ${status}). Réessaie dans un instant.`
-      : "Impossible de contacter le service d'authentification. Vérifie ta connexion et réessaie.";
-  }
-
-  return message;
 }
