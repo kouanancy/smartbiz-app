@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { activerNotificationsPush, verifierAbonnementPushActif } from "@/lib/push";
 import { fmt as fmtBase } from "@/lib/format";
-import { THEMES, MODES_AFFICHAGE } from "@/lib/constants";
+import { THEMES, MODES_AFFICHAGE, DEVISES_TAUX_CHANGE } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import { getAuthErrorMessage } from "@/lib/authErrors";
 import ImageUploadField from "@/components/ImageUploadField";
@@ -40,6 +40,9 @@ export default function ParametresPage() {
   const [rapportHebdoActif, setRapportHebdoActif] = useState(business?.rapport_hebdo_actif || false);
   const [rapportHebdoJour, setRapportHebdoJour] = useState(business?.rapport_hebdo_jour_semaine ?? 0);
   const [rapportHebdoMsg, setRapportHebdoMsg] = useState("");
+  const [tauxDeviseDraft, setTauxDeviseDraft] = useState(business?.taux_change_devise || "EUR");
+  const [tauxValeurDraft, setTauxValeurDraft] = useState(business?.taux_change_valeur != null ? String(business.taux_change_valeur) : "655.957");
+  const [tauxMsg, setTauxMsg] = useState("");
   const [motDePasseActuel, setMotDePasseActuel] = useState("");
   const [nouveauMotDePasse, setNouveauMotDePasse] = useState("");
   const [confirmMotDePasse, setConfirmMotDePasse] = useState("");
@@ -125,6 +128,22 @@ export default function ParametresPage() {
 
   async function enregistrerLangue(l) {
     await updateBusiness({ langue: l });
+  }
+
+  // Pré-remplit le convertisseur du champ Prix d'achat (voir
+  // components/PrixAchatConvertible.js, app/(app)/articles/page.js et
+  // app/(app)/articles/[id]/page.js) — sans lien avec business.devise
+  // (devise d'AFFICHAGE ci-dessus) : prix_achat reste toujours en FCFA,
+  // ce réglage sert uniquement à calculer ce montant à partir d'un achat
+  // payé à l'étranger.
+  async function enregistrerTaux() {
+    const valeur = Number(tauxValeurDraft);
+    if (!valeur || valeur <= 0) {
+      setTauxMsg(t("parametres.tauxInvalide"));
+      return;
+    }
+    const { error } = await updateBusiness({ taux_change_devise: tauxDeviseDraft, taux_change_valeur: valeur });
+    setTauxMsg(error ? t("common.error", { message: error.message }) : t("parametres.savedMsg"));
   }
 
   // Mise à jour optimiste (coche/jour affichés immédiatement) mais annulée
@@ -329,6 +348,55 @@ export default function ParametresPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="sb-card" style={{ marginBottom: 16 }}>
+        <div className="sb-section-title">{t("parametres.tauxChangeTitle")}</div>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 12px" }}>{t("parametres.tauxChangeSub")}</p>
+        {tauxMsg && (
+          <div className="sb-badge sb-badge-emerald" style={{ marginBottom: 10, fontSize: 12.5, padding: "6px 10px" }}>
+            {tauxMsg}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div className="sb-field" style={{ width: 90 }}>
+            <label>{t("parametres.tauxDeviseLabel")}</label>
+            <select
+              className="sb-input"
+              value={tauxDeviseDraft}
+              onChange={(e) => {
+                setTauxDeviseDraft(e.target.value);
+                setTauxMsg("");
+              }}
+            >
+              {DEVISES_TAUX_CHANGE.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="sb-field" style={{ flex: 1, minWidth: 140 }}>
+            <label>{t("parametres.tauxValeurLabel")}</label>
+            <input
+              className="sb-input"
+              type="number"
+              min={0}
+              step="0.01"
+              value={tauxValeurDraft}
+              onChange={(e) => {
+                setTauxValeurDraft(e.target.value);
+                setTauxMsg("");
+              }}
+            />
+          </div>
+          <button className="sb-btn sb-btn-primary" onClick={enregistrerTaux}>
+            {t("parametres.enregistrer")}
+          </button>
+        </div>
+        <p style={{ fontSize: 11.5, color: "var(--text-faint)", margin: "8px 2px 0" }}>
+          {t("parametres.tauxChangeExemple", { devise: tauxDeviseDraft, montant: fmtBase(Number(tauxValeurDraft) || 0, "FCFA") })}
+        </p>
       </div>
 
       <div className="sb-card" style={{ marginBottom: 16 }}>

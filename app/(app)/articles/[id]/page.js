@@ -10,6 +10,7 @@ import { t as tBase } from "@/lib/i18n";
 import { UNITES } from "@/lib/constants";
 import ImageUploadField from "@/components/ImageUploadField";
 import ClearableInput from "@/components/ClearableInput";
+import PrixAchatConvertible from "@/components/PrixAchatConvertible";
 
 // Une paire label/valeur de la fiche article — voir aussi
 // app/(app)/articles/page.js (même structure, avant son déplacement ici).
@@ -324,16 +325,15 @@ export default function ArticleDetailPage() {
                   onChange={(e) => setReapproForm({ ...reapproForm, quantite: e.target.value })}
                 />
               </div>
-              <div className="sb-field">
-                <label>{t("articles.nouveauPrixAchatLabel")}</label>
-                <input
-                  className="sb-input"
-                  placeholder={t("articles.prixAchatPlaceholder")}
-                  type="number"
-                  value={reapproForm.prix_achat}
-                  onChange={(e) => setReapproForm({ ...reapproForm, prix_achat: e.target.value })}
-                />
-              </div>
+              <PrixAchatConvertible
+                t={t}
+                label={t("articles.nouveauPrixAchatLabel")}
+                placeholder={t("articles.prixAchatPlaceholder")}
+                value={reapproForm.prix_achat}
+                onValueChange={(v) => setReapproForm({ ...reapproForm, prix_achat: v })}
+                tauxDefaut={business?.taux_change_valeur}
+                deviseDefaut={business?.taux_change_devise}
+              />
               <div className="sb-field">
                 <label>{t("articles.fraisAnnexesLabel")}</label>
                 <input
@@ -401,16 +401,15 @@ export default function ArticleDetailPage() {
                 </select>
               </div>
               <div className="sb-form-grid">
-                <div className="sb-field">
-                  <label>{t("articles.prixAchatLabel")}</label>
-                  <input
-                    className="sb-input"
-                    placeholder={t("articles.prixAchatPlaceholder")}
-                    type="number"
-                    value={editForm.prix_achat}
-                    onChange={(e) => setEditForm({ ...editForm, prix_achat: e.target.value })}
-                  />
-                </div>
+                <PrixAchatConvertible
+                  t={t}
+                  label={t("articles.prixAchatLabel")}
+                  placeholder={t("articles.prixAchatPlaceholder")}
+                  value={editForm.prix_achat}
+                  onValueChange={(v) => setEditForm({ ...editForm, prix_achat: v })}
+                  tauxDefaut={business?.taux_change_valeur}
+                  deviseDefaut={business?.taux_change_devise}
+                />
                 <div className="sb-field">
                   <label>{t("articles.fraisAnnexesLabel")}</label>
                   <input

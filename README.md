@@ -1095,6 +1095,47 @@ appels `fmt(x)` déjà existants inchangés tout en les rendant sensibles à la
 devise choisie. Nécessite la migration
 `supabase-businesses-devise-migration.sql` (voir Démarrage).
 
+## Taux de change (convertisseur du Prix d'achat)
+
+Sans rapport avec la Devise ci-dessus, qui ne fait que reformater
+l'affichage d'un même montant (aucune conversion de valeur) : le prix
+d'achat d'un article (`articles.prix_achat`, `reappros.prix_achat`) reste
+**toujours en FCFA**, quelle que soit la devise d'affichage choisie — le
+libellé du champ l'indique explicitement (« Prix d'achat (FCFA) », jamais
+traduit selon `business.devise`). Ce convertisseur aide seulement à
+calculer ce montant FCFA à partir d'un achat réellement payé à l'étranger
+(import Chine/Europe/USA...), sans passer par un outil externe (calculette,
+tableur).
+
+**Réglage par défaut** (Paramètres → Taux de change, entre Devise et
+Langue) : `businesses.taux_change_devise` (`'USD' | 'EUR' | 'CNY' | 'GBP'`,
+voir `lib/constants.js` → `DEVISES_TAUX_CHANGE`) et
+`businesses.taux_change_valeur` (numérique, > 0). Par défaut `'EUR'` /
+`655.957` — pas une estimation mais la parité fixe FCFA/EUR (XOF/EUR),
+garantie par accord depuis 1948 : le seul défaut numérique qui reste exact
+indéfiniment, contrairement à un taux USD qui serait déjà périmé le
+lendemain. Migration : `supabase-taux-change-migration.sql` (ajoute les
+deux colonnes + leur `GRANT UPDATE`, même piège que tout autre réglage de
+`businesses` — voir « Durcissement RLS » plus bas).
+
+**`components/PrixAchatConvertible.js`** : remplace le champ Prix d'achat
+brut sur les 3 formulaires qui le saisissent — Nouvel article
+(`app/(app)/articles/page.js`), Modifier l'article et Réapprovisionner
+(tous deux `app/(app)/articles/[id]/page.js`) — un seul composant
+réutilisé plutôt que de dupliquer la logique de conversion trois fois. Un
+lien « Convertir depuis une autre devise » sous le champ ouvre un panneau
+(montant payé + devise + taux, ce dernier pré-rempli depuis
+`business.taux_change_valeur`/`taux_change_devise` mais modifiable pour
+cette saisie précise, ex. taux du jour différent) avec un aperçu du
+résultat en direct ; « Appliquer » arrondit `montant × taux` à l'entier
+FCFA le plus proche et remplit le champ Prix d'achat, qui reste ensuite
+modifiable normalement à la main. **Montant et taux saisis pour une
+conversion ne sont jamais conservés en base** — seul le résultat FCFA
+compte pour les calculs de marge (`prix_vente - prix_achat - frais_annexes`),
+donc le panneau n'existe que côté client et se réinitialise (depuis les
+valeurs par défaut de la boutique) à chaque ouverture, jamais persistant
+d'un article ou d'une session à l'autre.
+
 ## Thème de couleur
 
 La couleur d'accent choisie dans Paramètres (`businesses.theme_key`) ne se
