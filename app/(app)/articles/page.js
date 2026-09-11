@@ -13,6 +13,7 @@ import { exportToExcel, dateFichier } from "@/lib/exportExcel";
 import ImageUploadField from "@/components/ImageUploadField";
 import Pagination from "@/components/Pagination";
 import ClearableInput from "@/components/ClearableInput";
+import PrixAchatConvertible from "@/components/PrixAchatConvertible";
 
 const emptyForm = {
   nom: "",
@@ -361,16 +362,15 @@ export default function ArticlesPage() {
               onChange={(e) => setForm({ ...form, stock: e.target.value })}
             />
           </div>
-          <div className="sb-field">
-            <label>{t("articles.prixAchatLabel")}</label>
-            <input
-              className="sb-input"
-              placeholder={t("articles.prixAchatPlaceholder")}
-              type="number"
-              value={form.prix_achat}
-              onChange={(e) => setForm({ ...form, prix_achat: e.target.value })}
-            />
-          </div>
+          <PrixAchatConvertible
+            t={t}
+            label={t("articles.prixAchatLabel")}
+            placeholder={t("articles.prixAchatPlaceholder")}
+            value={form.prix_achat}
+            onValueChange={(v) => setForm({ ...form, prix_achat: v })}
+            tauxDefaut={business?.taux_change_valeur}
+            deviseDefaut={business?.taux_change_devise}
+          />
           <div className="sb-field">
             <label>{t("articles.fraisAnnexesLabel")}</label>
             <input
