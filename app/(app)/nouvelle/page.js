@@ -10,6 +10,7 @@ import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import Receipt from "@/components/Receipt";
 import ArticleSelect from "@/components/ArticleSelect";
+import ResumeCommandeTotaux from "@/components/ResumeCommandeTotaux";
 
 export default function NouvelleCommandePage() {
   const { business, setBusiness } = useAuth();
@@ -159,7 +160,6 @@ export default function NouvelleCommandePage() {
     }, 0);
   const fraisLivraison =
     typeLivraison === "livraison" ? zones.find((z) => z.zone === zoneLivraison)?.frais || 0 : 0;
-  const totalAvecLivraison = totalCa + fraisLivraison;
   const peutValider = (lignes.length > 0 || lignesOffertes.length > 0) && !!clientId && !saving;
 
   async function enregistrerClient() {
@@ -770,24 +770,15 @@ export default function NouvelleCommandePage() {
 
       <div className="sb-card">
         <div className="sb-section-title">{t("nouvelle.resume")}</div>
-        <div className="sb-resume-commande">
-          <div>
-            <span>{t("nouvelle.totalArticles")}</span>
-            <strong>{fmt(totalCa)}</strong>
-          </div>
-          <div>
-            <span>{t("nouvelle.fraisLivraison")}</span>
-            <strong>{fmt(fraisLivraison)}</strong>
-          </div>
-          <div className="sb-resume-total">
-            <span>{t("nouvelle.totalAPayer")}</span>
-            <strong>{fmt(totalAvecLivraison)}</strong>
-          </div>
-          <div>
-            <span>{t("nouvelle.margeEstimee")}</span>
-            <strong style={{ color: totalMargeReelle >= 0 ? "var(--emerald)" : "var(--coral)" }}>{fmt(totalMargeReelle)}</strong>
-          </div>
-        </div>
+        <ResumeCommandeTotaux
+          t={t}
+          fmt={fmt}
+          totalArticles={totalCa}
+          fraisLivraison={fraisLivraison}
+          paiementMode={modePaiement}
+          margeReelle={totalMargeReelle}
+          toujoursAfficherFraisLivraison
+        />
         <button className="sb-btn sb-btn-emerald" style={{ width: "100%", justifyContent: "center", marginTop: 14 }} disabled={!peutValider} onClick={valider}>
           <CheckCircle2 size={15} /> {saving ? t("nouvelle.enregistrement") : t("nouvelle.enregistrerConfirmer")}
         </button>
