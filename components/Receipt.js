@@ -40,12 +40,45 @@ function CadeauBadge({ t }) {
   );
 }
 
+// Même principe que CadeauBadge ci-dessus (couleurs "emerald" recopiées
+// en dur plutôt que var(--emerald)/var(--emerald-bg), qui suivraient le
+// mode sombre éventuel de l'app alors que ce composant reste toujours
+// blanc) — signale qu'une commande Mobile Money a déjà son montant
+// d'articles réglé au moment de la commande, jamais dû à la livraison.
+function DejaPayeBadge({ t }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        fontSize: 11,
+        fontWeight: 600,
+        padding: "3px 8px",
+        borderRadius: 20,
+        background: "#E1F3EC",
+        color: "#0E8F6E",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {t("receipt.dejaPayeBadge")}
+    </span>
+  );
+}
+
 export default function Receipt({ commande, business, onClose }) {
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const uniteLabel = (u) => t(`common.unites.${u || "unite"}`);
   const client = commande.client;
   const totalGeneral = commande.ca + (commande.livraison_frais || 0);
+  // Mobile Money == payé au moment de la commande (in-app) : le montant
+  // des articles est déjà réglé, seuls les frais de livraison restent dus
+  // à la livraison — voir components/ResumeCommandeTotaux.js pour la même
+  // règle appliquée aux résumés côté écran (Nouvelle commande, modifier/
+  // consulter une commande), ce composant-ci gérant sa propre mise en
+  // page (aperçu écran + impression A4).
+  const dejaPaye = commande.paiement_mode === "mobile_money";
+  const totalDu = dejaPaye ? commande.livraison_frais || 0 : totalGeneral;
   // Séparées une fois pour les 3 surfaces (écran, PDF, WhatsApp) : aucune
   // trace de cadeaux nulle part tant que lignesOffertes est vide — la
   // section dédiée ci-dessous n'est alors jamais rendue.
@@ -276,9 +309,16 @@ export default function Receipt({ commande, business, onClose }) {
             </div>
           )}
 
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12.5, marginBottom: 4 }}>
+            <span style={{ color: "#6B6A63" }}>{t("receipt.totalArticles")}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span className="sb-mono">{fmt(commande.ca)}</span>
+              {dejaPaye && <DejaPayeBadge t={t} />}
+            </span>
+          </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 14.5, marginBottom: 16 }}>
-            <span>{t("receipt.total")}</span>
-            <span className="sb-mono">{fmt(totalGeneral)}</span>
+            <span>{dejaPaye ? t("receipt.totalAPayerLivraison") : t("receipt.total")}</span>
+            <span className="sb-mono">{fmt(totalDu)}</span>
           </div>
 
           <div style={{ textAlign: "center", marginBottom: 12 }}>
@@ -481,7 +521,10 @@ export default function Receipt({ commande, business, onClose }) {
           <div className="sb-receipt-print-totals">
             <div>
               <span>{t("receipt.totalArticles")}</span>
-              <strong>{fmt(commande.ca)}</strong>
+              <strong style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {fmt(commande.ca)}
+                {dejaPaye && <DejaPayeBadge t={t} />}
+              </strong>
             </div>
             {commande.livraison_frais > 0 && (
               <div>
@@ -490,8 +533,8 @@ export default function Receipt({ commande, business, onClose }) {
               </div>
             )}
             <div className="total">
-              <span>{t("receipt.totalAPayer")}</span>
-              <strong>{fmt(totalGeneral)}</strong>
+              <span>{dejaPaye ? t("receipt.totalAPayerLivraison") : t("receipt.totalAPayer")}</span>
+              <strong>{fmt(totalDu)}</strong>
             </div>
           </div>
 

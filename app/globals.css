@@ -1785,10 +1785,24 @@ a {
 .sb-receipt-print-totals .total strong {
   font-size: 19px;
 }
+/* padding (pas seulement margin) : break-inside: avoid ci-dessous ne
+   protège que la boîte de MISE EN PAGE de cet élément, laquelle ignore
+   tout transform — un tampon pivoté (span ci-dessous, rotate(-6deg))
+   déborde visuellement de cette boîte non pivotée (~56px de haut ×
+   ~210px de large avant rotation ; h·cos(6°) + w·sin(6°) - h ≈ 22px de
+   plus une fois pivoté), ce qui pouvait laisser le tampon visuellement à
+   cheval sur la coupure de page même si sa boîte logique restait bien
+   entière sur une seule — reproduit sur impression mobile. padding: 20px
+   encadre largement ce débordement visuel à l'intérieur de la boîte
+   protégée par break-inside, même principe que le regroupement de
+   .sb-catalogue-card en pages de 6 plus haut (protéger le bon
+   conteneur, pas juste l'élément visuel) mais ici pour un débordement
+   de transform plutôt que de flux normal. */
 .sb-receipt-print-stamp {
   display: flex;
   justify-content: center;
-  margin-bottom: 40px;
+  padding: 20px 0;
+  margin-bottom: 20px;
   break-inside: avoid;
   page-break-inside: avoid;
 }

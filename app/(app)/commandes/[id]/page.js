@@ -10,6 +10,7 @@ import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import Receipt from "@/components/Receipt";
 import ArticleSelect from "@/components/ArticleSelect";
+import ResumeCommandeTotaux from "@/components/ResumeCommandeTotaux";
 
 const STATUT_BADGE_CLASS = {
   en_attente: "sb-badge-amber",
@@ -209,8 +210,6 @@ export default function CommandeDetailPage() {
     const prixVente = l.offert ? 0 : art.prix_vente;
     return s + (prixVente - art.prix_achat - (art.frais_annexes || 0)) * l.quantite;
   }, 0);
-  const editTotalAvecLivraison = editTotalCa + editFraisLivraison;
-
   async function validerEdition() {
     if (editLignes.length === 0 || !editClientId) {
       setEditError(t("commandes.editRequireClientArticle"));
@@ -289,7 +288,6 @@ export default function CommandeDetailPage() {
   }
 
   const enAttente = commande.statut === "en_attente";
-  const totalGeneral = commande.ca + (commande.livraison_frais || 0);
 
   return (
     <div>
@@ -398,26 +396,14 @@ export default function CommandeDetailPage() {
       </div>
 
       <div className="sb-card">
-        <div className="sb-resume-commande">
-          <div>
-            <span>{t("receipt.totalArticles")}</span>
-            <strong>{fmt(commande.ca)}</strong>
-          </div>
-          {commande.livraison_frais > 0 && (
-            <div>
-              <span>{t("commandes.fraisLivraison")}</span>
-              <strong>{fmt(commande.livraison_frais)}</strong>
-            </div>
-          )}
-          <div className="sb-resume-total">
-            <span>{t("receipt.totalAPayer")}</span>
-            <strong>{fmt(totalGeneral)}</strong>
-          </div>
-          <div>
-            <span>{t("commandes.margeEstimee")}</span>
-            <strong style={{ color: commande.marge >= 0 ? "var(--emerald)" : "var(--coral)" }}>{fmt(commande.marge)}</strong>
-          </div>
-        </div>
+        <ResumeCommandeTotaux
+          t={t}
+          fmt={fmt}
+          totalArticles={commande.ca}
+          fraisLivraison={commande.livraison_frais || 0}
+          paiementMode={commande.paiement_mode}
+          margeReelle={commande.marge}
+        />
       </div>
 
       <div className="sb-detail-actions">
@@ -610,23 +596,16 @@ export default function CommandeDetailPage() {
               </div>
             )}
 
-            <div className="sb-resume-commande" style={{ marginBottom: 16 }}>
-              <div>
-                <span>{t("commandes.totalArticles")}</span>
-                <strong>{fmt(editTotalCa)}</strong>
-              </div>
-              <div>
-                <span>{t("commandes.fraisLivraison")}</span>
-                <strong>{fmt(editFraisLivraison)}</strong>
-              </div>
-              <div className="sb-resume-total">
-                <span>{t("commandes.totalAPayer")}</span>
-                <strong>{fmt(editTotalAvecLivraison)}</strong>
-              </div>
-              <div>
-                <span>{t("commandes.margeEstimee")}</span>
-                <strong style={{ color: editTotalMarge >= 0 ? "var(--emerald)" : "var(--coral)" }}>{fmt(editTotalMarge)}</strong>
-              </div>
+            <div style={{ marginBottom: 16 }}>
+              <ResumeCommandeTotaux
+                t={t}
+                fmt={fmt}
+                totalArticles={editTotalCa}
+                fraisLivraison={editFraisLivraison}
+                paiementMode={editModePaiement}
+                margeReelle={editTotalMarge}
+                toujoursAfficherFraisLivraison
+              />
             </div>
 
             {editError && <p style={{ fontSize: 12, color: "var(--coral)", margin: "0 0 12px" }}>{editError}</p>}

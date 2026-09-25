@@ -634,6 +634,46 @@ création) → `livree` ou `annulee`.
   seconde bascule aussi les commandes déjà existantes vers `livree`
   (leur stock avait déjà été déduit sous l'ancien modèle).
 
+## Mode de paiement : Mobile Money déjà réglé vs paiement à la livraison
+
+`commandes.paiement_mode` (`'livraison' | 'mobile_money'`, voir
+`smartbiz-schema.sql`) distingue deux réalités très différentes une fois
+la commande passée : **« Paiement à la livraison »** (défaut, comportement
+historique) — rien n'est encore payé, tout (articles + frais de
+livraison) reste dû au moment de la livraison ; **« Mobile Money »** — le
+client règle le montant des articles au moment de la commande (paiement
+in-app, hors de ce dépôt), donc **seuls les frais de livraison restent
+dus à la livraison**. Sans cette distinction, tous les résumés chiffrés
+de commande affichaient le même « Total à payer » (articles + livraison)
+quel que soit le mode, laissant croire à tort qu'un article déjà réglé
+via Mobile Money restait dû à la livraison.
+
+**`components/ResumeCommandeTotaux.js`** : bloc de résumé (Total
+articles / Frais de livraison / Total à payer / Marge réelle estimée)
+réutilisé par les 3 endroits qui l'affichent côté écran — Nouvelle
+commande (`app/(app)/nouvelle/page.js`), modification et consultation
+d'une commande existante (`app/(app)/commandes/[id]/page.js`, les deux)
+— pour que la règle Mobile Money ne soit écrite qu'une seule fois plutôt
+que dupliquée avec un risque de divergence. En Mobile Money : la ligne
+« Total articles » porte un badge « Déjà payé » (`sb-badge
+sb-badge-emerald`, theme-aware — ces 3 pages restent sensibles au mode
+sombre, contrairement à `components/Receipt.js` ci-dessous) à côté du
+montant, et la ligne « Total à payer » devient « Total à payer à la
+livraison », dont la valeur se limite aux frais de livraison (0 si
+récupération en boutique). En « Paiement à la livraison », rien ne
+change par rapport au comportement historique.
+
+`components/Receipt.js` (aperçu écran de la confirmation + version
+imprimée/PDF, voir section suivante) applique la même règle séparément,
+avec sa propre mise en page : la ligne « Total articles » est nouvelle
+sur l'aperçu écran (jusque-là seul un total général articles+livraison
+apparaissait, sans détailler la part déjà réglée), déjà présente sur la
+version imprimée. Badge « Déjà payé » à couleurs figées
+(`DejaPayeBadge`, même principe que `CadeauBadge` déjà dans ce fichier
+pour les cadeaux offerts — jamais `var(--emerald)`/`var(--emerald-bg)`,
+qui suivraient le mode sombre de l'app alors que ce composant reste
+toujours sur fond blanc, écran comme impression).
+
 ## Confirmation de commande : mise en page d'origine, multi-page sans coupure + partage PDF WhatsApp
 
 **Mise en page aérée d'origine, sans exigence de tenir sur une seule
@@ -690,6 +730,31 @@ d'une page, `<thead>` répété correctement en haut de la page suivante —
 confirmé en générant un vrai PDF multi-page (Playwright `page.pdf()`)
 plutôt qu'en jugeant seulement au visuel écran, qui ne montre pas la
 pagination.
+
+**Correctif — tampon coupé entre deux pages à l'impression mobile**
+(`.sb-receipt-print-stamp`) : `break-inside: avoid` ne protège que la
+boîte de **mise en page** de cet élément, laquelle ignore tout
+`transform` — le tampon pivoté (`transform: rotate(-6deg)` sur le `span`
+intérieur) déborde visuellement de cette boîte non pivotée. Mesuré
+précisément (Playwright, `getBoundingClientRect()` en émulant
+`@media print`) : une boîte non pivotée de 52px de haut contient un
+tampon dont l'empreinte visuelle une fois pivoté atteint 73px, soit ~10,6px
+de débordement de chaque côté — exactement la zone qui pouvait se
+retrouver du mauvais côté d'un saut de page malgré `break-inside: avoid`,
+un angle mort que le scénario de vérification ci-dessus (desktop, sans
+mesure du débordement visuel du `transform`) ne pouvait pas révéler, et
+plus susceptible de se manifester sur les moteurs d'impression/export PDF
+mobiles (déjà moins fiables sur `@page`, voir plus bas « Impression du
+catalogue »). Corrigé en ajoutant `padding: 20px 0` à
+`.sb-receipt-print-stamp` (répartis depuis l'ancien `margin-bottom: 40px`,
+devenu `margin-bottom: 20px` — espacement total inchangé avant le pied de
+page) : la boîte protégée par `break-inside: avoid` encadre désormais
+largement l'empreinte visuelle pivotée (mesuré après correctif : boîte de
+92px contenant un tampon de 73px, marge de ~9,4px de chaque côté). Même
+principe que le regroupement de `.sb-catalogue-card` par 6
+(`.sb-catalogue-page-group`) plus bas — protéger le bon conteneur plutôt
+que l'élément visuel lui-même — mais ici pour un débordement de
+`transform` plutôt que de flux normal.
 
 **Partage direct par WhatsApp (PDF joint)** : `genererPdfBlob()` capture
 `.sb-receipt-print` (déjà stylé pour l'A4) via `jsPDF.html()` — qui
