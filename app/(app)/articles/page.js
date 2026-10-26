@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileSpreadsheet, Plus, RefreshCw, Search, TrendingUp, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { FileSpreadsheet, Plus, Printer, RefreshCw, Search, TrendingUp, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
@@ -53,6 +54,20 @@ export default function ArticlesPage() {
   const [recherche, setRecherche] = useState("");
   const [rechercheDebounced, setRechercheDebounced] = useState("");
   const [enAttenteParArticle, setEnAttenteParArticle] = useState({});
+  const [platformLogo, setPlatformLogo] = useState("");
+  const [printRows, setPrintRows] = useState(null);
+
+  // Logo Doka pour le pied de page du rapport imprimé — indépendant du
+  // logo de boutique, affiché dans l'en-tête (même principe que
+  // app/(app)/tresorerie/page.js).
+  useEffect(() => {
+    supabase
+      .from("parametres_globaux")
+      .select("logo_url")
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setPlatformLogo(data?.logo_url || ""));
+  }, []);
 
   // Recherche tapée au fil de l'eau, mais requêtée après une courte pause
   // (300 ms) pour ne pas interroger Supabase à chaque frappe — la page
@@ -76,7 +91,14 @@ export default function ArticlesPage() {
       let q = query;
       if (filtreCategorie === FILTRE_SANS_CATEGORIE) q = q.is("categorie_id", null);
       else if (filtreCategorie !== FILTRE_TOUTES) q = q.eq("categorie_id", filtreCategorie);
-      if (rechercheDebounced) q = q.ilike("nom", `%${rechercheDebounced}%`);
+      if (rechercheDebounced) {
+        // Le terme peut contenir des caractères spéciaux pour la syntaxe
+        // .or() de PostgREST (virgule = séparateur de conditions,
+        // parenthèses = regroupement) -- retirés plutôt qu'échappés, un
+        // code/nom d'article n'en a de toute façon jamais besoin.
+        const terme = rechercheDebounced.replace(/[,()]/g, "");
+        q = q.or(`nom.ilike.%${terme}%,code.ilike.%${terme}%`);
+      }
       return q;
     },
     [filtreCategorie, rechercheDebounced]
@@ -250,6 +272,7 @@ export default function ArticlesPage() {
   async function exporterExcel() {
     const { data } = await appliquerFiltresArticles(supabase.from("articles").select("*").eq("business_id", business.id)).order("nom");
     const rows = (data || []).map((a) => ({
+      [t("articles.colCode")]: a.code,
       [t("articles.colArticle")]: a.nom,
       [t("articles.colCategorie")]: categorieName(a.categorie_id),
       [t("articles.colAchat")]: a.prix_achat,
@@ -262,11 +285,29 @@ export default function ArticlesPage() {
     exportToExcel(`stock-${dateFichier()}.xlsx`, "Stock", rows);
   }
 
+  // Même requête dédiée (tout le stock filtré, jamais seulement la page
+  // affichée) que exporterExcel ci-dessus — remplit le portail
+  // d'impression plus bas, puis déclenche l'impression une fois le rendu
+  // commis (requestAnimationFrame, sinon window.print() capturerait
+  // encore l'ancien contenu, voire un portail toujours display: none si
+  // le state venait tout juste de passer de null à un tableau vide).
+  async function imprimerStock() {
+    const { data } = await appliquerFiltresArticles(supabase.from("articles").select("*").eq("business_id", business.id)).order("nom");
+    setPrintRows(data || []);
+  }
+
+  useEffect(() => {
+    if (printRows === null) return;
+    const id = requestAnimationFrame(() => window.print());
+    return () => cancelAnimationFrame(id);
+  }, [printRows]);
+
   if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   return (
+    <>
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
@@ -282,6 +323,9 @@ export default function ArticlesPage() {
           </button>
           <button className="sb-btn sb-btn-ghost" onClick={exporterExcel}>
             <FileSpreadsheet size={14} /> {t("common.exporterExcel")}
+          </button>
+          <button className="sb-btn sb-btn-ghost" onClick={imprimerStock}>
+            <Printer size={14} /> {t("articles.imprimerPdf")}
           </button>
           <button className="sb-btn sb-btn-primary" onClick={() => setShowForm((s) => !s)}>
             <Plus size={14} /> {t("articles.newArticle")}
@@ -445,6 +489,7 @@ export default function ArticlesPage() {
             <thead>
               <tr>
                 <th></th>
+                <th>{t("articles.colCode")}</th>
                 <th>{t("articles.colArticle")}</th>
                 <th>{t("articles.colCategorie")}</th>
                 <th>{t("articles.colAchat")}</th>
@@ -469,6 +514,7 @@ export default function ArticlesPage() {
                         </div>
                       ) : null}
                     </td>
+                    <td className="sb-mono" style={{ color: "var(--muted)" }}>{a.code}</td>
                     <td>{a.nom}</td>
                     <td style={{ color: "var(--muted)" }}>{categorieName(a.categorie_id)}</td>
                     <td className="sb-mono">{fmt(a.prix_achat)}</td>
@@ -598,5 +644,82 @@ export default function ArticlesPage() {
         </div>
       )}
     </div>
+
+    {/* Mise en page dédiée à l'impression — pleine page A4, invisible à
+        l'écran. Rendue via un portail directement dans <body> (même
+        principe que components/Receipt.js et app/(app)/tresorerie/page.js)
+        pour ne dépendre d'aucune structure de page parente. printRows
+        (tout le stock filtré, jamais seulement la page affichée — voir
+        imprimerStock) reste null tant qu'aucune impression n'a été
+        demandée, pour ne jamais imprimer un ancien résultat périmé. */}
+    {typeof document !== "undefined" &&
+      printRows !== null &&
+      createPortal(
+        <div className="sb-stock-print">
+          <div className="sb-stock-print-header">
+            <div className="sb-stock-print-brand">
+              {business?.logo_url ? (
+                <img src={business.logo_url} alt={business?.name || "Logo"} />
+              ) : (
+                <div className="sb-stock-print-logo-fallback">{(business?.name || "Doka").slice(0, 2).toUpperCase()}</div>
+              )}
+              <span className="sb-stock-print-brand-name">{business?.name || t("common.defaultBusinessName")}</span>
+            </div>
+            <div className="sb-stock-print-title">
+              <h1>{t("articles.rapportTitle")}</h1>
+              <p>{new Date().toLocaleDateString(dateLocale(business?.langue))}</p>
+            </div>
+          </div>
+
+          <div className="sb-stock-print-totals">
+            <div>
+              <div className="label">{t("articles.subtitleCount", { n: printRows.length })}</div>
+            </div>
+            <div>
+              <div className="label">{t("articles.margeReelleTitle")}</div>
+              <div className="value">{fmt(printRows.reduce((s, a) => s + (a.prix_vente - a.prix_achat - (a.frais_annexes || 0)) * a.stock, 0))}</div>
+            </div>
+          </div>
+
+          <table className="sb-stock-print-table">
+            <thead>
+              <tr>
+                <th>{t("articles.colCode")}</th>
+                <th>{t("articles.colArticle")}</th>
+                <th>{t("articles.colCategorie")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colAchat")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colVente")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colMargeReelle")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colStock")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {printRows.map((a) => {
+                const margeReelle = a.prix_vente - a.prix_achat - (a.frais_annexes || 0);
+                return (
+                  <tr key={a.id}>
+                    <td>{a.code}</td>
+                    <td>{a.nom}</td>
+                    <td>{categorieName(a.categorie_id)}</td>
+                    <td style={{ textAlign: "right" }}>{fmt(a.prix_achat)}</td>
+                    <td style={{ textAlign: "right" }}>{fmt(a.prix_vente)}</td>
+                    <td style={{ textAlign: "right" }}>{fmt(margeReelle)}</td>
+                    <td style={{ textAlign: "right" }}>
+                      {a.stock} {uniteLabel(a.unite)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div className="sb-stock-print-footer">
+            {platformLogo && <img src={platformLogo} alt="" />}
+            {t("common.poweredBy")}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }

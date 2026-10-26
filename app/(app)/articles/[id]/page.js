@@ -232,6 +232,7 @@ export default function ArticleDetailPage() {
         <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 16px" }}>{categorieName(article.categorie_id)}</p>
 
         <div className="sb-detail-field-grid" style={{ marginBottom: 12 }}>
+          <DetailField label={t("articles.colCode")} value={article.code} />
           <DetailField label={t("articles.colAchat")} value={fmt(article.prix_achat)} />
           <DetailField label={t("articles.colFraisAnnexes")} value={fmt(article.frais_annexes || 0)} />
           <DetailField label={t("articles.colVente")} value={fmt(article.prix_vente)} />
