@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Ban, CheckCircle2, Pencil, Plus, Printer, Trash2, TruckIcon, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt as fmtBase, dateLocale } from "@/lib/format";
+import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
 import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import Receipt from "@/components/Receipt";
@@ -371,10 +371,12 @@ export default function CommandeDetailPage() {
                       </div>
                     ) : null}
                   </td>
-                  <td>
-                    {l.articles?.nom ?? "—"}
+                  <td style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span className="sb-nom-tronque" title={l.articles?.nom ?? ""} style={{ flex: 1, minWidth: 0 }}>
+                      {l.articles?.nom ? tronquerMilieuNom(l.articles.nom) : "—"}
+                    </span>
                     {l.offert && (
-                      <span className="sb-badge sb-badge-amber" style={{ marginLeft: 6, fontSize: 11 }}>
+                      <span className="sb-badge sb-badge-amber" style={{ fontSize: 11, flexShrink: 0 }}>
                         🎁 {t("receipt.cadeauOffertBadge")}
                       </span>
                     )}
@@ -469,7 +471,7 @@ export default function CommandeDetailPage() {
                   isDisabled={(a) => stockDispoEdition(a.id) < 1}
                   placeholder={t("commandes.selectArticle")}
                   emptyLabel={t("common.aucunResultatArticle")}
-                  getLabel={(a) => `${a.code} · ${a.nom} — ${fmt(a.prix_vente)} ${t("commandes.dispoSuffix", { n: stockDispoEdition(a.id), unite: uniteLabel(a.unite) })}`}
+                  getLabel={(a) => `${a.code} · ${tronquerMilieuNom(a.nom, 28)} — ${fmt(a.prix_vente)} ${t("commandes.dispoSuffix", { n: stockDispoEdition(a.id), unite: uniteLabel(a.unite) })}`}
                 />
               </div>
               <div className="sb-field" style={{ flex: 0.5, minWidth: 70 }}>
@@ -510,10 +512,12 @@ export default function CommandeDetailPage() {
                       const art = articles.find((a) => a.id === l.articleId);
                       return (
                         <tr key={i}>
-                          <td>
-                            {art?.nom ?? "—"}
+                          <td style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span className="sb-nom-tronque" title={art?.nom ?? ""} style={{ flex: 1, minWidth: 0 }}>
+                              {art?.nom ? tronquerMilieuNom(art.nom) : "—"}
+                            </span>
                             {l.offert && (
-                              <span className="sb-badge sb-badge-amber" style={{ marginLeft: 6, fontSize: 11 }}>
+                              <span className="sb-badge sb-badge-amber" style={{ fontSize: 11, flexShrink: 0 }}>
                                 🎁 {t("receipt.cadeauOffertBadge")}
                               </span>
                             )}

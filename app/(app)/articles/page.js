@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import { FileSpreadsheet, Plus, Printer, RefreshCw, Search, TrendingUp, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt as fmtBase, dateLocale } from "@/lib/format";
+import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 import { UNITES, PAGE_SIZE } from "@/lib/constants";
 import { exportToExcel, dateFichier } from "@/lib/exportExcel";
@@ -515,7 +515,7 @@ export default function ArticlesPage() {
                       ) : null}
                     </td>
                     <td className="sb-mono" style={{ color: "var(--muted)" }}>{a.code}</td>
-                    <td>{a.nom}</td>
+                    <td className="sb-nom-tronque" title={a.nom}>{tronquerMilieuNom(a.nom)}</td>
                     <td style={{ color: "var(--muted)" }}>{categorieName(a.categorie_id)}</td>
                     <td className="sb-mono">{fmt(a.prix_achat)}</td>
                     <td className="sb-mono">{fmt(a.frais_annexes || 0)}</td>
@@ -580,7 +580,7 @@ export default function ArticlesPage() {
                 const margeTotale = margeUnitaire * a.stock;
                 return (
                   <tr key={a.id}>
-                    <td>{a.nom}</td>
+                    <td className="sb-nom-tronque" title={a.nom}>{tronquerMilieuNom(a.nom)}</td>
                     <td className="sb-mono">{fmt(coutReel)}</td>
                     <td className="sb-mono" style={{ color: margeUnitaire >= 0 ? "var(--emerald)" : "var(--coral)" }}>
                       {fmt(margeUnitaire)}
@@ -622,20 +622,22 @@ export default function ArticlesPage() {
                   <th>{t("dashboard.colDate")}</th>
                   <th>{t("articles.colArticle")}</th>
                   <th>{t("articles.colQuantiteAjoutee")}</th>
-                  <th>{t("articles.colPrixAchat")}</th>
-                  <th>{t("articles.colFraisAnnexes")}</th>
+                  <th>{t("articles.colCoutLot")}</th>
+                  <th>{t("articles.colCoutMoyenObtenu")}</th>
                 </tr>
               </thead>
               <tbody>
                 {reappros.map((r) => (
                   <tr key={r.id}>
                     <td>{new Date(r.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
-                    <td>{r.articles?.nom ?? "—"}</td>
+                    <td className="sb-nom-tronque" title={r.articles?.nom ?? ""}>
+                      {r.articles?.nom ? tronquerMilieuNom(r.articles.nom) : "—"}
+                    </td>
                     <td className="sb-mono">
                       +{r.quantite} {uniteLabel(r.articles?.unite)}
                     </td>
-                    <td className="sb-mono">{fmt(r.prix_achat)}</td>
-                    <td className="sb-mono">{fmt(r.frais_annexes || 0)}</td>
+                    <td className="sb-mono">{fmt(r.prix_achat + (r.frais_annexes || 0))}</td>
+                    <td className="sb-mono">{r.prix_achat_moyen != null ? fmt(r.prix_achat_moyen + (r.frais_annexes_moyen || 0)) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -699,7 +701,7 @@ export default function ArticlesPage() {
                 return (
                   <tr key={a.id}>
                     <td>{a.code}</td>
-                    <td>{a.nom}</td>
+                    <td>{tronquerMilieuNom(a.nom)}</td>
                     <td>{categorieName(a.categorie_id)}</td>
                     <td style={{ textAlign: "right" }}>{fmt(a.prix_achat)}</td>
                     <td style={{ textAlign: "right" }}>{fmt(a.prix_vente)}</td>

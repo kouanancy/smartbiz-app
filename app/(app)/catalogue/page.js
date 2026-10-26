@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Copy, Printer, Share2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt as fmtBase } from "@/lib/format";
+import { fmt as fmtBase, tronquerMilieuNom } from "@/lib/format";
 import { THEMES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 
@@ -43,47 +43,10 @@ function chunk(arr, size) {
 // couper un caractère en plein milieu sans aucun indicateur.
 const LONGUEUR_NOM_IMPRESSION = 52;
 
-// Tronque au milieu plutôt qu'à la fin : la fin du nom (presque toujours
-// la couleur/variante pour les articles vendus ici, ex. "Blond", "Noir",
-// "(Marron / Noir)") reste entièrement visible, seul le milieu du nom
-// disparaît derrière des points de suspension. « Perruque Lace Front 20
-// Pouces Naturelle Blond » devient « Perruque Lace Front 20… Blond »
-// plutôt que « Perruque Lace Front 20 Pouces N…» qui masquerait la
-// couleur. Uniquement pour l'affichage imprimé (voir .sb-catalogue-nom-
-// print dans globals.css) — le nom complet reste toujours affiché à
-// l'écran et enregistré tel quel en base de données, seul ce rendu
-// imprimé est raccourci.
-//
-// La "queue" à préserver est un groupe entre parenthèses en toute fin de
-// nom s'il y en a un (ex. "( Marron / Noir )"), sinon le dernier mot
-// séparé par un espace. Un simple split sur les espaces, sans ce cas
-// particulier, casse dès que la parenthèse fermante est précédée d'un
-// espace : "( Marron / Noir )" donnait alors dernierMot = ")" tout seul,
-// perdant "Marron / Noir" — bug constaté en pratique avec un vrai
-// catalogue (PDF fourni par l'utilisatrice), qui perdait justement la
-// couleur pour les variantes multi-couleurs. Traiter le groupe entier
-// entre parenthèses comme un seul bloc insécable évite aussi qu'une
-// coupure tombe juste après le "(" ouvrant (ex. l'ancien bug visible
-// « DOMINICAN CURL… (… Hair) », où le début de la parenthèse se
-// retrouvait des deux côtés des points de suspension).
-function tronquerMilieuNom(nom, maxLen = LONGUEUR_NOM_IMPRESSION) {
-  if (nom.length <= maxLen) return nom;
-  const nomTrim = nom.trim();
-  const matchParenFinale = nomTrim.match(/\(([^()]*)\)\s*$/);
-  let queue;
-  let avantQueue;
-  if (matchParenFinale) {
-    queue = matchParenFinale[0].trim();
-    avantQueue = nomTrim.slice(0, matchParenFinale.index);
-  } else {
-    const mots = nomTrim.split(/\s+/);
-    queue = mots[mots.length - 1];
-    avantQueue = nomTrim.slice(0, nomTrim.length - queue.length);
-  }
-  const longueurDebut = Math.max(maxLen - queue.length - 1, 10);
-  const debut = avantQueue.slice(0, longueurDebut).trimEnd();
-  return `${debut}… ${queue}`;
-}
+// tronquerMilieuNom elle-même vient désormais de lib/format.js, partagée
+// avec les listes/tableaux/sélecteurs de l'app (.sb-nom-tronque, voir
+// globals.css) — seul LONGUEUR_NOM_IMPRESSION, propre à la largeur d'une
+// fiche catalogue, reste défini ici.
 
 export default function CataloguePage() {
   const { business } = useAuth();
@@ -254,7 +217,7 @@ export default function CataloguePage() {
                   )}
                   <div className="sb-catalogue-nom">
                     <span className="sb-catalogue-nom-screen">{a.nom}</span>
-                    <span className="sb-catalogue-nom-print">{tronquerMilieuNom(a.nom)}</span>
+                    <span className="sb-catalogue-nom-print">{tronquerMilieuNom(a.nom, LONGUEUR_NOM_IMPRESSION)}</span>
                   </div>
                   <div className="sb-catalogue-prix">
                     {fmt(a.prix_vente)} <span className="sb-catalogue-unite">/ {uniteLabel(a.unite)}</span>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TrendingUp } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
+import { tronquerMilieuNom } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 
 // Rolling en mois plutôt que calé sur le calendrier (même principe que
@@ -103,7 +104,7 @@ export default function StatistiquesPage() {
                 {classement.map(([nom, quantite], i) => (
                   <tr key={nom}>
                     <td className="sb-mono">{i + 1}</td>
-                    <td>{nom}</td>
+                    <td className="sb-nom-tronque" title={nom}>{tronquerMilieuNom(nom)}</td>
                     <td className="sb-mono">{quantite}</td>
                   </tr>
                 ))}

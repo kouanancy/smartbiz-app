@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Gift, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt as fmtBase } from "@/lib/format";
+import { fmt as fmtBase, tronquerMilieuNom } from "@/lib/format";
 import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import Receipt from "@/components/Receipt";
@@ -488,7 +488,7 @@ export default function NouvelleCommandePage() {
                   isDisabled={(a) => a.stock <= 0}
                   placeholder={t("nouvelle.selectArticle")}
                   emptyLabel={t("common.aucunResultatArticle")}
-                  getLabel={(a) => `${a.code} · ${a.nom} — ${fmt(a.prix_vente)} ${t("nouvelle.stockSuffix", { n: a.stock, unite: uniteLabel(a.unite) })}`}
+                  getLabel={(a) => `${a.code} · ${tronquerMilieuNom(a.nom, 28)} — ${fmt(a.prix_vente)} ${t("nouvelle.stockSuffix", { n: a.stock, unite: uniteLabel(a.unite) })}`}
                 />
               </div>
               <div className="sb-field" style={{ flex: 0.5, minWidth: 70 }}>
@@ -572,7 +572,7 @@ export default function NouvelleCommandePage() {
                       const margeUnitaire = art.prix_vente - art.prix_achat - (art.frais_annexes || 0);
                       return (
                         <tr key={l.articleId}>
-                          <td>{art.nom}</td>
+                          <td className="sb-nom-tronque" title={art.nom}>{tronquerMilieuNom(art.nom)}</td>
                           <td className="sb-mono">{fmt(art.prix_vente)}</td>
                           <td className="sb-mono">{fmt(art.prix_achat)}</td>
                           <td className="sb-mono" style={{ color: margeUnitaire >= 0 ? "var(--emerald)" : "var(--coral)" }}>
@@ -614,7 +614,7 @@ export default function NouvelleCommandePage() {
                   isDisabled={(a) => a.stock <= 0}
                   placeholder={t("nouvelle.selectArticle")}
                   emptyLabel={t("common.aucunResultatArticle")}
-                  getLabel={(a) => `${a.code} · ${a.nom} — ${t("nouvelle.stockSuffix", { n: a.stock, unite: uniteLabel(a.unite) })}`}
+                  getLabel={(a) => `${a.code} · ${tronquerMilieuNom(a.nom, 28)} — ${t("nouvelle.stockSuffix", { n: a.stock, unite: uniteLabel(a.unite) })}`}
                 />
               </div>
               <div className="sb-field" style={{ flex: 0.5, minWidth: 70 }}>
@@ -673,11 +673,13 @@ export default function NouvelleCommandePage() {
                       const cout = art.prix_achat + (art.frais_annexes || 0);
                       return (
                         <tr key={l.articleId}>
-                          <td>
-                            <span className="sb-badge sb-badge-amber" style={{ marginRight: 6 }}>
+                          <td style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span className="sb-badge sb-badge-amber" style={{ flexShrink: 0 }}>
                               🎁 {t("nouvelle.offert")}
                             </span>
-                            {art.nom}
+                            <span className="sb-nom-tronque" title={art.nom} style={{ flex: 1, minWidth: 0 }}>
+                              {tronquerMilieuNom(art.nom)}
+                            </span>
                           </td>
                           <td className="sb-mono">
                             {l.quantite} {uniteLabel(art.unite)}

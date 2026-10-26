@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Image as ImageIcon, Pencil, RefreshCw, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
-import { fmt as fmtBase, dateLocale } from "@/lib/format";
+import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 import { UNITES } from "@/lib/constants";
 import ImageUploadField from "@/components/ImageUploadField";
@@ -40,6 +40,7 @@ export default function ArticleDetailPage() {
 
   const [reapproOpen, setReapproOpen] = useState(false);
   const [reapproForm, setReapproForm] = useState({ quantite: "", prix_achat: "", frais_annexes: "" });
+  const [reapproError, setReapproError] = useState("");
 
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState(null);
@@ -87,28 +88,37 @@ export default function ArticleDetailPage() {
 
   function ouvrirReappro() {
     setReapproForm({ quantite: "", prix_achat: String(article.prix_achat), frais_annexes: String(article.frais_annexes || 0) });
+    setReapproError("");
     setReapproOpen(true);
   }
 
   async function validerReappro() {
     const qte = Number(reapproForm.quantite);
     if (!qte || qte < 1) return;
-    const nouveauPrixAchat = Number(reapproForm.prix_achat) || 0;
-    const nouveauxFraisAnnexes = Number(reapproForm.frais_annexes) || 0;
+    const coutLotPrixAchat = Number(reapproForm.prix_achat) || 0;
+    const coutLotFraisAnnexes = Number(reapproForm.frais_annexes) || 0;
 
-    const { error } = await supabase
-      .from("articles")
-      .update({ stock: article.stock + qte, prix_achat: nouveauPrixAchat, frais_annexes: nouveauxFraisAnnexes })
-      .eq("id", article.id);
-    if (error) return;
-
-    await supabase.from("reappros").insert({
+    setReapproError("");
+    // Le calcul du coût moyen pondéré (stock existant × coût actuel +
+    // quantité reçue × coût de ce lot, séparément pour prix_achat et
+    // frais_annexes) est entièrement géré par appliquer_cout_moyen_pondere()
+    // -- trigger SECURITY DEFINER sur reappros, voir
+    // supabase-reappro-cout-moyen-migration.sql. Cet insert est tout ce
+    // que le client envoie : articles.stock/prix_achat/frais_annexes ne
+    // sont plus jamais mis à jour directement ici, seulement par le
+    // trigger, de façon atomique et fiable même en cas de
+    // réapprovisionnements quasi simultanés.
+    const { error } = await supabase.from("reappros").insert({
       business_id: business.id,
       article_id: article.id,
       quantite: qte,
-      prix_achat: nouveauPrixAchat,
-      frais_annexes: nouveauxFraisAnnexes,
+      prix_achat: coutLotPrixAchat,
+      frais_annexes: coutLotFraisAnnexes,
     });
+    if (error) {
+      setReapproError(error.message);
+      return;
+    }
 
     await chargerArticle();
     const { data: reapprosRes } = await supabase
@@ -282,7 +292,8 @@ export default function ArticleDetailPage() {
                 <tr>
                   <th>{t("dashboard.colDate")}</th>
                   <th>{t("articles.colQuantiteAjoutee")}</th>
-                  <th>{t("articles.colPrixAchat")}</th>
+                  <th>{t("articles.colCoutLot")}</th>
+                  <th>{t("articles.colCoutMoyenObtenu")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -292,7 +303,8 @@ export default function ArticleDetailPage() {
                     <td className="sb-mono">
                       +{r.quantite} {uniteLabel(article.unite)}
                     </td>
-                    <td className="sb-mono">{fmt(r.prix_achat)}</td>
+                    <td className="sb-mono">{fmt(r.prix_achat + (r.frais_annexes || 0))}</td>
+                    <td className="sb-mono">{r.prix_achat_moyen != null ? fmt(r.prix_achat_moyen + (r.frais_annexes_moyen || 0)) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -312,7 +324,9 @@ export default function ArticleDetailPage() {
                 <X size={16} />
               </button>
             </div>
-            <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 14px" }}>{article.nom}</p>
+            <p className="sb-nom-tronque" title={article.nom} style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 14px" }}>
+              {tronquerMilieuNom(article.nom)}
+            </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <div className="sb-field">
@@ -328,7 +342,7 @@ export default function ArticleDetailPage() {
               </div>
               <PrixAchatConvertible
                 t={t}
-                label={t("articles.nouveauPrixAchatLabel")}
+                label={t("articles.coutLotPrixAchatLabel")}
                 placeholder={t("articles.prixAchatPlaceholder")}
                 value={reapproForm.prix_achat}
                 onValueChange={(v) => setReapproForm({ ...reapproForm, prix_achat: v })}
@@ -336,7 +350,7 @@ export default function ArticleDetailPage() {
                 deviseDefaut={business?.taux_change_devise}
               />
               <div className="sb-field">
-                <label>{t("articles.fraisAnnexesLabel")}</label>
+                <label>{t("articles.coutLotFraisAnnexesLabel")}</label>
                 <input
                   className="sb-input"
                   placeholder={t("articles.fraisAnnexesPlaceholder")}
@@ -346,6 +360,7 @@ export default function ArticleDetailPage() {
                 />
               </div>
               <p style={{ fontSize: 11, color: "var(--muted)", margin: 0 }}>{t("articles.reapproNote")}</p>
+              {reapproError && <p style={{ fontSize: 12, color: "var(--coral)", margin: 0 }}>{reapproError}</p>}
               <button className="sb-btn sb-btn-emerald" style={{ justifyContent: "center" }} onClick={validerReappro} disabled={!reapproForm.quantite}>
                 <CheckCircle2 size={14} /> {t("articles.confirmerReappro")}
               </button>
