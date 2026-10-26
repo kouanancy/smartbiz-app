@@ -31,9 +31,9 @@ const fmt = (n) => fmtBase(n);
 const MODULES = [
   { key: "dashboard", titre: t("sidebar.nav.dashboard"), texte: t("dashboard.subtitle"), image: null },
   { key: "nouvelle", titre: t("sidebar.nav.nouvelle"), texte: t("nouvelle.subtitle"), image: null },
-  { key: "articles", titre: t("sidebar.nav.articles"), texte: "Suis ton stock article par article, avec une alerte avant la rupture.", image: null },
+  { key: "articles", titre: t("sidebar.nav.articles"), texte: "Suivez votre stock article par article, avec une alerte avant la rupture.", image: null },
   { key: "clients", titre: t("sidebar.nav.clients"), texte: "Une fiche par client : coordonnées, historique de commandes et total des achats.", image: null },
-  { key: "commandes", titre: t("sidebar.nav.commandes"), texte: "L'historique complet de tes commandes, du statut à la livraison.", image: null },
+  { key: "commandes", titre: t("sidebar.nav.commandes"), texte: "L'historique complet de vos commandes, du statut à la livraison.", image: null },
   { key: "tresorerie", titre: t("sidebar.nav.tresorerie"), texte: t("tresorerie.subtitle"), image: null },
 ];
 
@@ -119,12 +119,12 @@ export default function LandingPage() {
         <FloatingBlobs count={2} subtle />
         <Reveal className="sb-landing-blobby-content">
           <div className="sb-landing-section-head" style={{ marginBottom: 0 }}>
-            <h2 className="sb-landing-section-title">Pourquoi Doka pour ton commerce</h2>
+            <h2 className="sb-landing-section-title">Pourquoi Doka pour votre commerce</h2>
             <p className="sb-landing-pourquoi-text">
               Doka est pensé pour les commerçants qui gèrent tout eux-mêmes, pas d&apos;équipe
               informatique, pas de temps à perdre en formation. Une prise en main immédiate, un prix accessible dès
-              5 000 FCFA par mois, et des données qui restent les tiennes : exactement ce qu&apos;il te faut pour
-              professionnaliser ta boutique sans la compliquer.
+              5 000 FCFA par mois, et des données qui restent les vôtres : exactement ce qu&apos;il vous faut pour
+              professionnaliser votre boutique sans la compliquer.
             </p>
           </div>
         </Reveal>

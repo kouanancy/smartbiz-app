@@ -57,8 +57,8 @@ export default function ImageUploadField({ label, businessId, folder, value, onC
       const notFound = /bucket.*not.*found/i.test(err?.message || "");
       setError(
         notFound
-          ? `Le bucket "${BUCKET}" n'existe pas encore sur ce projet Supabase — exécute supabase-storage-setup.sql dans l'éditeur SQL.`
-          : "Échec de l'envoi de l'image. Réessaie."
+          ? `Le bucket "${BUCKET}" n'existe pas encore sur ce projet Supabase — exécutez supabase-storage-setup.sql dans l'éditeur SQL.`
+          : "Échec de l'envoi de l'image. Réessayez."
       );
       setPreviewUrl(value || "");
     } finally {
@@ -121,7 +121,7 @@ export default function ImageUploadField({ label, businessId, folder, value, onC
         </div>
       </div>
       <p style={{ fontSize: 11, color: "var(--text-faint)", margin: 0 }}>
-        Clique dans la zone puis colle une image (Ctrl+V), ou choisis un fichier — facultatif.
+        Cliquez dans la zone puis collez une image (Ctrl+V), ou choisissez un fichier — facultatif.
       </p>
       {error && <p style={{ fontSize: 11, color: "var(--coral)", margin: 0 }}>{error}</p>}
     </div>

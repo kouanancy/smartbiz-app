@@ -84,7 +84,7 @@ export default function ReinitialiserMotDePassePage() {
             <h1 className="sb-h1" style={{ marginBottom: 8 }}>
               Mot de passe mis à jour
             </h1>
-            <p style={{ fontSize: 13, color: "var(--muted)" }}>Redirection vers ton tableau de bord…</p>
+            <p style={{ fontSize: 13, color: "var(--muted)" }}>Redirection vers votre tableau de bord…</p>
           </div>
         ) : pretAChanger === false ? (
           <div style={{ textAlign: "center" }}>
@@ -106,7 +106,7 @@ export default function ReinitialiserMotDePassePage() {
               Nouveau mot de passe
             </h1>
             <p style={{ fontSize: 13, color: "var(--muted)", margin: "8px 0 16px" }}>
-              Choisis un nouveau mot de passe pour ton compte.
+              Choisissez un nouveau mot de passe pour votre compte.
             </p>
             {error && <div className="sb-auth-error">{error}</div>}
             <form onSubmit={handleSubmit}>
