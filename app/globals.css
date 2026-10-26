@@ -1348,6 +1348,26 @@ a {
   object-fit: cover;
 }
 
+/* Filet de sécurité CSS pour les noms d'article déjà raccourcis au milieu
+   par tronquerMilieuNom() (lib/format.js) : si l'estimation en caractères
+   ne correspond malgré tout pas exactement à la largeur réellement
+   disponible (police, zoom, largeur de colonne variable), le navigateur
+   coupe proprement avec ses propres points de suspension plutôt que de
+   déborder sur une 2e ligne ou hors de sa cellule/son conteneur — jamais
+   affiché sur la fiche détaillée d'un article (nom complet, toujours en
+   entier) ni sur un document destiné aux clients (confirmation de
+   commande, catalogue imprimé, qui a déjà sa propre troncature dédiée à
+   l'impression). display: block nécessaire pour que overflow/ellipsis
+   s'appliquent : sans largeur contrainte (ex. simple <span> inline dans
+   un <td>), ce bloc hérite de la largeur de sa cellule de tableau. */
+.sb-nom-tronque {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /* Sélecteur d'article avec miniature (Nouvelle commande) — un <select>
    natif ne peut pas afficher d'image dans ses <option>, d'où ce panneau
    personnalisé qui reproduit la même interaction (bouton + liste). */

@@ -985,6 +985,124 @@ Excel » plus haut), champ sur la fiche détaillée
 imprimée/PDF (`components/Receipt.js`) — un code interne de gestion de
 stock n'a pas sa place sur un document destiné à un client.
 
+## Coût moyen pondéré (CMUP) à chaque réapprovisionnement
+
+Depuis `supabase-reappro-cout-moyen-migration.sql`, `articles.prix_achat`
+et `articles.frais_annexes` ne sont plus directement écrasés par un
+réapprovisionnement : ils deviennent la **moyenne pondérée** entre le
+stock réel actuel (à son coût actuel) et la quantité reçue (au coût de ce
+nouveau lot), calculée séparément pour chacun des deux champs —
+`(stock_actuel × coût_actuel + quantité_reçue × coût_du_lot) ÷
+(stock_actuel + quantité_reçue)`, arrondie à 2 décimales. Si le stock réel
+actuel est nul ou négatif, le nouveau coût s'applique directement (rien à
+pondérer). Exemple vérifié : 5 unités en stock à 18 250 F + 10 unités
+reçues à 20 280 F → coût moyen ≈ 19 603 F (exactement 19 603,33, arrondi
+affiché à l'entier FCFA le plus proche comme partout ailleurs dans
+l'app), valeur de stock (15 × 19 603,33) = 294 050 F.
+
+**Calcul entièrement côté base de données, jamais confié au client** :
+`appliquer_cout_moyen_pondere()` (`security definer`, trigger
+`before insert` sur `reappros`) verrouille d'abord la ligne `articles`
+concernée (`select ... for update`), ce qui sérialise deux
+réapprovisionnements quasi simultanés du même article — le second
+attend la fin de la transaction du premier avant de lire, et part donc
+du stock/coût déjà mis à jour, jamais d'une valeur périmée qui
+produirait une moyenne incohérente. L'app elle-même n'envoie plus
+qu'un `insert` dans `reappros` (quantité, coût du lot) —
+`articles.stock/prix_achat/frais_annexes` ne sont plus jamais mis à
+jour directement depuis le client (voir `validerReappro()`,
+`app/(app)/articles/[id]/page.js`). Aucun droit d'écriture
+supplémentaire n'est ouvert pour autant : `articles.prix_achat`/
+`frais_annexes` n'a jamais été restreint par colonne (contrairement à
+`businesses`, voir « Durcissement RLS » plus bas) — `security definer`
+garantit seulement que le calcul reste fiable quel que soit l'appelant,
+même principe que `gerer_code_article()` (« Code article » ci-dessus).
+
+**Arrondi cohérent d'un réapprovisionnement à l'autre** : `round(..., 2)`
+systématique, jamais une précision qui varierait d'un calcul à l'autre —
+une dérive d'arrondi cumulée au fil de réappros successifs produirait des
+écarts croissants entre le coût affiché et la vraie valeur du stock.
+
+**Historique enrichi** (`reappros.prix_achat_moyen`/`frais_annexes_moyen`,
+nouvelles colonnes, nullables) : chaque entrée conserve désormais, en plus
+de la quantité reçue et du coût du lot (`prix_achat`/`frais_annexes`,
+sens inchangé), le coût moyen obtenu après calcul pour cette entrée
+précise — renseigné uniquement par le trigger, jamais rétroactivement
+pour les réappros déjà existants avant cette migration (`NULL`, affiché
+« — » dans l'historique). Visible sur la fiche article
+(`app/(app)/articles/[id]/page.js`) et l'historique global du stock
+(`app/(app)/articles/page.js`).
+
+**Ce qui ne change pas :**
+
+- **Commandes déjà livrées, ou simplement déjà créées** : `ca`/`marge`
+  (`commandes`) et `prix_achat`/`frais_annexes` (`commande_lignes`) sont
+  déjà capturés au moment où la commande est **passée**
+  (`app/(app)/nouvelle/page.js`, `valider()`), jamais recalculés depuis
+  `articles`. **Vérifié explicitement pour cette migration** : marquer
+  une commande « Livrée » (`marquerLivree()`,
+  `app/(app)/commandes/[id]/page.js`) ne touche qu'au stock
+  (`articles.stock -= quantité`) — jamais à `commande.ca`/`marge` ni à
+  `commande_lignes.prix_achat`/`frais_annexes`, qu'un ou plusieurs
+  réapprovisionnements aient entre-temps changé le coût moyen de
+  l'article ou non. **Le coût retenu pour une commande est donc toujours
+  celui en vigueur au moment où elle a été passée, jamais celui du jour
+  de sa livraison** — comportement déjà en place avant cette migration,
+  confirmé ici et volontairement inchangé.
+- **Articles déjà existants** : aucun backfill, aucun recalcul
+  rétroactif — leur `prix_achat`/`frais_annexes` actuel devient
+  simplement le point de départ du premier réapprovisionnement suivant.
+- **Modification manuelle (« Modifier l'article »)** : `validerEdition()`
+  continue d'écrire `prix_achat`/`frais_annexes` directement, sans
+  passer par `reappros` ni par le trigger — reste la seule façon
+  d'écraser directement le coût moyen (ex. correction d'une erreur de
+  saisie), inchangée par cette migration.
+
+## Troncature des noms d'article à l'écran
+
+`lib/format.js` → `tronquerMilieuNom(nom, maxLen)` : raccourcit un nom
+trop long **au milieu**, jamais à la fin, pour que la fin du nom — presque
+toujours la couleur/variante pour les articles vendus dans cette app
+(« Blond », « (Marron / Noir) »...) — reste toujours lisible plutôt que
+masquée par la troncature. « Perruque Lace Front 20 Pouces Naturelle
+Blond » devient « Perruque Lace Front 20… Blond ». Déjà utilisée pour le
+catalogue imprimé (`LONGUEUR_NOM_IMPRESSION = 52`, voir « Impression du
+catalogue » plus bas) — désormais partagée (déplacée de
+`app/(app)/catalogue/page.js` vers `lib/format.js`) et réutilisée à
+l'écran avec un seuil plus court par défaut (`LONGUEUR_NOM_ECRAN = 40`,
+colonnes de tableau plus étroites qu'une fiche catalogue), surchargeable
+par appel pour un contexte particulier (ex. 28 caractères dans les
+libellés de `ArticleSelect.js`, qui partagent déjà la ligne avec le code
+article, le prix et le stock disponible).
+
+**`.sb-nom-tronque`** (`app/globals.css`) : filet de sécurité CSS
+(`white-space: nowrap`, `overflow: hidden`, `text-overflow: ellipsis`) —
+si l'estimation en caractères ne correspond malgré tout pas exactement à
+la largeur réellement disponible (police, zoom, largeur de colonne
+variable), le navigateur coupe proprement avec ses propres points de
+suspension plutôt que de déborder sur une 2e ligne ou hors de sa
+cellule/son conteneur. `title={nom complet}` posé à chaque endroit
+raccourci — infobulle au survol sur ordinateur, seul moyen simple de
+retrouver le nom complet sans naviguer ailleurs.
+
+**Où c'est appliqué** : liste et export PDF du stock (`/articles`),
+tableau « Marge réelle sur le stock actuel », historique des
+réapprovisionnements (global et par article), tableaux d'articles
+sélectionnés et libellés `ArticleSelect.js` (Nouvelle commande,
+modification d'une commande, réapprovisionnement), tableau « Articles »
+d'une commande (vue et édition), classement des produits les plus vendus
+(Statistiques).
+
+**Jamais appliqué** : fiche détaillée de l'article (nom complet toujours
+affiché en entier — c'est justement l'endroit prévu pour le consulter
+sans troncature), confirmation de commande imprimée/PDF et message
+WhatsApp (`components/Receipt.js` — un document destiné à un client
+garde toujours le nom complet), ticker d'alertes de stock faible du
+Dashboard (bannière défilante — déjà conçue pour révéler le nom en
+entier au fil du défilement, une troncature y serait contre-productive).
+Le nom complet reste de toute façon **toujours enregistré tel quel en
+base de données** : seul l'affichage à ces endroits précis est raccourci.
+
 ## Pages de détail (Commandes / Articles / Clients)
 
 Plutôt que des boutons d'action collés sur chaque ligne (petits boutons
