@@ -469,7 +469,7 @@ export default function CommandeDetailPage() {
                   isDisabled={(a) => stockDispoEdition(a.id) < 1}
                   placeholder={t("commandes.selectArticle")}
                   emptyLabel={t("common.aucunResultatArticle")}
-                  getLabel={(a) => `${a.nom} — ${fmt(a.prix_vente)} ${t("commandes.dispoSuffix", { n: stockDispoEdition(a.id), unite: uniteLabel(a.unite) })}`}
+                  getLabel={(a) => `${a.code} · ${a.nom} — ${fmt(a.prix_vente)} ${t("commandes.dispoSuffix", { n: stockDispoEdition(a.id), unite: uniteLabel(a.unite) })}`}
                 />
               </div>
               <div className="sb-field" style={{ flex: 0.5, minWidth: 70 }}>

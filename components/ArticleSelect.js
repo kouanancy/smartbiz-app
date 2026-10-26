@@ -44,7 +44,7 @@ export default function ArticleSelect({ articles, value, onChange, getLabel, isD
   const resultats = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return articles;
-    return articles.filter((a) => a.nom.toLowerCase().includes(q));
+    return articles.filter((a) => a.nom.toLowerCase().includes(q) || a.code?.toLowerCase().includes(q));
   }, [articles, query]);
 
   function selectionner(a) {

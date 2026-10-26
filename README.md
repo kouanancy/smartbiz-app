@@ -905,15 +905,85 @@ réel ≤ 0, indépendamment de ce message.
 HTML ne peut ni filtrer en tapant, ni contenir d'image (limitations
 universelles des navigateurs), donc un champ de recherche avec
 suggestions (fermeture au clic extérieur) filtre la liste en temps réel
-sur `articles.nom` (recherche insensible à la casse, sur toute la chaîne,
-pas seulement le début) et affiche la photo de chaque résultat en
-miniature à côté de son nom/prix/stock, avec le même pictogramme de repli
-que `ImageUploadField` pour les articles sans photo. Le champ reste
+sur `articles.nom` **et `articles.code`** (recherche insensible à la
+casse, sur toute la chaîne, pas seulement le début) et affiche la photo
+de chaque résultat en miniature à côté de son code/nom/prix/stock
+(`getLabel`, propre à chaque écran appelant), avec le même pictogramme de
+repli que `ImageUploadField` pour les articles sans photo. Le champ reste
 utilisable au clavier (Entrée sélectionne le premier résultat non
 désactivé, Échap referme et revient au nom déjà sélectionné) comme au
 clic/tactile (choisir une suggestion). Utilisé à la fois dans Nouvelle
 commande et dans la modale d'édition d'une commande (Commandes) — même
 composant, même comportement de recherche aux deux endroits.
+
+## Code article
+
+Chaque article reçoit à sa création un code unique et définitif au
+format `ART-0001`, `ART-0002`... — numérotation propre à chaque boutique
+(chaque boutique repart de `ART-0001`), jamais réattribué même après
+suppression d'un article. Sur le même principe que `commandes.numero`
+(`CMD-0001`), mais **pas la même implémentation** : la numérotation des
+commandes reste calculée côté client (`business.next_numero` lu puis
+incrémenté par deux appels séparés, voir `app/(app)/nouvelle/page.js`),
+sans aucune garantie d'atomicité si deux commandes sont créées
+quasi simultanément depuis deux appareils ; le code article, lui, est
+entièrement attribué côté base de données, de façon atomique.
+
+**`supabase-articles-code-migration.sql`** :
+
+- `articles.code` (`text not null`, contrainte d'unicité sur
+  `(business_id, code)`) et `businesses.next_code_article` (compteur par
+  boutique, défaut `1`).
+- **`gerer_code_article()`** (`security definer`, deux triggers
+  `before insert`/`before update` sur `articles`) :
+  - À l'**insertion**, ignore toute valeur de `code` envoyée par le
+    client (même via un appel direct à l'API REST en dehors de cette
+    app) et attribue toujours `'ART-' || lpad(next_code_article, 4, '0')`,
+    en incrémentant le compteur de la boutique dans la même opération
+    (`update businesses set next_code_article = next_code_article + 1
+    where id = ... returning next_code_article - 1`) — cet `update`
+    verrouille la ligne `businesses` concernée jusqu'à la fin de la
+    transaction, donc deux créations quasi simultanées pour la même
+    boutique sérialisent naturellement sur ce verrou et reçoivent
+    toujours deux numéros distincts.
+  - À la **modification**, reverrouille systématiquement `code` sur sa
+    valeur d'origine (`new.code := old.code`) quoi que le client
+    envoie — jamais modifiable après coup, par l'UI comme par un appel
+    direct à l'API.
+  - À la **suppression**, rien de spécial : `next_code_article` n'est
+    jamais décrémenté, donc un code supprimé n'est jamais réattribué.
+  - `security definer` est ici indispensable, pas seulement une
+    précaution : `next_code_article` n'apparaît volontairement dans
+    aucun `grant update` accordé à `authenticated` (voir « Durcissement
+    RLS » plus bas, même principe que `rapport_hebdo_dernier_envoi` ou
+    tout autre compteur/état interne de `businesses`) — sans
+    `security definer`, le trigger s'exécuterait avec les privilèges de
+    l'appelant et échouerait à chaque insertion faute de droit d'écrire
+    cette colonne.
+- **Backfill rejouable sans risque** : une requête `with ... row_number()
+  over (partition by business_id order by created_at asc, id asc)`
+  attribue un code à tous les articles déjà existants au moment de la
+  migration (le plus ancien reçoit `ART-0001`), en reprenant après le
+  plus grand code déjà attribué à chaque boutique plutôt que de
+  toujours repartir de 1 — seules les lignes `where code is null` sont
+  concernées, donc une exécution ultérieure ne trouve plus rien à faire.
+  Exécuté **avant** la création des triggers ci-dessus : le trigger de
+  verrouillage sur `update`, s'il existait déjà à ce moment, annulerait
+  silencieusement cette toute première attribution. `next_code_article`
+  de chaque boutique est ensuite recalculé depuis `max(code) + 1` —
+  sûr à rejouer à tout moment, y compris après que de nouveaux articles
+  ont déjà été créés par le trigger, puisque cette étape ne fait que
+  reconfirmer l'invariant déjà en place plutôt que de le perturber.
+
+**Affichage** : colonne dédiée (première colonne, police mono) sur la
+liste du stock (`/articles`) et dans l'export Excel/PDF (voir « Export
+Excel » plus haut), champ sur la fiche détaillée
+(`app/(app)/articles/[id]/page.js`), préfixe du libellé dans
+`ArticleSelect.js` (Nouvelle commande et modification d'une commande).
+**Jamais affiché sur le catalogue partageable**
+(`app/(app)/catalogue/page.js`) ni sur la confirmation de commande
+imprimée/PDF (`components/Receipt.js`) — un code interne de gestion de
+stock n'a pas sa place sur un document destiné à un client.
 
 ## Pages de détail (Commandes / Articles / Clients)
 
@@ -1069,9 +1139,13 @@ En complément de l'impression PDF, un bouton « Exporter en Excel »
 de télécharger un fichier `.xlsx` directement depuis le navigateur, sans
 aller-retour serveur, sur quatre modules :
 
-- **Stock / Articles** (`/articles`) : nom, catégorie, prix d'achat, frais
-  annexes, prix de vente, marge réelle, stock, unité — respecte le filtre
-  par catégorie et la recherche actifs à l'écran.
+- **Stock / Articles** (`/articles`) : code, nom, catégorie, prix d'achat,
+  frais annexes, prix de vente, marge réelle, stock, unité — respecte le
+  filtre par catégorie et la recherche actifs à l'écran. À côté, un
+  bouton « Imprimer / PDF » (même principe que Trésorerie ci-dessous —
+  portail `.sb-stock-print` dans `<body>`, voir « Code article » plus
+  bas) couvre les mêmes colonnes essentielles (code, nom, catégorie,
+  achat, vente, marge, stock) sur une mise en page A4.
 - **Clients** (`/clients`) : nom, téléphone, adresse, e-mail, nombre de
   commandes, total des achats — respecte la recherche et le filtre
   « afficher les désactivés ».

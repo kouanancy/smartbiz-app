@@ -488,7 +488,7 @@ export default function NouvelleCommandePage() {
                   isDisabled={(a) => a.stock <= 0}
                   placeholder={t("nouvelle.selectArticle")}
                   emptyLabel={t("common.aucunResultatArticle")}
-                  getLabel={(a) => `${a.nom} — ${fmt(a.prix_vente)} ${t("nouvelle.stockSuffix", { n: a.stock, unite: uniteLabel(a.unite) })}`}
+                  getLabel={(a) => `${a.code} · ${a.nom} — ${fmt(a.prix_vente)} ${t("nouvelle.stockSuffix", { n: a.stock, unite: uniteLabel(a.unite) })}`}
                 />
               </div>
               <div className="sb-field" style={{ flex: 0.5, minWidth: 70 }}>
@@ -614,7 +614,7 @@ export default function NouvelleCommandePage() {
                   isDisabled={(a) => a.stock <= 0}
                   placeholder={t("nouvelle.selectArticle")}
                   emptyLabel={t("common.aucunResultatArticle")}
-                  getLabel={(a) => `${a.nom} — ${t("nouvelle.stockSuffix", { n: a.stock, unite: uniteLabel(a.unite) })}`}
+                  getLabel={(a) => `${a.code} · ${a.nom} — ${t("nouvelle.stockSuffix", { n: a.stock, unite: uniteLabel(a.unite) })}`}
                 />
               </div>
               <div className="sb-field" style={{ flex: 0.5, minWidth: 70 }}>
