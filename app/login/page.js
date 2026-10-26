@@ -167,9 +167,9 @@ export default function LoginPage() {
               <Mail size={24} />
             </div>
             <h1 className="sb-h1" style={{ marginBottom: 8 }}>
-              Confirme ton adresse
+              Confirmez votre adresse
             </h1>
-            <p style={{ fontSize: 13, color: "var(--muted)" }}>Vérifie ta boîte mail pour confirmer ton adresse et activer ton compte.</p>
+            <p style={{ fontSize: 13, color: "var(--muted)" }}>Vérifiez votre boîte mail pour confirmer votre adresse et activer votre compte.</p>
           </div>
         ) : forgotPasswordOpen ? (
           <div>
@@ -180,7 +180,7 @@ export default function LoginPage() {
               <>
                 <p style={{ fontSize: 13, color: "var(--muted)", margin: "8px 0 16px" }}>
                   Si un compte existe avec l&apos;adresse <strong>{resetEmail}</strong>, un e-mail contenant un lien de
-                  réinitialisation vient d&apos;être envoyé. Pense à vérifier tes spams.
+                  réinitialisation vient d&apos;être envoyé. Pensez à vérifier vos spams.
                 </p>
                 <button
                   type="button"
@@ -198,7 +198,7 @@ export default function LoginPage() {
             ) : (
               <>
                 <p style={{ fontSize: 13, color: "var(--muted)", margin: "8px 0 16px" }}>
-                  Indique l&apos;adresse e-mail de ton compte, on t&apos;envoie un lien pour choisir un nouveau mot de
+                  Indiquez l&apos;adresse e-mail de votre compte, on vous envoie un lien pour choisir un nouveau mot de
                   passe.
                 </p>
                 {resetError && <div className="sb-auth-error">{resetError}</div>}
@@ -267,7 +267,7 @@ export default function LoginPage() {
 
         {mode === "signup" && signupStep === "plan" ? (
           <div className="sb-auth-plans">
-            <p className="sb-auth-plans-intro">Choisis la formule qui correspond le mieux à ton commerce.</p>
+            <p className="sb-auth-plans-intro">Choisissez la formule qui correspond le mieux à votre commerce.</p>
             {PLANS.map((key) => {
               const indisponible = PLANS_INDISPONIBLES.includes(key);
               return (

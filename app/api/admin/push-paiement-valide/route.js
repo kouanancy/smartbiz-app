@@ -87,7 +87,7 @@ export async function POST(request) {
   const dateTexte = expiresAt ? new Date(expiresAt).toLocaleDateString("fr-FR") : "";
   const payload = JSON.stringify({
     title: "Paiement validé",
-    body: dateTexte ? `Ton paiement a été validé, ton abonnement est actif jusqu'au ${dateTexte}.` : "Ton paiement a été validé.",
+    body: dateTexte ? `Votre paiement a été validé, votre abonnement est actif jusqu'au ${dateTexte}.` : "Votre paiement a été validé.",
     url: "/parametres",
   });
 

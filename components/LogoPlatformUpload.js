@@ -123,8 +123,8 @@ export default function LogoPlatformUpload({ label, businessId, value, onChange 
       const notFound = /bucket.*not.*found/i.test(err?.message || "");
       setError(
         notFound
-          ? `Le bucket "${BUCKET}" n'existe pas encore sur ce projet Supabase — exécute supabase-storage-setup.sql dans l'éditeur SQL.`
-          : "Échec de l'envoi du logo. Réessaie."
+          ? `Le bucket "${BUCKET}" n'existe pas encore sur ce projet Supabase — exécutez supabase-storage-setup.sql dans l'éditeur SQL.`
+          : "Échec de l'envoi du logo. Réessayez."
       );
       setPreviewUrl(value || "");
     } finally {
@@ -187,7 +187,7 @@ export default function LogoPlatformUpload({ label, businessId, value, onChange 
         </div>
       </div>
       <p style={{ fontSize: 11, color: "var(--text-faint)", margin: 0 }}>
-        Clique dans la zone puis colle une image (Ctrl+V), ou choisis un fichier — idéalement carrée.
+        Cliquez dans la zone puis collez une image (Ctrl+V), ou choisissez un fichier — idéalement carrée.
       </p>
       {error && <p style={{ fontSize: 11, color: "var(--coral)", margin: 0 }}>{error}</p>}
     </div>

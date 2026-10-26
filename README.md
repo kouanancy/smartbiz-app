@@ -382,7 +382,7 @@ dépôt ne stocke ni ne vérifie lui-même aucun mot de passe.
 **Mot de passe oublié** (`app/login/page.js`) : un lien « Mot de passe
 oublié ? » sous le champ mot de passe (visible seulement en mode
 Connexion, jamais en Inscription) ouvre un écran dédié — même principe
-que l'écran « Confirme ton adresse » après inscription (remplace
+que l'écran « Confirmez votre adresse » après inscription (remplace
 entièrement tabs/formulaire tant qu'actif, jamais mélangé). Un e-mail
 suffit, envoyé via `supabase.auth.resetPasswordForEmail(email, {
 redirectTo: "<origine>/reinitialiser-mot-de-passe" })`. Le message de
@@ -483,8 +483,8 @@ repli sur `'autonome'` si absent/invalide.
 session immédiate (confirmation e-mail requise côté Supabase — voir
 « Notifications push (Web Push) » plus bas pour un rappel : ce dépôt
 n'envoie jamais lui-même cet e-mail), un état dédié (`awaitingConfirmation`)
-remplace entièrement les onglets/formulaire par un simple écran « Confirme
-ton adresse » (icône enveloppe + message unique), plutôt que de rediriger
+remplace entièrement les onglets/formulaire par un simple écran « Confirmez
+votre adresse » (icône enveloppe + message unique), plutôt que de rediriger
 vers l'écran de connexion habituel avec un message temporaire — jamais
 mélangé aux deux autres états (connexion / choix de formule + formulaire)
 pour qu'il n'y ait aucune ambiguïté sur l'étape en cours. Une fois le lien
@@ -625,7 +625,7 @@ création) → `livree` ou `annulee`.
 - **« Annuler »** (au lieu d'une suppression définitive) n'est possible que
   sur une commande en attente — aucune restitution de stock n'est
   nécessaire puisqu'il n'a jamais été déduit — et demande confirmation
-  (« Es-tu sûr(e) de vouloir annuler cette commande ? »). Une commande
+  (« Êtes-vous sûr de vouloir annuler cette commande ? »). Une commande
   livrée ou déjà annulée ne peut plus être ni modifiée ni annulée.
 - La page Commandes affiche un indicateur du nombre de commandes en attente
   de livraison et un filtre Toutes / En attente de livraison / Livrées.
@@ -1517,21 +1517,44 @@ fichier `lib/i18n/<code>.js` avec les mêmes clés, l'enregistrer dans
 Nécessite la migration `supabase-businesses-langue-migration.sql` (voir
 Démarrage).
 
-## Formulations neutres, sans marqueur de genre
+## Vouvoiement et formulations neutres, sans marqueur de genre
 
-Le français en `lib/i18n/fr.js` évite volontairement tout marqueur de
-genre pour désigner un rôle générique (le client, le commerçant) — jamais
+Toute l'interface visible (libellés, boutons, messages d'erreur et de
+confirmation, aides sous les champs, notifications, visite guidée,
+e-mails, messages WhatsApp générés, pages légales et site vitrine) est au
+vouvoiement, sans aucune exception de tutoiement résiduelle — y compris
+les impératifs sans pronom explicite (« Clique » → « Cliquez », « Tape »
+→ « Tapez »...), repérés par relecture complète plutôt que par un simple
+remplacement de « tu »/« ton »/« ta »/« tes », qui aurait laissé passer
+ces formes-là. Les trois seuls marqueurs de genre explicites du code
+(« Es-tu sûr**(e)** », « enregistré**(e)** », « récompensé**(e)** » dans
+`lib/roadmap.js`) ont été neutralisés en même temps (forme masculine
+seule, déjà la convention par défaut ailleurs dans l'app — ex.
+`subtitleCount` toujours « article**s** référencé**s** », jamais de
+variante féminine).
+
+Le français en `lib/i18n/fr.js` évite par ailleurs tout marqueur de genre
+pour désigner un rôle générique (le client, le commerçant) — jamais
 « cliente », « commerçante » ou un accord féminin implicite, y compris
 dans les messages générés automatiquement (WhatsApp, `Receipt.js`) et sur
-le site vitrine (`components/LandingPage.js`, `lib/roadmap.js`). Le
-tutoiement déjà en place partout reste inchangé : il ne porte lui-même
-aucune marque de genre en français (contrairement à un participe passé ou
-un adjectif prédicatif accordés avec « tu »), donc rien à modifier de ce
-côté. `lib/i18n/en.js` n'était pas concerné (l'anglais ne genre pas ces
-mots) — seules ses clés internes contenaient encore le mot « cliente »
-(ex. `clienteLabel`), jamais affiché, volontairement laissées telles
-quelles pour ne pas renommer inutilement des identifiants partagés avec
-`fr.js` (voir plus bas, ce ne sont que des noms de clé).
+le site vitrine (`components/LandingPage.js`, `lib/roadmap.js`).
+`lib/i18n/en.js` n'était pas concerné (l'anglais n'a ni tutoiement/
+vouvoiement ni ce genre d'accord) — seules ses clés internes contiennent
+encore le mot « cliente » (ex. `clienteLabel`), jamais affiché,
+volontairement laissées telles quelles pour ne pas renommer inutilement
+des identifiants partagés avec `fr.js` (voir plus bas, ce ne sont que des
+noms de clé) ; il en va de même côté `fr.js` (`colCliente`,
+`clienteLabel`...) — les valeurs affichées disent déjà « Client » partout,
+rien à changer là non plus.
+
+Volontairement laissés tels quels, car jamais montrés à un utilisateur :
+le commentaire de code de `components/ModuleMockup.js` et `components/
+PlanGrid.js` qui emploie encore « cliente » pour nommer une variable dans
+une phrase de commentaire, et la note éditoriale au tutoiement dans
+`doka-mentions-legales.md` (« Note pour toi : tant que l'entreprise n'est
+pas immatriculée... ») — un blockquote Markdown, explicitement filtré par
+`components/LegalDocument.js` (`blockquote: () => null`) et donc jamais
+rendu sur la page `/mentions-legales` elle-même.
 
 **Deux exceptions délibérées, jamais neutralisées** : `components/LandingPage.js`
 attribue « Fondatrice de Doka » à Nancy Koné dans la section « Notre
@@ -2029,7 +2052,7 @@ selon la devise de la boutique comme partout ailleurs —, le QR Wave
 et l'historique des paiements envoyés par cette boutique
 (`paiements_abonnement`, triés du plus récent au plus ancien). Le paiement
 le plus récent détermine la bannière affichée en haut : « en attente de
-vérification » (message exact demandé : « Merci ! Ton paiement est en
+vérification » (message exact demandé : « Merci ! Votre paiement est en
 cours de vérification, l'activation peut prendre jusqu'à 1 heure. ») s'il
 est `en_attente`, la raison du rejet s'il est `echoue`, rien s'il est
 `reussi` ou s'il n'y a encore aucun envoi.
@@ -2428,7 +2451,7 @@ continu — le contenu reste affiché, juste sans mouvement.
 reformulé, signé sur deux lignes (`.sb-landing-histoire-signature`) —
 « Nancy Koné » puis « Fondatrice de Doka ».
 
-**Pourquoi Doka pour ton commerce** : court paragraphe (pas une liste de
+**Pourquoi Doka pour votre commerce** : court paragraphe (pas une liste de
 cartes, texte fourni tel quel, sans tiret) expliquant pourquoi Doka
 correspond à ce type de commerçant — simplicité, prix accessible, données
 qui restent les siennes.
@@ -2706,7 +2729,7 @@ insérées depuis le client — voir RLS plus bas) :
   (`supabase-confirmation-paiement-migration.sql`, pas un déclencheur
   séparé puisque la fonction gère déjà toute la validation) au moment où
   l'administratrice marque un paiement comme payé — avec la nouvelle date
-  d'expiration en toutes lettres (« Ton paiement a été validé, ton
+  d'expiration en toutes lettres (« Votre paiement a été validé, votre
   abonnement est actif jusqu'au JJ/MM/AAAA. »). Jusqu'ici, rien ne
   prévenait le commerçant que son paiement avait été validé — il ne le
   découvrait qu'en revenant sur l'app.

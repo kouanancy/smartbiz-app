@@ -70,8 +70,8 @@ export async function GET(request) {
           body: JSON.stringify({
             from: RESEND_FROM,
             to: b.business_email,
-            subject: "Ton abonnement Doka expire bientôt",
-            text: `Bonjour ${b.business_name || ""},\n\nTon abonnement Doka expire le ${dateTexte}. Rends-toi dans Paramètres pour le renouveler et éviter toute interruption de service.`,
+            subject: "Votre abonnement Doka expire bientôt",
+            text: `Bonjour ${b.business_name || ""},\n\nVotre abonnement Doka expire le ${dateTexte}. Rendez-vous dans Paramètres pour le renouveler et éviter toute interruption de service.`,
           }),
         });
         if (!res.ok) throw new Error(await res.text());
@@ -94,7 +94,7 @@ export async function GET(request) {
         .eq("business_id", b.business_id);
       const payload = JSON.stringify({
         title: "Abonnement bientôt expiré",
-        body: `Ton abonnement Doka expire le ${dateTexte}.`,
+        body: `Votre abonnement Doka expire le ${dateTexte}.`,
         url: "/parametres",
       });
       const aSupprimer = [];
