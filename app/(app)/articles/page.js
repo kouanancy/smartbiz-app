@@ -31,6 +31,21 @@ const emptyForm = {
 const FILTRE_TOUTES = "toutes";
 const FILTRE_SANS_CATEGORIE = "sans-categorie";
 
+// Seuil de troncature du nom d'article dans le tableau imprimé/PDF du
+// stock (page A4 pleine largeur, mais 7 colonnes — code, article,
+// catégorie, achat, vente, marge, stock — qui se partagent la place),
+// calibré par capture d'écran (page.emulateMedia('print')) sur la
+// largeur réellement disponible pour la colonne Article (~200-220px une
+// fois les 6 autres colonnes réservées) — nettement moins généreux que
+// le tableau à 5 colonnes de la confirmation de commande (voir
+// components/Receipt.js). Le <td> porte aussi un max-width (voir plus
+// bas), volontairement plus large que le rendu attendu de cette chaîne :
+// un vrai filet de sécurité, jamais une contrainte qui retronquerait en
+// plus du JS — un max-width trop serré ferait perdre la fin du nom
+// (couleur/variante) à la troncature CSS, qui coupe toujours à la fin et
+// jamais au milieu contrairement à tronquerMilieuNom().
+const LONGUEUR_NOM_IMPRESSION = 28;
+
 export default function ArticlesPage() {
   const { business } = useAuth();
   const router = useRouter();
@@ -701,7 +716,7 @@ export default function ArticlesPage() {
                 return (
                   <tr key={a.id}>
                     <td>{a.code}</td>
-                    <td>{tronquerMilieuNom(a.nom)}</td>
+                    <td className="sb-nom-tronque" style={{ maxWidth: 230 }}>{tronquerMilieuNom(a.nom, LONGUEUR_NOM_IMPRESSION)}</td>
                     <td>{categorieName(a.categorie_id)}</td>
                     <td style={{ textAlign: "right" }}>{fmt(a.prix_achat)}</td>
                     <td style={{ textAlign: "right" }}>{fmt(a.prix_vente)}</td>
