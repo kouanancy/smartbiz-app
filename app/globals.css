@@ -2105,6 +2105,15 @@ a {
     border-collapse: collapse;
     margin-bottom: 24px;
   }
+  /* Jamais une ligne coupée en plein milieu entre deux pages — même
+     principe que .sb-receipt-print-table tr (ci-dessus), qui l'avait
+     déjà ; cette règle manquait ici alors que le rapport de stock peut
+     tout autant déborder sur plusieurs pages qu'un grand nombre
+     d'articles référencés. */
+  .sb-stock-print-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
   .sb-stock-print-table th {
     text-align: left;
     font-size: 11px;

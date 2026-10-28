@@ -4,13 +4,37 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, Download, Image as ImageIcon, MessageCircle, Printer, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { fmt as fmtBase, dateLocale, toWhatsAppNumber } from "@/lib/format";
+import { fmt as fmtBase, dateLocale, toWhatsAppNumber, tronquerMilieuNom } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 
 // Marge @page (voir globals.css, .sb-receipt-print) — réutilisée ici pour
 // que le PDF généré par html2canvas/jsPDF (genererPdfBlob) corresponde à
 // la même mise en page A4 que l'impression navigateur classique.
 const PAGE_MARGIN_MM = 16;
+
+// Seuil de troncature des noms d'article dans le tableau imprimé/PDF
+// (table à 5 colonnes — photo, article, prix unitaire, quantité,
+// sous-total — sur une page A4 pleine largeur), calibré par capture
+// d'écran (page.emulateMedia('print')) sur la largeur réellement
+// disponible pour la colonne Article (~320-360px une fois les 4 autres
+// colonnes réservées). Le <td> porte aussi un max-width (voir plus bas),
+// volontairement plus large que le rendu attendu de cette chaîne : un
+// vrai filet de sécurité pour un rendu de police inhabituellement large,
+// jamais une contrainte qui retronquerait en plus du JS — un max-width
+// trop serré ferait perdre la fin du nom (couleur/variante) à la
+// troncature CSS, qui coupe toujours à la fin et jamais au milieu
+// contrairement à tronquerMilieuNom().
+const LONGUEUR_NOM_IMPRESSION = 42;
+
+// Seuil pour le nom d'article dans l'aperçu à l'écran (modale de 380px,
+// le nom partage sa ligne avec « ×quantité unité » à gauche et le
+// montant à droite — ou, pour un cadeau offert, le badge CadeauBadge,
+// plus large qu'un simple montant, qui laisse donc moins de place
+// disponible). Calibré sur le cas le plus serré (ligne d'un cadeau
+// offert sur mobile) par capture d'écran, pour que les deux sections
+// (lignesVendues et lignesOffertes) partagent un seul seuil cohérent
+// sans retroncature CSS qui ferait perdre la fin du nom.
+const LONGUEUR_NOM_APERCU = 22;
 
 // Couleurs "amber" du thème clair recopiées en dur (jamais var(--amber)/
 // var(--amber-bg)) : ce composant force déjà un fond blanc fixe partout
@@ -282,9 +306,14 @@ export default function Receipt({ commande, business, onClose }) {
 
           <div style={{ borderTop: "1px dashed #E4E2D8", borderBottom: "1px dashed #E4E2D8", padding: "10px 0", marginBottom: lignesOffertes.length > 0 ? 10 : 12 }}>
             {lignesVendues.map((l, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
-                <span>{l.nom} ×{l.quantite} {uniteLabel(l.unite)}</span>
-                <span className="sb-mono">{fmt(l.prix_vente * l.quantite)}</span>
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, fontSize: 12.5, marginBottom: 4 }}>
+                <span style={{ display: "flex", minWidth: 0, flex: 1 }}>
+                  <span className="sb-nom-tronque" title={l.nom} style={{ flex: 1, minWidth: 0 }}>
+                    {tronquerMilieuNom(l.nom, LONGUEUR_NOM_APERCU)}
+                  </span>
+                  <span style={{ flexShrink: 0 }}>&nbsp;×{l.quantite} {uniteLabel(l.unite)}</span>
+                </span>
+                <span className="sb-mono" style={{ flexShrink: 0 }}>{fmt(l.prix_vente * l.quantite)}</span>
               </div>
             ))}
             {commande.livraison_frais > 0 && (
@@ -301,8 +330,13 @@ export default function Receipt({ commande, business, onClose }) {
                 {t("receipt.cadeauxTitle")}
               </p>
               {lignesOffertes.map((l, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12.5, marginBottom: 4 }}>
-                  <span>{l.nom} ×{l.quantite} {uniteLabel(l.unite)}</span>
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, fontSize: 12.5, marginBottom: 4 }}>
+                  <span style={{ display: "flex", minWidth: 0, flex: 1 }}>
+                    <span className="sb-nom-tronque" title={l.nom} style={{ flex: 1, minWidth: 0 }}>
+                      {tronquerMilieuNom(l.nom, LONGUEUR_NOM_APERCU)}
+                    </span>
+                    <span style={{ flexShrink: 0 }}>&nbsp;×{l.quantite} {uniteLabel(l.unite)}</span>
+                  </span>
                   <CadeauBadge t={t} />
                 </div>
               ))}
@@ -459,7 +493,7 @@ export default function Receipt({ commande, business, onClose }) {
                       </div>
                     )}
                   </td>
-                  <td>{l.nom}</td>
+                  <td className="sb-nom-tronque" style={{ maxWidth: 340 }}>{tronquerMilieuNom(l.nom, LONGUEUR_NOM_IMPRESSION)}</td>
                   <td style={{ textAlign: "right" }}>{fmt(l.prix_vente)}</td>
                   <td style={{ textAlign: "center" }}>
                     {l.quantite} {uniteLabel(l.unite)}
@@ -506,7 +540,7 @@ export default function Receipt({ commande, business, onClose }) {
                           </div>
                         )}
                       </td>
-                      <td>{l.nom}</td>
+                      <td className="sb-nom-tronque" style={{ maxWidth: 340 }}>{tronquerMilieuNom(l.nom, LONGUEUR_NOM_IMPRESSION)}</td>
                       <td style={{ textAlign: "center" }}>
                         {l.quantite} {uniteLabel(l.unite)}
                       </td>

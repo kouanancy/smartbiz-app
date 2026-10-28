@@ -1058,22 +1058,19 @@ pour les réappros déjà existants avant cette migration (`NULL`, affiché
   d'écraser directement le coût moyen (ex. correction d'une erreur de
   saisie), inchangée par cette migration.
 
-## Troncature des noms d'article à l'écran
+## Troncature des noms d'article à l'écran et à l'impression
 
 `lib/format.js` → `tronquerMilieuNom(nom, maxLen)` : raccourcit un nom
 trop long **au milieu**, jamais à la fin, pour que la fin du nom — presque
 toujours la couleur/variante pour les articles vendus dans cette app
 (« Blond », « (Marron / Noir) »...) — reste toujours lisible plutôt que
 masquée par la troncature. « Perruque Lace Front 20 Pouces Naturelle
-Blond » devient « Perruque Lace Front 20… Blond ». Déjà utilisée pour le
-catalogue imprimé (`LONGUEUR_NOM_IMPRESSION = 52`, voir « Impression du
-catalogue » plus bas) — désormais partagée (déplacée de
-`app/(app)/catalogue/page.js` vers `lib/format.js`) et réutilisée à
-l'écran avec un seuil plus court par défaut (`LONGUEUR_NOM_ECRAN = 40`,
-colonnes de tableau plus étroites qu'une fiche catalogue), surchargeable
-par appel pour un contexte particulier (ex. 28 caractères dans les
-libellés de `ArticleSelect.js`, qui partagent déjà la ligne avec le code
-article, le prix et le stock disponible).
+Blond » devient « Perruque Lace Front 20… Blond ». Seuil par défaut à
+l'écran : `LONGUEUR_NOM_ECRAN = 40` (`lib/format.js`), surchargeable par
+appel pour un contexte particulier (ex. 28 caractères dans les libellés
+de `ArticleSelect.js`, qui partagent déjà la ligne avec le code article,
+le prix et le stock disponible) ou pour un document imprimé (voir plus
+bas).
 
 **`.sb-nom-tronque`** (`app/globals.css`) : filet de sécurité CSS
 (`white-space: nowrap`, `overflow: hidden`, `text-overflow: ellipsis`) —
@@ -1082,11 +1079,13 @@ la largeur réellement disponible (police, zoom, largeur de colonne
 variable), le navigateur coupe proprement avec ses propres points de
 suspension plutôt que de déborder sur une 2e ligne ou hors de sa
 cellule/son conteneur. `title={nom complet}` posé à chaque endroit
-raccourci — infobulle au survol sur ordinateur, seul moyen simple de
-retrouver le nom complet sans naviguer ailleurs.
+raccourci à l'écran — infobulle au survol sur ordinateur, seul moyen
+simple de retrouver le nom complet sans naviguer ailleurs (absent des
+documents imprimés ci-dessous : une infobulle n'a aucun sens sur papier
+ou dans un PDF).
 
-**Où c'est appliqué** : liste et export PDF du stock (`/articles`),
-tableau « Marge réelle sur le stock actuel », historique des
+**Où c'est appliqué à l'écran** : liste du stock (`/articles`), tableau
+« Marge réelle sur le stock actuel », historique des
 réapprovisionnements (global et par article), tableaux d'articles
 sélectionnés et libellés `ArticleSelect.js` (Nouvelle commande,
 modification d'une commande, réapprovisionnement), tableau « Articles »
@@ -1095,13 +1094,72 @@ d'une commande (vue et édition), classement des produits les plus vendus
 
 **Jamais appliqué** : fiche détaillée de l'article (nom complet toujours
 affiché en entier — c'est justement l'endroit prévu pour le consulter
-sans troncature), confirmation de commande imprimée/PDF et message
-WhatsApp (`components/Receipt.js` — un document destiné à un client
-garde toujours le nom complet), ticker d'alertes de stock faible du
-Dashboard (bannière défilante — déjà conçue pour révéler le nom en
-entier au fil du défilement, une troncature y serait contre-productive).
-Le nom complet reste de toute façon **toujours enregistré tel quel en
-base de données** : seul l'affichage à ces endroits précis est raccourci.
+sans troncature), pages de détail en général, ticker d'alertes de stock
+faible du Dashboard (bannière défilante — déjà conçue pour révéler le nom
+en entier au fil du défilement, une troncature y serait contre-productive),
+et le message WhatsApp texte de la confirmation de commande (pas de
+contrainte de largeur de colonne dans une conversation WhatsApp — seul le
+PDF joint, voir plus bas, applique la règle). Le nom complet reste de
+toute façon **toujours enregistré tel quel en base de données** : seul
+l'affichage à ces endroits précis est raccourci.
+
+### À l'impression et dans les PDF
+
+Même mécanisme (`tronquerMilieuNom`, `.sb-nom-tronque`), étendu à tous les
+documents imprimés ou exportés en PDF listant des noms d'article —
+**sauf les exports Excel**, qui gardent toujours le nom complet (fichiers
+de données destinés à être retravaillés, pas des documents de lecture à
+largeur fixe). Chaque document a son propre seuil `LONGUEUR_NOM_IMPRESSION`
+(constante locale au fichier, même nom partout pour un repérage facile),
+calibré par capture d'écran (`page.emulateMedia('print')`) sur la largeur
+réellement disponible pour la colonne Article une fois les autres
+colonnes réservées — pas une estimation théorique, une mesure empirique,
+tant les mises en page diffèrent d'un document à l'autre :
+
+- **Catalogue imprimé** (`app/(app)/catalogue/page.js`) : 52 — grille de
+  fiches, une seule colonne par carte, le document le plus généreux.
+- **Confirmation de commande imprimée/PDF** (`components/Receipt.js`,
+  `LONGUEUR_NOM_IMPRESSION = 42`) : table à 5 colonnes (photo, article,
+  prix unitaire, quantité, sous-total) sur une page A4 pleine largeur —
+  s'applique aussi bien aux articles vendus qu'aux cadeaux offerts
+  (`lignesOffertes`). L'aperçu à l'écran (modale avant impression/envoi)
+  applique sa propre troncature, plus courte (`LONGUEUR_NOM_APERCU = 22`)
+  : la modale ne fait que 380px et, pour un cadeau offert, partage sa
+  ligne avec le badge `CadeauBadge`, plus large qu'un simple montant — un
+  seuil unique pour les deux sections (vendus/offerts) évite une
+  retroncature CSS qui ferait perdre la fin du nom sur la ligne la plus
+  serrée (cadeau offert, sur mobile).
+- **Rapport de stock imprimé/PDF** (`app/(app)/articles/page.js`,
+  `LONGUEUR_NOM_IMPRESSION = 28`) : table à 7 colonnes (code, article,
+  catégorie, achat, vente, marge, stock) sur la même largeur A4 — la
+  colonne Article y dispose de nettement moins de place que dans la
+  confirmation de commande, d'où un seuil plus court.
+
+Chaque `<td>` concerné porte aussi un `max-width` (en plus de la classe
+`.sb-nom-tronque`) : un vrai filet de sécurité, volontairement plus large
+que le rendu attendu de la chaîne déjà tronquée par JS, jamais une
+contrainte qui la retronquerait en plus — un `max-width` trop serré ferait
+perdre la fin du nom (couleur/variante) à la troncature CSS, qui coupe
+toujours à la fin et jamais au milieu contrairement à `tronquerMilieuNom()`
+(piège rencontré et corrigé pendant le calibrage : un premier essai avec
+un `max-width` trop étroit faisait disparaître le « (Lot de 3) » ou la
+couleur en fin de nom malgré une troncature JS déjà appliquée).
+
+**Pagination** : `.sb-receipt-print-table tr` avait déjà `break-inside:
+avoid` (aucune ligne coupée en plein milieu entre deux pages) ; la même
+règle, qui manquait sur `.sb-stock-print-table tr`, a été ajoutée par
+cohérence — un rapport de stock avec beaucoup d'articles peut tout autant
+déborder sur plusieurs pages qu'une confirmation de commande avec
+beaucoup de lignes. Vérifié avec un PDF de test à 40 articles + 21 lignes
+de commande (5 pages) : aucune ligne coupée, en-têtes de colonnes répétés
+en haut de chaque nouvelle page (comportement natif du navigateur).
+
+**Mise en page identique d'un appareil à l'autre** : les conteneurs
+d'impression (`.sb-receipt-print`, `.sb-stock-print`) sont bornés à
+`max-width: 178mm` (largeur imprimable d'une page A4), indépendamment du
+viewport d'origine — vérifié par capture d'écran en émulation
+`@media print` à 1280px (ordinateur) et 390px (téléphone) : rendu
+visuellement identique au pixel près dans les deux cas.
 
 ## Pages de détail (Commandes / Articles / Clients)
 
