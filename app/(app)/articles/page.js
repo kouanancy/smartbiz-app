@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { FileSpreadsheet, Plus, Printer, RefreshCw, Search, TrendingUp, X } from "lucide-react";
+import { FileSpreadsheet, Image as ImageIcon, Plus, Printer, RefreshCw, Search, TrendingUp, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
@@ -32,19 +32,27 @@ const FILTRE_TOUTES = "toutes";
 const FILTRE_SANS_CATEGORIE = "sans-categorie";
 
 // Seuil de troncature du nom d'article dans le tableau imprimé/PDF du
-// stock (page A4 pleine largeur, mais 7 colonnes — code, article,
-// catégorie, achat, vente, marge, stock — qui se partagent la place),
-// calibré par capture d'écran (page.emulateMedia('print')) sur la
-// largeur réellement disponible pour la colonne Article (~200-220px une
-// fois les 6 autres colonnes réservées) — nettement moins généreux que
-// le tableau à 5 colonnes de la confirmation de commande (voir
-// components/Receipt.js). Le <td> porte aussi un max-width (voir plus
-// bas), volontairement plus large que le rendu attendu de cette chaîne :
-// un vrai filet de sécurité, jamais une contrainte qui retronquerait en
-// plus du JS — un max-width trop serré ferait perdre la fin du nom
+// stock — volontairement limité à 5 colonnes (photo, code, article, prix
+// de vente, stock), aucune donnée de coût/rentabilité, voir plus bas —
+// ce qui laisse à la colonne Article nettement plus de place que l'ancien
+// tableau à 7 colonnes (achat/marge/catégorie retirés). Calibré par
+// capture d'écran (page.emulateMedia('print')) sur la largeur réellement
+// disponible. Le <td> porte aussi un max-width (voir plus bas),
+// volontairement plus large que le rendu attendu de cette chaîne : un
+// vrai filet de sécurité, jamais une contrainte qui retronquerait en plus
+// du JS — un max-width trop serré ferait perdre la fin du nom
 // (couleur/variante) à la troncature CSS, qui coupe toujours à la fin et
 // jamais au milieu contrairement à tronquerMilieuNom().
-const LONGUEUR_NOM_IMPRESSION = 28;
+const LONGUEUR_NOM_IMPRESSION = 45;
+
+// Même rouge que --coral (thème clair, lib/globals.css) recopié en dur :
+// comme le reste des documents imprimés de cette app (voir
+// components/Receipt.js), aucune variable CSS ici — un document imprimé
+// reste toujours sur fond blanc, indépendant du mode sombre éventuel de
+// l'app. Couleur appliquée au texte lui-même (jamais à un fond) pour
+// s'imprimer correctement même avec l'option « graphiques d'arrière-plan »
+// désactivée dans le navigateur.
+const COULEUR_RUPTURE_IMPRESSION = "#c24e37";
 
 export default function ArticlesPage() {
   const { business } = useAuth();
@@ -692,38 +700,43 @@ export default function ArticlesPage() {
             <div>
               <div className="label">{t("articles.subtitleCount", { n: printRows.length })}</div>
             </div>
-            <div>
-              <div className="label">{t("articles.margeReelleTitle")}</div>
-              <div className="value">{fmt(printRows.reduce((s, a) => s + (a.prix_vente - a.prix_achat - (a.frais_annexes || 0)) * a.stock, 0))}</div>
-            </div>
           </div>
 
+          {/* Volontairement limité à 5 colonnes, aucune donnée de coût ni
+              de rentabilité (ni prix d'achat, ni frais annexes, ni marge,
+              ni catégorie, ni stock théorique, ni seuil d'alerte, ni
+              unité) — uniquement de quoi reconnaître un article et
+              connaître ce qu'il en reste en stock réel. L'export Excel
+              (exporterExcel ci-dessus), lui, garde toutes les colonnes :
+              c'est un fichier de travail, pas ce document. */}
           <table className="sb-stock-print-table">
             <thead>
               <tr>
+                <th className="sb-stock-print-table-photo"></th>
                 <th>{t("articles.colCode")}</th>
                 <th>{t("articles.colArticle")}</th>
-                <th>{t("articles.colCategorie")}</th>
-                <th style={{ textAlign: "right" }}>{t("articles.colAchat")}</th>
                 <th style={{ textAlign: "right" }}>{t("articles.colVente")}</th>
-                <th style={{ textAlign: "right" }}>{t("articles.colMargeReelle")}</th>
                 <th style={{ textAlign: "right" }}>{t("articles.colStock")}</th>
               </tr>
             </thead>
             <tbody>
               {printRows.map((a) => {
-                const margeReelle = a.prix_vente - a.prix_achat - (a.frais_annexes || 0);
+                const enRupture = a.stock <= 0;
                 return (
                   <tr key={a.id}>
-                    <td>{a.code}</td>
-                    <td className="sb-nom-tronque" style={{ maxWidth: 230 }}>{tronquerMilieuNom(a.nom, LONGUEUR_NOM_IMPRESSION)}</td>
-                    <td>{categorieName(a.categorie_id)}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(a.prix_achat)}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(a.prix_vente)}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(margeReelle)}</td>
-                    <td style={{ textAlign: "right" }}>
-                      {a.stock} {uniteLabel(a.unite)}
+                    <td className="sb-stock-print-table-photo">
+                      {a.image_url ? (
+                        <img src={a.image_url} alt="" />
+                      ) : (
+                        <div className="sb-stock-print-table-photo-fallback">
+                          <ImageIcon size={14} />
+                        </div>
+                      )}
                     </td>
+                    <td className="sb-stock-print-table-code">{a.code}</td>
+                    <td className="sb-nom-tronque" style={{ maxWidth: 360 }}>{tronquerMilieuNom(a.nom, LONGUEUR_NOM_IMPRESSION)}</td>
+                    <td style={{ textAlign: "right" }}>{fmt(a.prix_vente)}</td>
+                    <td style={{ textAlign: "right", color: enRupture ? COULEUR_RUPTURE_IMPRESSION : undefined }}>{a.stock}</td>
                   </tr>
                 );
               })}

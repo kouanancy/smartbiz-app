@@ -1130,10 +1130,10 @@ tant les mises en page diffèrent d'un document à l'autre :
   retroncature CSS qui ferait perdre la fin du nom sur la ligne la plus
   serrée (cadeau offert, sur mobile).
 - **Rapport de stock imprimé/PDF** (`app/(app)/articles/page.js`,
-  `LONGUEUR_NOM_IMPRESSION = 28`) : table à 7 colonnes (code, article,
-  catégorie, achat, vente, marge, stock) sur la même largeur A4 — la
-  colonne Article y dispose de nettement moins de place que dans la
-  confirmation de commande, d'où un seuil plus court.
+  `LONGUEUR_NOM_IMPRESSION = 45`) : table à seulement 5 colonnes (photo,
+  code, article, vente, stock — voir « Rapport de stock imprimé/PDF
+  simplifié » plus bas), ce qui laisse à la colonne Article nettement
+  plus de place qu'un tableau chargé de colonnes supplémentaires.
 
 Chaque `<td>` concerné porte aussi un `max-width` (en plus de la classe
 `.sb-nom-tronque`) : un vrai filet de sécurité, volontairement plus large
@@ -1161,7 +1161,34 @@ viewport d'origine — vérifié par capture d'écran en émulation
 `@media print` à 1280px (ordinateur) et 390px (téléphone) : rendu
 visuellement identique au pixel près dans les deux cas.
 
-## Pages de détail (Commandes / Articles / Clients)
+### Rapport de stock imprimé/PDF simplifié
+
+Volontairement limité à **5 colonnes** — photo (miniature, ou pictogramme
+par défaut `ImageIcon` si l'article n'en a pas, même motif que
+`ArticleSelect.js`/`components/Receipt.js`), code article, nom (tronqué,
+voir ci-dessus), prix de vente, stock réel — pour un document à
+distribuer ou archiver sans y exposer de donnée de coût ni de
+rentabilité : prix d'achat, frais annexes, marge, catégorie, stock
+théorique, seuil d'alerte et unité en sont tous absents, contrairement à
+l'ancienne version de ce tableau (7 colonnes) et contrairement à l'export
+Excel du stock (`exporterExcel`, inchangé), qui lui garde toutes ses
+colonnes puisque c'est un fichier de travail, pas un document à
+distribuer. Respecte déjà le filtre de catégorie et la recherche actifs
+au moment du clic (`appliquerFiltresArticles`, requête dédiée à tout le
+stock filtré partagée avec `exporterExcel`, jamais seulement la page
+affichée).
+
+**Rupture de stock en rouge** : quand `a.stock <= 0`, la quantité est
+affichée dans la même teinte que `--coral` (thème clair), recopiée en dur
+(`COULEUR_RUPTURE_IMPRESSION`, comme toutes les couleurs des documents
+imprimés de cette app — jamais de variable CSS, un document imprimé reste
+toujours sur fond blanc indépendamment du mode sombre de l'app) —
+**appliquée au texte lui-même** (`color`), jamais à un fond
+(`background`), pour s'imprimer correctement même avec l'option
+« graphiques d'arrière-plan » désactivée dans le navigateur, qui
+n'imprime alors aucune couleur de fond mais respecte toujours la couleur
+du texte. Les autres quantités gardent la couleur normale du document
+(`color` non précisé, hérite du noir par défaut).
 
 Plutôt que des boutons d'action collés sur chaque ligne (petits boutons
 `padding: 4px 8px`, plusieurs par ligne, difficiles à toucher sans erreur
