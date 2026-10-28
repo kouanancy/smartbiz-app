@@ -2095,11 +2095,6 @@ a {
     color: #8a8682;
     margin-bottom: 8px;
   }
-  .sb-stock-print-totals .value {
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 22px;
-    font-weight: 700;
-  }
   .sb-stock-print-table {
     width: 100%;
     border-collapse: collapse;
@@ -2128,9 +2123,38 @@ a {
     font-size: 13px;
     border-bottom: 1px solid #e4e2d8;
   }
-  .sb-stock-print-table td:first-child {
+  /* Classe dédiée plutôt que td:first-child : la colonne photo
+     (.sb-stock-print-table-photo ci-dessous) est désormais la première
+     cellule de chaque ligne, le code article n'est plus le first-child. */
+  .sb-stock-print-table-code {
     font-family: "IBM Plex Mono", monospace;
     font-size: 12px;
+  }
+  /* Même gabarit que .sb-receipt-print-table-photo (components/Receipt.js,
+     juste au-dessus) : miniature carrée, ou pictogramme par défaut
+     (ImageIcon) si l'article n'a pas de photo — cohérent avec le reste de
+     l'application (ArticleSelect.js, fiche article, confirmation de
+     commande imprimée). */
+  .sb-stock-print-table-photo {
+    width: 44px;
+  }
+  .sb-stock-print-table-photo img {
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    object-fit: cover;
+    display: block;
+  }
+  .sb-stock-print-table-photo-fallback {
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    background: #f2f1ef;
+    border: 1px solid #e4e2d8;
+    color: #a6a29d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   .sb-stock-print-footer {
     display: flex;
