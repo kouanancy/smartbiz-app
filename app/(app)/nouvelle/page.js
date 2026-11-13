@@ -50,7 +50,16 @@ export default function NouvelleCommandePage() {
   const [zoneLivraison, setZoneLivraison] = useState("");
   const [modePaiement, setModePaiement] = useState("livraison");
   const [operateur, setOperateur] = useState(OPERATEURS_MOBILE_MONEY[0]);
+  // Payé en totalité : jamais déduit de modePaiement (choisir Mobile Money
+  // ne marque plus automatiquement la commande comme payée) — seule cette
+  // case le fait, et seulement quand l'acompte n'est pas utilisé (les deux
+  // sont mutuellement exclusifs, voir acompteChecked ci-dessous).
+  const [payeTotalite, setPayeTotalite] = useState(false);
 
+  // Acompte : décochée par défaut. Cochée, elle masque la section Paiement
+  // du bas (step4) — une commande avec acompte n'a ni mode de paiement
+  // propre ni "payé en totalité", seul le reste à payer compte désormais.
+  const [acompteChecked, setAcompteChecked] = useState(false);
   const [acompteMontant, setAcompteMontant] = useState("");
   const [acompteMode, setAcompteMode] = useState(MODES_PAIEMENT_ACOMPTE[0]);
 
@@ -163,7 +172,15 @@ export default function NouvelleCommandePage() {
     }, 0);
   const fraisLivraison =
     typeLivraison === "livraison" ? zones.find((z) => z.zone === zoneLivraison)?.frais || 0 : 0;
-  const peutValider = (lignes.length > 0 || lignesOffertes.length > 0) && !!clientId && !saving;
+  const totalDuSansAcompte = totalCa + fraisLivraison;
+  // Supérieur à 0 et strictement inférieur au total : un montant égal ou
+  // supérieur n'est plus un acompte, c'est un paiement complet — à faire
+  // via "Payé en totalité" (acompteChecked décoché) plutôt que via un
+  // acompte qui couvrirait déjà tout.
+  const acompteMontantValide =
+    !acompteChecked || (Number(acompteMontant) > 0 && Number(acompteMontant) < totalDuSansAcompte);
+  const peutValider =
+    (lignes.length > 0 || lignesOffertes.length > 0) && !!clientId && !saving && acompteMontantValide;
 
   async function enregistrerClient() {
     if (!nouveauTel.trim()) {
@@ -245,6 +262,16 @@ export default function NouvelleCommandePage() {
         0
       );
       const numero = numeroPrevu;
+      // Acompte et paiement de la commande sont mutuellement exclusifs
+      // (voir acompteChecked, la case juste en dessous de la livraison) :
+      // avec un acompte, paiement_mode retombe sur sa valeur par défaut
+      // ('livraison', affichée "Espèces") sans aucune signification
+      // particulière — seul l'acompte lui-même (sa propre
+      // commande_acomptes.mode_paiement, plus bas) compte pour cette
+      // commande. payeTotalite ne peut jamais être vrai en même temps
+      // qu'un acompte : la case "Payé en totalité" n'est même pas
+      // affichée dans ce cas (voir le rendu plus bas).
+      const payeTotaliteFinal = !acompteChecked && payeTotalite;
 
       const { data: commande, error: commandeError } = await supabase
         .from("commandes")
@@ -257,8 +284,9 @@ export default function NouvelleCommandePage() {
           livraison_type: typeLivraison,
           livraison_zone: typeLivraison === "livraison" ? zoneLivraison : null,
           livraison_frais: fraisLivraison,
-          paiement_mode: modePaiement,
-          paiement_operateur: modePaiement === "mobile_money" ? operateur : null,
+          paiement_mode: acompteChecked ? "livraison" : modePaiement,
+          paiement_operateur: !acompteChecked && modePaiement === "mobile_money" ? operateur : null,
+          paye_totalite: payeTotaliteFinal,
         })
         .select()
         .single();
@@ -281,14 +309,14 @@ export default function NouvelleCommandePage() {
       // livraison" (statut par défaut en base) et ne touche au stock qu'au
       // moment où elle est marquée "Livrée" depuis la page Commandes.
 
-      // Acompte facultatif, saisi dès la création — la commande elle-même
-      // reste créée même si cet acompte échoue (ex. stock théorique déjà
-      // négatif sur un article, voir le trigger de
+      // Acompte saisi dès la création quand la case est cochée — la
+      // commande elle-même reste créée même si cet acompte échoue (ex.
+      // stock théorique déjà négatif sur un article, voir le trigger de
       // supabase-commande-acomptes-migration.sql) : seul un message
       // d'erreur prévient, rien ne bloque l'enregistrement de la commande.
-      const montantAcompte = Number(acompteMontant) || 0;
       let acompteEnregistre = 0;
-      if (montantAcompte > 0) {
+      if (acompteChecked) {
+        const montantAcompte = Number(acompteMontant) || 0;
         const { error: acompteError } = await supabase.from("commande_acomptes").insert({
           commande_id: commande.id,
           business_id: business.id,
@@ -327,8 +355,9 @@ export default function NouvelleCommandePage() {
         livraison_type: typeLivraison,
         livraison_zone: typeLivraison === "livraison" ? zoneLivraison : null,
         livraison_frais: fraisLivraison,
-        paiement_mode: modePaiement,
-        paiement_operateur: modePaiement === "mobile_money" ? operateur : null,
+        paiement_mode: acompteChecked ? "livraison" : modePaiement,
+        paiement_operateur: !acompteChecked && modePaiement === "mobile_money" ? operateur : null,
+        paye_totalite: payeTotaliteFinal,
         acompteVerse: acompteEnregistre,
       });
       // Formulaire entièrement remis à son état initial pour la prochaine
@@ -352,6 +381,8 @@ export default function NouvelleCommandePage() {
       setZoneLivraison(zones[0]?.zone ?? "");
       setModePaiement("livraison");
       setOperateur(OPERATEURS_MOBILE_MONEY[0]);
+      setPayeTotalite(false);
+      setAcompteChecked(false);
       setAcompteMontant("");
       setAcompteMode(MODES_PAIEMENT_ACOMPTE[0]);
     } catch (err) {
@@ -767,66 +798,89 @@ export default function NouvelleCommandePage() {
         )}
       </div>
 
+      {/* Juste en dessous de la livraison, proposée dans les deux cas
+          (boutique ou livraison) : cocher Acompte remplace entièrement la
+          section Paiement du bas par le montant/mode de l'acompte — les
+          deux sont mutuellement exclusifs (voir valider()). */}
       <div className="sb-card" style={{ marginBottom: 16 }}>
-        <div className="sb-section-title">{t("nouvelle.step4")}</div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <button
-            className={`sb-btn ${modePaiement === "livraison" ? "sb-btn-primary" : "sb-btn-ghost"}`}
-            onClick={() => setModePaiement("livraison")}
-          >
-            {t("nouvelle.paiementLivraison")}
-          </button>
-          <button
-            className={`sb-btn ${modePaiement === "mobile_money" ? "sb-btn-primary" : "sb-btn-ghost"}`}
-            onClick={() => setModePaiement("mobile_money")}
-          >
-            {t("nouvelle.mobileMoney")}
-          </button>
-        </div>
-        {modePaiement === "mobile_money" && (
-          <div className="sb-field">
-            <label>{t("nouvelle.operateurLabel")}</label>
-            <select className="sb-input" value={operateur} onChange={(e) => setOperateur(e.target.value)}>
-              {OPERATEURS_MOBILE_MONEY.map((op) => (
-                <option key={op} value={op}>
-                  {op}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={acompteChecked}
+            onChange={(e) => {
+              setAcompteChecked(e.target.checked);
+              if (e.target.checked) setPayeTotalite(false);
+            }}
+          />
+          {t("nouvelle.acompteCheckboxLabel")}
+        </label>
+        <p className="sb-sub" style={{ margin: "4px 0 0" }}>{t("nouvelle.acompteCheckboxSub")}</p>
 
-      <div className="sb-card">
-        <div className="sb-section-title">{t("nouvelle.acompteTitle")}</div>
-        <p className="sb-sub" style={{ marginTop: -8, marginBottom: 12 }}>
-          {t("nouvelle.acompteSub")}
-        </p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <div className="sb-field" style={{ flex: 1, minWidth: 160 }}>
-            <label>{t("nouvelle.acompteMontantLabel")}</label>
-            <input
-              className="sb-input"
-              type="number"
-              min={0}
-              value={acompteMontant}
-              onChange={(e) => setAcompteMontant(e.target.value)}
-            />
-          </div>
-          {Number(acompteMontant) > 0 && (
+        {acompteChecked && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+            <div className="sb-field" style={{ flex: 1, minWidth: 160 }}>
+              <label>{t("nouvelle.acompteMontantLabel")}</label>
+              <input
+                className="sb-input"
+                type="number"
+                min={1}
+                max={totalDuSansAcompte - 1}
+                value={acompteMontant}
+                onChange={(e) => setAcompteMontant(e.target.value)}
+              />
+              {!acompteMontantValide && (
+                <p style={{ fontSize: 11, color: "var(--coral)", margin: "5px 2px 0" }}>{t("nouvelle.acompteMontantInvalide")}</p>
+              )}
+            </div>
             <div className="sb-field" style={{ flex: 1, minWidth: 160 }}>
               <label>{t("nouvelle.acompteModePaiementLabel")}</label>
               <select className="sb-input" value={acompteMode} onChange={(e) => setAcompteMode(e.target.value)}>
                 {MODES_PAIEMENT_ACOMPTE.map((m) => (
                   <option key={m} value={m}>
-                    {m}
+                    {m === "especes" ? t("nouvelle.especes") : t("nouvelle.mobileMoney")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {!acompteChecked && (
+        <div className="sb-card" style={{ marginBottom: 16 }}>
+          <div className="sb-section-title">{t("nouvelle.step4")}</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <button
+              className={`sb-btn ${modePaiement === "livraison" ? "sb-btn-primary" : "sb-btn-ghost"}`}
+              onClick={() => setModePaiement("livraison")}
+            >
+              {t("nouvelle.paiementLivraison")}
+            </button>
+            <button
+              className={`sb-btn ${modePaiement === "mobile_money" ? "sb-btn-primary" : "sb-btn-ghost"}`}
+              onClick={() => setModePaiement("mobile_money")}
+            >
+              {t("nouvelle.mobileMoney")}
+            </button>
+          </div>
+          {modePaiement === "mobile_money" && (
+            <div className="sb-field" style={{ marginBottom: 14 }}>
+              <label>{t("nouvelle.operateurLabel")}</label>
+              <select className="sb-input" value={operateur} onChange={(e) => setOperateur(e.target.value)}>
+                {OPERATEURS_MOBILE_MONEY.map((op) => (
+                  <option key={op} value={op}>
+                    {op}
                   </option>
                 ))}
               </select>
             </div>
           )}
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+            <input type="checkbox" checked={payeTotalite} onChange={(e) => setPayeTotalite(e.target.checked)} />
+            {t("nouvelle.payeTotaliteLabel")}
+          </label>
         </div>
-      </div>
+      )}
 
       <div className="sb-card">
         <div className="sb-section-title">{t("nouvelle.resume")}</div>
@@ -835,7 +889,7 @@ export default function NouvelleCommandePage() {
           fmt={fmt}
           totalArticles={totalCa}
           fraisLivraison={fraisLivraison}
-          paiementMode={modePaiement}
+          dejaPaye={!acompteChecked && payeTotalite}
           margeReelle={totalMargeReelle}
           toujoursAfficherFraisLivraison
         />

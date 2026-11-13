@@ -29,17 +29,30 @@ function totalAcompteVerse(commande) {
   return (commande.commande_acomptes || []).filter((a) => a.statut === "verse").reduce((s, a) => s + a.montant, 0);
 }
 
-// Même règle Mobile Money que ResumeCommandeTotaux.js/components/Receipt.js
-// (le CA est déjà réglé, seuls les frais de livraison restent dus) —
-// reprise ici pour en déduire le reste à payer une fois les acomptes
-// soustraits, sans dupliquer cette règle sous une autre forme.
+// Même règle que ResumeCommandeTotaux.js/components/Receipt.js (le CA est
+// déjà réglé, seuls les frais de livraison restent dus) — reprise ici pour
+// en déduire le reste à payer une fois les acomptes soustraits, sans
+// dupliquer cette règle sous une autre forme. commande.paye_totalite,
+// jamais paiement_mode (qui ne décrit que le moyen de paiement choisi, pas
+// si la commande est réglée — voir app/(app)/nouvelle/page.js).
 function totalDuCommande(commande) {
   const totalGeneral = commande.ca + (commande.livraison_frais || 0);
-  return commande.paiement_mode === "mobile_money" ? commande.livraison_frais || 0 : totalGeneral;
+  return commande.paye_totalite ? commande.livraison_frais || 0 : totalGeneral;
 }
 
 function resteAPayerCommande(commande) {
   return Math.max(0, totalDuCommande(commande) - totalAcompteVerse(commande));
+}
+
+// Mode de paiement repris pour l'acompte final de "Solder la commande" (qui
+// n'en demande pas la saisie) : celui du dernier acompte déjà versé sur
+// cette commande — il y en a toujours au moins un, ce bouton n'apparaissant
+// que si aUnAcompte (voir le rendu plus bas).
+function dernierModeAcompte(commande) {
+  const verses = (commande.commande_acomptes || [])
+    .filter((a) => a.statut === "verse")
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  return verses[0]?.mode_paiement || "especes";
 }
 
 export default function CommandeDetailPage() {
@@ -65,12 +78,15 @@ export default function CommandeDetailPage() {
   const [editZoneLivraison, setEditZoneLivraison] = useState("");
   const [editModePaiement, setEditModePaiement] = useState("livraison");
   const [editOperateur, setEditOperateur] = useState(OPERATEURS_MOBILE_MONEY[0]);
+  const [editPayeTotalite, setEditPayeTotalite] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
 
   const [acompteOpen, setAcompteOpen] = useState(false);
   const [acompteMontant, setAcompteMontant] = useState("");
   const [acompteMode, setAcompteMode] = useState(MODES_PAIEMENT_ACOMPTE[0]);
+  const [solderSaving, setSolderSaving] = useState(false);
+  const [solderError, setSolderError] = useState("");
   const [acompteSaving, setAcompteSaving] = useState(false);
   const [acompteError, setAcompteError] = useState("");
 
@@ -132,15 +148,18 @@ export default function CommandeDetailPage() {
       livraison_frais: commande.livraison_frais,
       paiement_mode: commande.paiement_mode,
       paiement_operateur: commande.paiement_operateur,
+      paye_totalite: commande.paye_totalite,
       acompteVerse: totalAcompteVerse(commande),
     });
   }
 
   async function marquerLivree() {
     // Une commande avec au moins un acompte versé ne peut être livrée que
-    // soldée — ce contrôle existe déjà via le bouton désactivé plus bas
-    // (voir le rendu), répété ici en garde-fou direct.
-    if (resteAPayerCommande(commande) > 0 && totalAcompteVerse(commande) > 0) {
+    // soldée (commande.solde, mis à jour uniquement par solderCommande()
+    // ci-dessous — jamais déduit du reste à payer en direct) — ce contrôle
+    // existe déjà via le bouton désactivé plus bas (voir le rendu), répété
+    // ici en garde-fou direct.
+    if (totalAcompteVerse(commande) > 0 && !commande.solde) {
       window.alert(t("commandes.livraisonBloqueeAcompte", { montant: fmt(resteAPayerCommande(commande)) }));
       return;
     }
@@ -219,6 +238,37 @@ export default function CommandeDetailPage() {
     chargerCommande();
   }
 
+  // Encaisse le reste à payer en une seule action, sans saisie de montant
+  // ni de mode de paiement (reprend celui du dernier acompte déjà versé,
+  // voir dernierModeAcompte ci-dessus) : enregistre un dernier acompte pour
+  // le reste exact (sauf s'il est déjà à 0 — plusieurs acomptes peuvent
+  // avoir déjà tout couvert sans que la commande ait été explicitement
+  // soldée), puis marque la commande soldée. Aucun bouton "Encaisser le
+  // solde" séparé : un seul geste, "Solder la commande".
+  async function solderCommande() {
+    setSolderError("");
+    setSolderSaving(true);
+    try {
+      const reste = resteAPayerCommande(commande);
+      if (reste > 0) {
+        const { error: acompteError } = await supabase.from("commande_acomptes").insert({
+          commande_id: commande.id,
+          business_id: business.id,
+          montant: reste,
+          mode_paiement: dernierModeAcompte(commande),
+        });
+        if (acompteError) throw acompteError;
+      }
+      const { error: soldeError } = await supabase.from("commandes").update({ solde: true }).eq("id", commande.id);
+      if (soldeError) throw soldeError;
+      await chargerCommande();
+    } catch (err) {
+      setSolderError(t("commandes.solderError", { message: err.message }));
+    } finally {
+      setSolderSaving(false);
+    }
+  }
+
   function ouvrirEdition() {
     setEditClientId(commande.client_id);
     // offert préservé tel quel depuis la ligne existante : la modale de
@@ -234,6 +284,7 @@ export default function CommandeDetailPage() {
     setEditZoneLivraison(commande.livraison_zone || zones[0]?.zone || "");
     setEditModePaiement(commande.paiement_mode);
     setEditOperateur(commande.paiement_operateur || OPERATEURS_MOBILE_MONEY[0]);
+    setEditPayeTotalite(commande.paye_totalite || false);
     setEditError("");
     setEditing(true);
   }
@@ -298,23 +349,40 @@ export default function CommandeDetailPage() {
     });
     const ca = fullLignes.reduce((s, l) => s + l.prix_vente * l.quantite, 0);
     const marge = fullLignes.reduce((s, l) => s + (l.prix_vente - l.prix_achat - l.frais_annexes) * l.quantite, 0);
+    const acompteExistant = totalAcompteVerse(commande) > 0;
+
+    // Le total ne peut pas devenir inférieur aux acomptes déjà versés —
+    // sinon le reste à payer deviendrait négatif, ce que
+    // resteAPayerCommande() masque déjà (Math.max(0, ...)) sans jamais
+    // prévenir que le total a été réduit en dessous de ce qui est déjà
+    // encaissé.
+    if (acompteExistant && ca + editFraisLivraison < totalAcompteVerse(commande)) {
+      setEditError(t("commandes.editTotalInferieurAcomptesError"));
+      return;
+    }
 
     setEditError("");
     setEditSaving(true);
     try {
-      const { error: commandeError } = await supabase
-        .from("commandes")
-        .update({
-          client_id: editClientId,
-          ca,
-          marge,
-          livraison_type: editTypeLivraison,
-          livraison_zone: editTypeLivraison === "livraison" ? editZoneLivraison : null,
-          livraison_frais: editFraisLivraison,
-          paiement_mode: editModePaiement,
-          paiement_operateur: editModePaiement === "mobile_money" ? editOperateur : null,
-        })
-        .eq("id", commande.id);
+      const updatePayload = {
+        client_id: editClientId,
+        ca,
+        marge,
+        livraison_type: editTypeLivraison,
+        livraison_zone: editTypeLivraison === "livraison" ? editZoneLivraison : null,
+        livraison_frais: editFraisLivraison,
+      };
+      // Paiement et "payé en totalité" ne se modifient que pour une
+      // commande sans acompte — une fois un acompte engagé, seuls
+      // Ajouter un acompte/Solder la commande (hors de cette modale)
+      // font évoluer ce qui est dû (voir le rendu, section Paiement
+      // masquée dans ce cas).
+      if (!acompteExistant) {
+        updatePayload.paiement_mode = editModePaiement;
+        updatePayload.paiement_operateur = editModePaiement === "mobile_money" ? editOperateur : null;
+        updatePayload.paye_totalite = editPayeTotalite;
+      }
+      const { error: commandeError } = await supabase.from("commandes").update(updatePayload).eq("id", commande.id);
       if (commandeError) throw commandeError;
 
       const { error: deleteError } = await supabase.from("commande_lignes").delete().eq("commande_id", commande.id);
@@ -360,7 +428,11 @@ export default function CommandeDetailPage() {
   const totalAcompte = totalAcompteVerse(commande);
   const resteAPayer = resteAPayerCommande(commande);
   const aUnAcompte = totalAcompte > 0;
-  const soldee = resteAPayer <= 0;
+  // Persisté (commandes.solde), jamais déduit du reste à payer en direct :
+  // une commande n'est soldée qu'après un clic explicite sur "Solder la
+  // commande" (solderCommande() plus haut), même si des acomptes successifs
+  // ont déjà couvert tout le total par ailleurs.
+  const soldee = commande.solde === true;
 
   return (
     <div>
@@ -483,7 +555,7 @@ export default function CommandeDetailPage() {
           fmt={fmt}
           totalArticles={commande.ca}
           fraisLivraison={commande.livraison_frais || 0}
-          paiementMode={commande.paiement_mode}
+          dejaPaye={commande.paye_totalite}
           margeReelle={commande.marge}
         />
       </div>
@@ -493,14 +565,16 @@ export default function CommandeDetailPage() {
           <div className="sb-section-title" style={{ margin: 0, fontSize: 13 }}>
             {t("commandes.acomptesTitle")}
           </div>
-          {enAttente && (
+          {enAttente && !commande.paye_totalite && !soldee && (
             <button className="sb-btn sb-btn-primary" onClick={ouvrirAcompte}>
               <Banknote size={14} /> {t("commandes.ajouterAcompte")}
             </button>
           )}
         </div>
 
-        {acomptes.length === 0 ? (
+        {commande.paye_totalite ? (
+          <p style={{ fontSize: 13, color: "var(--muted)" }}>{t("commandes.payeTotaliteAucunAcompte")}</p>
+        ) : acomptes.length === 0 ? (
           <p style={{ fontSize: 13, color: "var(--muted)" }}>{t("commandes.aucunAcompte")}</p>
         ) : (
           <div className="sb-table-scroll" style={{ marginBottom: 14 }}>
@@ -520,7 +594,7 @@ export default function CommandeDetailPage() {
                     <td className="sb-mono" style={{ textAlign: "right" }}>
                       {fmt(a.montant)}
                     </td>
-                    <td>{a.mode_paiement}</td>
+                    <td>{a.mode_paiement === "especes" ? t("commandes.especes") : t("commandes.mobileMoney")}</td>
                     <td>
                       <span className={`sb-badge ${a.statut === "verse" ? "sb-badge-emerald" : "sb-badge-coral"}`}>
                         {a.statut === "verse" ? t("commandes.acompteStatutVerse") : t("commandes.acompteStatutRembourse")}
@@ -543,6 +617,8 @@ export default function CommandeDetailPage() {
               fontSize: 14,
               paddingTop: 10,
               borderTop: "1px dashed var(--line)",
+              flexWrap: "wrap",
+              gap: 10,
             }}
           >
             <span>{t("commandes.resteAPayerLabel")}</span>
@@ -550,14 +626,21 @@ export default function CommandeDetailPage() {
               <strong className="sb-mono" style={{ color: soldee ? "var(--emerald)" : "var(--coral)" }}>
                 {fmt(resteAPayer)}
               </strong>
-              {soldee && (
+              {soldee ? (
                 <span className="sb-badge sb-badge-emerald" style={{ fontSize: 10.5 }}>
                   {t("commandes.commandeSoldee")}
                 </span>
+              ) : (
+                enAttente && (
+                  <button className="sb-btn sb-btn-emerald" style={{ fontSize: 12.5, padding: "6px 10px" }} onClick={solderCommande} disabled={solderSaving}>
+                    <Banknote size={13} /> {solderSaving ? t("commandes.saving") : t("commandes.solderCommande")}
+                  </button>
+                )
               )}
             </span>
           </div>
         )}
+        {solderError && <p style={{ fontSize: 12, color: "var(--coral)", margin: "10px 0 0" }}>{solderError}</p>}
       </div>
 
       <div className="sb-detail-actions">
@@ -615,7 +698,7 @@ export default function CommandeDetailPage() {
               <select className="sb-input" value={acompteMode} onChange={(e) => setAcompteMode(e.target.value)}>
                 {MODES_PAIEMENT_ACOMPTE.map((m) => (
                   <option key={m} value={m}>
-                    {m}
+                    {m === "especes" ? t("commandes.especes") : t("commandes.mobileMoney")}
                   </option>
                 ))}
               </select>
@@ -774,34 +857,46 @@ export default function CommandeDetailPage() {
               </div>
             )}
 
-            <div className="sb-section-title" style={{ fontSize: 13 }}>
-              {t("commandes.paiementTitle")}
-            </div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              <button
-                className={`sb-btn ${editModePaiement === "livraison" ? "sb-btn-primary" : "sb-btn-ghost"}`}
-                onClick={() => setEditModePaiement("livraison")}
-              >
-                {t("commandes.paiementLivraison")}
-              </button>
-              <button
-                className={`sb-btn ${editModePaiement === "mobile_money" ? "sb-btn-primary" : "sb-btn-ghost"}`}
-                onClick={() => setEditModePaiement("mobile_money")}
-              >
-                {t("commandes.mobileMoney")}
-              </button>
-            </div>
-            {editModePaiement === "mobile_money" && (
-              <div className="sb-field" style={{ marginBottom: 16 }}>
-                <label>{t("commandes.operateurLabel")}</label>
-                <select className="sb-input" value={editOperateur} onChange={(e) => setEditOperateur(e.target.value)}>
-                  {OPERATEURS_MOBILE_MONEY.map((op) => (
-                    <option key={op} value={op}>
-                      {op}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Masquée dès que la commande a déjà un acompte : son paiement
+                n'évolue plus que via Ajouter un acompte/Solder la commande
+                (hors de cette modale) — jamais en rebasculant paiement_mode
+                ou payé en totalité, qui n'ont alors plus de sens. */}
+            {totalAcompteVerse(commande) === 0 && (
+              <>
+                <div className="sb-section-title" style={{ fontSize: 13 }}>
+                  {t("commandes.paiementTitle")}
+                </div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                  <button
+                    className={`sb-btn ${editModePaiement === "livraison" ? "sb-btn-primary" : "sb-btn-ghost"}`}
+                    onClick={() => setEditModePaiement("livraison")}
+                  >
+                    {t("commandes.paiementLivraison")}
+                  </button>
+                  <button
+                    className={`sb-btn ${editModePaiement === "mobile_money" ? "sb-btn-primary" : "sb-btn-ghost"}`}
+                    onClick={() => setEditModePaiement("mobile_money")}
+                  >
+                    {t("commandes.mobileMoney")}
+                  </button>
+                </div>
+                {editModePaiement === "mobile_money" && (
+                  <div className="sb-field" style={{ marginBottom: 14 }}>
+                    <label>{t("commandes.operateurLabel")}</label>
+                    <select className="sb-input" value={editOperateur} onChange={(e) => setEditOperateur(e.target.value)}>
+                      {OPERATEURS_MOBILE_MONEY.map((op) => (
+                        <option key={op} value={op}>
+                          {op}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 16, cursor: "pointer" }}>
+                  <input type="checkbox" checked={editPayeTotalite} onChange={(e) => setEditPayeTotalite(e.target.checked)} />
+                  {t("commandes.payeTotaliteLabel")}
+                </label>
+              </>
             )}
 
             <div style={{ marginBottom: 16 }}>
@@ -810,7 +905,7 @@ export default function CommandeDetailPage() {
                 fmt={fmt}
                 totalArticles={editTotalCa}
                 fraisLivraison={editFraisLivraison}
-                paiementMode={editModePaiement}
+                dejaPaye={totalAcompteVerse(commande) === 0 && editPayeTotalite}
                 margeReelle={editTotalMarge}
                 toujoursAfficherFraisLivraison
               />
