@@ -18,7 +18,7 @@ const STATUT_BADGE_CLASS = {
 };
 
 const COMMANDE_SELECT =
-  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, offert, articles(nom, unite, image_url))";
+  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, offert, articles(nom, unite, image_url)), commande_acomptes(montant, statut)";
 
 export default function CommandesPage() {
   const { business } = useAuth();
@@ -177,8 +177,13 @@ export default function CommandesPage() {
                   <td>{new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
                   <td>{c.clients?.nom ?? "—"}</td>
                   <td>
-                    <span className={`sb-badge ${STATUT_BADGE_CLASS[c.statut] || "sb-badge-amber"}`}>
-                      {t(`common.commandeStatut.${c.statut}`) || c.statut}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span className={`sb-badge ${STATUT_BADGE_CLASS[c.statut] || "sb-badge-amber"}`}>
+                        {t(`common.commandeStatut.${c.statut}`) || c.statut}
+                      </span>
+                      {c.statut === "en_attente" && (c.commande_acomptes || []).some((a) => a.statut === "verse") && (
+                        <span className="sb-badge sb-badge-muted">{t("commandes.reservee")}</span>
+                      )}
                     </span>
                   </td>
                   <td className="sb-mono">{fmt(c.ca)}</td>

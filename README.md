@@ -634,6 +634,94 @@ création) → `livree` ou `annulee`.
   seconde bascule aussi les commandes déjà existantes vers `livree`
   (leur stock avait déjà été déduit sous l'ancien modèle).
 
+## Acomptes sur commande, avec réservation du stock théorique
+
+Un client peut verser un acompte sur une commande encore en attente de
+livraison — enregistré dès maintenant (`commande_acomptes`,
+`supabase-commande-acomptes-migration.sql` : `commande_id`, `business_id`,
+`montant`, `mode_paiement`, `date_versement`, `statut` `'verse'` ou
+`'rembourse'`, RLS identique aux autres tables rattachées directement à
+`business_id`). Possible dès la création (`app/(app)/nouvelle/page.js`,
+section « Acompte (facultatif) » entre Paiement et Résumé) ou après coup
+(`app/(app)/commandes/[id]/page.js`, bouton « Ajouter un acompte » +
+liste des acomptes déjà enregistrés). **Reste à payer = total de la
+commande (même règle que `ResumeCommandeTotaux.js`/`Receipt.js` ci-dessous
+— articles + livraison, ou seulement la livraison en Mobile Money déjà
+réglé) − somme des acomptes au statut `'verse'`** (`totalAcompteVerse()`/
+`resteAPayerCommande()`, `app/(app)/commandes/[id]/page.js`) — jamais une
+colonne stockée, toujours recalculé à partir des lignes réellement
+présentes.
+
+**Réservation : aucun nouveau mécanisme, la logique du stock théorique
+déjà existante suffit.** Le stock théorique (stock réel − quantités des
+`commande_lignes` dont la commande est `'en_attente'`, déjà calculé ainsi
+dans `app/(app)/articles/page.js` et `app/(app)/nouvelle/page.js`) tient
+déjà compte de **toute** commande en attente, avec ou sans acompte — une
+commande réserve donc déjà ses articles dès sa création, l'acompte ne
+fait que l'attester financièrement. « Réservée » (badge
+`sb-badge-muted`, liste et détail d'une commande) n'est donc qu'une
+étiquette posée sur une commande en attente qui a au moins un acompte
+`'verse'`, pas un second calcul de stock. Annuler la commande la fait
+sortir de `'en_attente'`, ce qui restitue le stock théorique
+automatiquement par ce même calcul préexistant — rien à faire en plus
+pour ça.
+
+**Empêcher de réserver plus que le stock théorique disponible** :
+`trg_verifier_stock_theorique_acompte` (trigger `before insert` sur
+`commande_acomptes`, actif seulement pour un nouvel acompte `'verse'`)
+reprend exactement ce même calcul de stock théorique, côté base de
+données cette fois, pour chaque article de la commande concernée — si l'un
+d'eux tombe déjà sous zéro (demande cumulée de toutes les commandes en
+attente supérieure au stock réel), l'insertion est refusée avec un
+message explicite, affiché tel quel côté app
+(`commandes.acompteError`/`window.alert`). Sans verrou de ligne
+(contrairement à `appliquer_cout_moyen_pondere()`, voir plus bas) : un
+acompte est un geste humain ponctuel, jamais deux insertions concurrentes
+en pratique sur la même commande — la simplicité l'emporte ici sur une
+protection contre une course qui ne se produit pas dans l'usage réel.
+
+**Livraison bloquée tant que non soldée** : si une commande a au moins un
+acompte `'verse'` et qu'il reste un solde dû, le bouton « Livré »
+(`app/(app)/commandes/[id]/page.js`) est désactivé, avec un message
+indiquant le reste à payer — repris aussi en garde-fou direct dans
+`marquerLivree()` au cas où. Une commande **sans aucun acompte** garde
+exactement son comportement d'avant : rien ne bloque jamais sa livraison,
+seul le stock réel insuffisant le fait déjà (inchangé). Une fois soldée
+(reste à payer ≤ 0), la livraison redevient possible et déduit le stock
+réel normalement.
+
+**Annulation** : `trg_rembourser_acomptes_a_annulation` (trigger
+`after update` sur `commandes`, déclenché uniquement au passage vers
+`'annulee'`) fait passer tous les acomptes `'verse'` de cette commande à
+`'rembourse'` — automatiquement, sans choix à faire, sans toucher
+`annulerCommande()` (`app/(app)/commandes/[id]/page.js`), qui reste un
+simple `update` de `commandes.statut`. Un acompte `'rembourse'` n'est
+jamais compté `'verse'` nulle part (reste à payer, badge « Réservée »,
+ligne Trésorerie ci-dessous) : il n'est jamais comptabilisé en revenu.
+
+**Comptabilité inchangée** : les acomptes ne touchent ni `commandes.ca`
+ni `commandes.marge`, toujours figés à la création et comptabilisés
+uniquement à `'livree'` (voir « Commandes : cycle de vie » ci-dessus) —
+un acompte est un encaissement, jamais un revenu tant que la commande
+n'est pas livrée. Dans la Trésorerie (`app/(app)/tresorerie/page.js`),
+une carte informative « Acomptes en attente de livraison » (somme des
+acomptes `'verse'` sur des commandes encore `'en_attente'`) s'affiche à
+part des deux cartes CA total/Marge totale — jamais additionnée à l'un ou
+l'autre.
+
+**Confirmation de commande (PDF)** : quand `acompteVerse > 0` (valeur déjà
+calculée par l'appelant — `app/(app)/nouvelle/page.js`,
+`app/(app)/commandes/[id]/page.js` — jamais recalculée par
+`components/Receipt.js` lui-même, qui ne connaît la commande que par ce
+qu'on lui transmet), une ligne « Acompte versé » s'ajoute et la ligne
+finale devient « Reste à payer » plutôt que « Total (à payer) » —
+aperçu écran et impression/PDF, à l'intérieur du même bloc totaux déjà
+protégé par `break-inside: avoid` (`.sb-receipt-print-totals`, voir plus
+bas « Confirmation de commande »), donc jamais coupé entre deux pages.
+Le badge « Déjà payé » du Mobile Money reste géré séparément, inchangé :
+les deux mécanismes s'additionnent simplement si jamais combinés (reste à
+payer = total dû après Mobile Money, moins les acomptes).
+
 ## Mode de paiement : Mobile Money déjà réglé vs paiement à la livraison
 
 `commandes.paiement_mode` (`'livraison' | 'mobile_money'`, voir

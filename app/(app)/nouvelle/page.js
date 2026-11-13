@@ -6,7 +6,7 @@ import { AlertTriangle, CheckCircle2, Gift, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, tronquerMilieuNom } from "@/lib/format";
-import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
+import { OPERATEURS_MOBILE_MONEY, MODES_PAIEMENT_ACOMPTE } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import Receipt from "@/components/Receipt";
 import ArticleSelect from "@/components/ArticleSelect";
@@ -50,6 +50,9 @@ export default function NouvelleCommandePage() {
   const [zoneLivraison, setZoneLivraison] = useState("");
   const [modePaiement, setModePaiement] = useState("livraison");
   const [operateur, setOperateur] = useState(OPERATEURS_MOBILE_MONEY[0]);
+
+  const [acompteMontant, setAcompteMontant] = useState("");
+  const [acompteMode, setAcompteMode] = useState(MODES_PAIEMENT_ACOMPTE[0]);
 
   const [receipt, setReceipt] = useState(null);
 
@@ -278,6 +281,27 @@ export default function NouvelleCommandePage() {
       // livraison" (statut par défaut en base) et ne touche au stock qu'au
       // moment où elle est marquée "Livrée" depuis la page Commandes.
 
+      // Acompte facultatif, saisi dès la création — la commande elle-même
+      // reste créée même si cet acompte échoue (ex. stock théorique déjà
+      // négatif sur un article, voir le trigger de
+      // supabase-commande-acomptes-migration.sql) : seul un message
+      // d'erreur prévient, rien ne bloque l'enregistrement de la commande.
+      const montantAcompte = Number(acompteMontant) || 0;
+      let acompteEnregistre = 0;
+      if (montantAcompte > 0) {
+        const { error: acompteError } = await supabase.from("commande_acomptes").insert({
+          commande_id: commande.id,
+          business_id: business.id,
+          montant: montantAcompte,
+          mode_paiement: acompteMode,
+        });
+        if (acompteError) {
+          window.alert(t("commandes.acompteError", { message: acompteError.message }));
+        } else {
+          acompteEnregistre = montantAcompte;
+        }
+      }
+
       const { data: updatedBusiness } = await supabase
         .from("businesses")
         .update({ next_numero: (business.next_numero || 1) + 1 })
@@ -305,6 +329,7 @@ export default function NouvelleCommandePage() {
         livraison_frais: fraisLivraison,
         paiement_mode: modePaiement,
         paiement_operateur: modePaiement === "mobile_money" ? operateur : null,
+        acompteVerse: acompteEnregistre,
       });
       // Formulaire entièrement remis à son état initial pour la prochaine
       // saisie — la commande qui vient d'être enregistrée reste consultable
@@ -327,6 +352,8 @@ export default function NouvelleCommandePage() {
       setZoneLivraison(zones[0]?.zone ?? "");
       setModePaiement("livraison");
       setOperateur(OPERATEURS_MOBILE_MONEY[0]);
+      setAcompteMontant("");
+      setAcompteMode(MODES_PAIEMENT_ACOMPTE[0]);
     } catch (err) {
       setSaveError(err.message || t("nouvelle.genericSaveError"));
     } finally {
@@ -768,6 +795,37 @@ export default function NouvelleCommandePage() {
             </select>
           </div>
         )}
+      </div>
+
+      <div className="sb-card">
+        <div className="sb-section-title">{t("nouvelle.acompteTitle")}</div>
+        <p className="sb-sub" style={{ marginTop: -8, marginBottom: 12 }}>
+          {t("nouvelle.acompteSub")}
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="sb-field" style={{ flex: 1, minWidth: 160 }}>
+            <label>{t("nouvelle.acompteMontantLabel")}</label>
+            <input
+              className="sb-input"
+              type="number"
+              min={0}
+              value={acompteMontant}
+              onChange={(e) => setAcompteMontant(e.target.value)}
+            />
+          </div>
+          {Number(acompteMontant) > 0 && (
+            <div className="sb-field" style={{ flex: 1, minWidth: 160 }}>
+              <label>{t("nouvelle.acompteModePaiementLabel")}</label>
+              <select className="sb-input" value={acompteMode} onChange={(e) => setAcompteMode(e.target.value)}>
+                {MODES_PAIEMENT_ACOMPTE.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="sb-card">

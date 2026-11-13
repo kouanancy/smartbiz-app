@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Ban, CheckCircle2, Pencil, Plus, Printer, Trash2, TruckIcon, X } from "lucide-react";
+import { ArrowLeft, Ban, Banknote, CheckCircle2, Pencil, Plus, Printer, Trash2, TruckIcon, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
-import { OPERATEURS_MOBILE_MONEY } from "@/lib/constants";
+import { OPERATEURS_MOBILE_MONEY, MODES_PAIEMENT_ACOMPTE } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import Receipt from "@/components/Receipt";
 import ArticleSelect from "@/components/ArticleSelect";
@@ -19,7 +19,28 @@ const STATUT_BADGE_CLASS = {
 };
 
 const COMMANDE_SELECT =
-  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, offert, articles(nom, unite, image_url))";
+  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, offert, articles(nom, unite, image_url)), commande_acomptes(id, montant, mode_paiement, date_versement, statut, created_at)";
+
+// Un acompte "remboursé" (uniquement après annulation de la commande, voir
+// supabase-commande-acomptes-migration.sql) n'est jamais compté comme
+// versé : il ne réduit plus le reste à payer et ne rend plus la commande
+// "réservée".
+function totalAcompteVerse(commande) {
+  return (commande.commande_acomptes || []).filter((a) => a.statut === "verse").reduce((s, a) => s + a.montant, 0);
+}
+
+// Même règle Mobile Money que ResumeCommandeTotaux.js/components/Receipt.js
+// (le CA est déjà réglé, seuls les frais de livraison restent dus) —
+// reprise ici pour en déduire le reste à payer une fois les acomptes
+// soustraits, sans dupliquer cette règle sous une autre forme.
+function totalDuCommande(commande) {
+  const totalGeneral = commande.ca + (commande.livraison_frais || 0);
+  return commande.paiement_mode === "mobile_money" ? commande.livraison_frais || 0 : totalGeneral;
+}
+
+function resteAPayerCommande(commande) {
+  return Math.max(0, totalDuCommande(commande) - totalAcompteVerse(commande));
+}
 
 export default function CommandeDetailPage() {
   const { business } = useAuth();
@@ -46,6 +67,12 @@ export default function CommandeDetailPage() {
   const [editOperateur, setEditOperateur] = useState(OPERATEURS_MOBILE_MONEY[0]);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
+
+  const [acompteOpen, setAcompteOpen] = useState(false);
+  const [acompteMontant, setAcompteMontant] = useState("");
+  const [acompteMode, setAcompteMode] = useState(MODES_PAIEMENT_ACOMPTE[0]);
+  const [acompteSaving, setAcompteSaving] = useState(false);
+  const [acompteError, setAcompteError] = useState("");
 
   async function chargerCommande() {
     const { data } = await supabase
@@ -105,10 +132,19 @@ export default function CommandeDetailPage() {
       livraison_frais: commande.livraison_frais,
       paiement_mode: commande.paiement_mode,
       paiement_operateur: commande.paiement_operateur,
+      acompteVerse: totalAcompteVerse(commande),
     });
   }
 
   async function marquerLivree() {
+    // Une commande avec au moins un acompte versé ne peut être livrée que
+    // soldée — ce contrôle existe déjà via le bouton désactivé plus bas
+    // (voir le rendu), répété ici en garde-fou direct.
+    if (resteAPayerCommande(commande) > 0 && totalAcompteVerse(commande) > 0) {
+      window.alert(t("commandes.livraisonBloqueeAcompte", { montant: fmt(resteAPayerCommande(commande)) }));
+      return;
+    }
+
     const stockUpdates = [];
     for (const l of commande.commande_lignes) {
       const art = articles.find((a) => a.id === l.article_id);
@@ -148,6 +184,38 @@ export default function CommandeDetailPage() {
       window.alert(t("commandes.annulerError", { message: error.message }));
       return;
     }
+    chargerCommande();
+  }
+
+  function ouvrirAcompte() {
+    setAcompteMontant("");
+    setAcompteMode(MODES_PAIEMENT_ACOMPTE[0]);
+    setAcompteError("");
+    setAcompteOpen(true);
+  }
+
+  async function validerAcompte() {
+    const montant = Number(acompteMontant);
+    if (!montant || montant <= 0) return;
+    setAcompteError("");
+    setAcompteSaving(true);
+    // Le trigger trg_verifier_stock_theorique_acompte (voir
+    // supabase-commande-acomptes-migration.sql) refuse l'insertion si le
+    // stock théorique d'un article de la commande est déjà négatif —
+    // message d'erreur du trigger directement affiché, jamais recalculé
+    // côté client pour ne pas dupliquer cette vérification.
+    const { error } = await supabase.from("commande_acomptes").insert({
+      commande_id: commande.id,
+      business_id: business.id,
+      montant,
+      mode_paiement: acompteMode,
+    });
+    setAcompteSaving(false);
+    if (error) {
+      setAcompteError(t("commandes.acompteError", { message: error.message }));
+      return;
+    }
+    setAcompteOpen(false);
     chargerCommande();
   }
 
@@ -288,6 +356,11 @@ export default function CommandeDetailPage() {
   }
 
   const enAttente = commande.statut === "en_attente";
+  const acomptes = commande.commande_acomptes || [];
+  const totalAcompte = totalAcompteVerse(commande);
+  const resteAPayer = resteAPayerCommande(commande);
+  const aUnAcompte = totalAcompte > 0;
+  const soldee = resteAPayer <= 0;
 
   return (
     <div>
@@ -300,9 +373,16 @@ export default function CommandeDetailPage() {
           <h1 className="sb-h1 sb-mono">{commande.numero}</h1>
           <p className="sb-sub">{new Date(commande.created_at).toLocaleDateString(dateLocale(business?.langue))}</p>
         </div>
-        <span className={`sb-badge ${STATUT_BADGE_CLASS[commande.statut] || "sb-badge-amber"}`} style={{ fontSize: 13, padding: "7px 12px" }}>
-          {t(`common.commandeStatut.${commande.statut}`) || commande.statut}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {enAttente && aUnAcompte && (
+            <span className="sb-badge sb-badge-muted" style={{ fontSize: 13, padding: "7px 12px" }}>
+              {t("commandes.reservee")}
+            </span>
+          )}
+          <span className={`sb-badge ${STATUT_BADGE_CLASS[commande.statut] || "sb-badge-amber"}`} style={{ fontSize: 13, padding: "7px 12px" }}>
+            {t(`common.commandeStatut.${commande.statut}`) || commande.statut}
+          </span>
+        </div>
       </div>
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
@@ -408,9 +488,81 @@ export default function CommandeDetailPage() {
         />
       </div>
 
+      <div className="sb-card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+          <div className="sb-section-title" style={{ margin: 0, fontSize: 13 }}>
+            {t("commandes.acomptesTitle")}
+          </div>
+          {enAttente && (
+            <button className="sb-btn sb-btn-primary" onClick={ouvrirAcompte}>
+              <Banknote size={14} /> {t("commandes.ajouterAcompte")}
+            </button>
+          )}
+        </div>
+
+        {acomptes.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--muted)" }}>{t("commandes.aucunAcompte")}</p>
+        ) : (
+          <div className="sb-table-scroll" style={{ marginBottom: 14 }}>
+            <table className="sb-table">
+              <thead>
+                <tr>
+                  <th>{t("commandes.colAcompteDate")}</th>
+                  <th style={{ textAlign: "right" }}>{t("commandes.colAcompteMontant")}</th>
+                  <th>{t("commandes.colAcompteMode")}</th>
+                  <th>{t("commandes.colAcompteStatut")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {acomptes.map((a) => (
+                  <tr key={a.id}>
+                    <td>{new Date(a.date_versement).toLocaleDateString(dateLocale(business?.langue))}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>
+                      {fmt(a.montant)}
+                    </td>
+                    <td>{a.mode_paiement}</td>
+                    <td>
+                      <span className={`sb-badge ${a.statut === "verse" ? "sb-badge-emerald" : "sb-badge-coral"}`}>
+                        {a.statut === "verse" ? t("commandes.acompteStatutVerse") : t("commandes.acompteStatutRembourse")}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {aUnAcompte && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontWeight: 700,
+              fontSize: 14,
+              paddingTop: 10,
+              borderTop: "1px dashed var(--line)",
+            }}
+          >
+            <span>{t("commandes.resteAPayerLabel")}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <strong className="sb-mono" style={{ color: soldee ? "var(--emerald)" : "var(--coral)" }}>
+                {fmt(resteAPayer)}
+              </strong>
+              {soldee && (
+                <span className="sb-badge sb-badge-emerald" style={{ fontSize: 10.5 }}>
+                  {t("commandes.commandeSoldee")}
+                </span>
+              )}
+            </span>
+          </div>
+        )}
+      </div>
+
       <div className="sb-detail-actions">
         {enAttente && (
-          <button className="sb-btn sb-btn-emerald" onClick={marquerLivree}>
+          <button className="sb-btn sb-btn-emerald" onClick={marquerLivree} disabled={aUnAcompte && !soldee}>
             <TruckIcon size={15} /> {t("commandes.livre")}
           </button>
         )}
@@ -428,8 +580,60 @@ export default function CommandeDetailPage() {
           </button>
         )}
       </div>
+      {enAttente && aUnAcompte && !soldee && (
+        <p style={{ fontSize: 12.5, color: "var(--coral)", marginTop: 8 }}>
+          {t("commandes.livraisonBloqueeAcompte", { montant: fmt(resteAPayer) })}
+        </p>
+      )}
 
       {receipt && <Receipt commande={receipt} business={business} onClose={() => setReceipt(null)} />}
+
+      {acompteOpen && (
+        <div className="sb-modal-overlay" onClick={() => setAcompteOpen(false)}>
+          <div className="sb-card" style={{ width: 380, maxWidth: "95vw" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div className="sb-section-title" style={{ margin: 0 }}>
+                {t("commandes.ajouterAcompte")}
+              </div>
+              <button onClick={() => setAcompteOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)" }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="sb-field" style={{ marginBottom: 14 }}>
+              <label>{t("commandes.acompteMontantLabel")}</label>
+              <input
+                className="sb-input"
+                type="number"
+                min={1}
+                value={acompteMontant}
+                onChange={(e) => setAcompteMontant(e.target.value)}
+              />
+            </div>
+            <div className="sb-field" style={{ marginBottom: 16 }}>
+              <label>{t("commandes.acompteModePaiementLabel")}</label>
+              <select className="sb-input" value={acompteMode} onChange={(e) => setAcompteMode(e.target.value)}>
+                {MODES_PAIEMENT_ACOMPTE.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {acompteError && <p style={{ fontSize: 12, color: "var(--coral)", margin: "0 0 12px" }}>{acompteError}</p>}
+
+            <button
+              className="sb-btn sb-btn-primary"
+              style={{ width: "100%", justifyContent: "center" }}
+              onClick={validerAcompte}
+              disabled={acompteSaving || !acompteMontant || Number(acompteMontant) <= 0}
+            >
+              <Banknote size={14} /> {acompteSaving ? t("commandes.saving") : t("commandes.enregistrerAcompte")}
+            </button>
+          </div>
+        </div>
+      )}
 
       {editing && (
         <div className="sb-modal-overlay" onClick={() => setEditing(false)}>

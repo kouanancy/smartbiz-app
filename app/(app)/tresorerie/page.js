@@ -142,6 +142,7 @@ export default function TresoreriePage() {
   const [loading, setLoading] = useState(true);
   const [periode, setPeriode] = useState("trimestre");
   const [platformLogo, setPlatformLogo] = useState("");
+  const [acomptesEnAttente, setAcomptesEnAttente] = useState(0);
 
   // Destination de la notification push hebdomadaire (voir
   // app/api/cron/rapport-hebdo) : /tresorerie?periode=semaine ouvre
@@ -169,6 +170,29 @@ export default function TresoreriePage() {
       .maybeSingle()
       .then(({ data }) => setPlatformLogo(data?.logo_url || ""));
   }, []);
+
+  // Purement informatif, jamais ajouté à CA/marge ci-dessous (qui ne
+  // comptent que les commandes 'livree', voir plus bas) : un acompte
+  // versé sur une commande encore en attente de livraison n'est pas un
+  // revenu, seulement de l'argent déjà encaissé pour une vente pas
+  // encore réalisée comptablement.
+  useEffect(() => {
+    if (!business?.id) return;
+    let active = true;
+    supabase
+      .from("commande_acomptes")
+      .select("montant, commandes!inner(business_id, statut)")
+      .eq("commandes.business_id", business.id)
+      .eq("commandes.statut", "en_attente")
+      .eq("statut", "verse")
+      .then(({ data }) => {
+        if (!active) return;
+        setAcomptesEnAttente((data || []).reduce((s, a) => s + a.montant, 0));
+      });
+    return () => {
+      active = false;
+    };
+  }, [business?.id]);
 
   useEffect(() => {
     if (!business?.id) return;
@@ -268,6 +292,18 @@ export default function TresoreriePage() {
             </div>
           </div>
         </div>
+
+        {acomptesEnAttente > 0 && (
+          <div className="sb-card" style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <div className="sb-stat-label">{t("tresorerie.acomptesEnAttenteLabel")}</div>
+              <p className="sb-sub" style={{ margin: "4px 0 0" }}>{t("tresorerie.acomptesEnAttenteNote")}</p>
+            </div>
+            <div className="sb-stat-value" style={{ color: "var(--muted)", fontSize: 22 }}>
+              {fmt(acomptesEnAttente)}
+            </div>
+          </div>
+        )}
 
         <div className="sb-card" style={{ marginBottom: 20 }}>
           <div

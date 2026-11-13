@@ -542,6 +542,14 @@ a {
   background: var(--emerald-bg);
   color: var(--emerald);
 }
+/* Badge informatif neutre (ex. "Réservée" sur une commande avec acompte)
+   — ni succès (emerald) ni alerte (coral/amber), palette grise déjà
+   utilisée pour le texte secondaire (--muted) et les séparateurs
+   (--line) de l'app. */
+.sb-badge-muted {
+  background: var(--line);
+  color: var(--muted);
+}
 .sb-btn {
   font-family: "Inter", sans-serif;
   font-weight: 600;
