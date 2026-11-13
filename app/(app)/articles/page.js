@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { FileSpreadsheet, Image as ImageIcon, Plus, Printer, RefreshCw, Search, TrendingUp, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
@@ -310,20 +310,27 @@ export default function ArticlesPage() {
 
   // Même requête dédiée (tout le stock filtré, jamais seulement la page
   // affichée) que exporterExcel ci-dessus — remplit le portail
-  // d'impression plus bas, puis déclenche l'impression une fois le rendu
-  // commis (requestAnimationFrame, sinon window.print() capturerait
-  // encore l'ancien contenu, voire un portail toujours display: none si
-  // le state venait tout juste de passer de null à un tableau vide).
+  // d'impression plus bas, puis déclenche l'impression. La requête est
+  // forcément asynchrone (il faut les données avant de les afficher),
+  // mais flushSync force React à committer printRows de façon synchrone
+  // avant l'appel à window.print() qui suit immédiatement, dans le même
+  // tick plutôt que dans un effect + requestAnimationFrame séparés —
+  // moins fragile pour rattacher ce print() au geste de clic d'origine
+  // selon le navigateur. En cas d'échec de la requête (réseau, session
+  // expirée...), un message d'erreur explicite : sans cela, le bouton
+  // semblait simplement ne rien faire.
   async function imprimerStock() {
-    const { data } = await appliquerFiltresArticles(supabase.from("articles").select("*").eq("business_id", business.id)).order("nom");
-    setPrintRows(data || []);
+    try {
+      const { data, error } = await appliquerFiltresArticles(supabase.from("articles").select("*").eq("business_id", business.id)).order(
+        "nom"
+      );
+      if (error) throw error;
+      flushSync(() => setPrintRows(data || []));
+      window.print();
+    } catch (err) {
+      window.alert(t("articles.impressionError", { message: err.message }));
+    }
   }
-
-  useEffect(() => {
-    if (printRows === null) return;
-    const id = requestAnimationFrame(() => window.print());
-    return () => cancelAnimationFrame(id);
-  }, [printRows]);
 
   if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
 

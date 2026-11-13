@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, Download, Image as ImageIcon, MessageCircle, Printer, X } from "lucide-react";
+import { CheckCircle2, Download, Image as ImageIcon, Printer, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { fmt as fmtBase, dateLocale, toWhatsAppNumber, tronquerMilieuNom } from "@/lib/format";
+import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 
 // Marge @page (voir globals.css, .sb-receipt-print) — réutilisée ici pour
@@ -103,9 +103,9 @@ export default function Receipt({ commande, business, onClose }) {
   // page (aperçu écran + impression A4).
   const dejaPaye = commande.paiement_mode === "mobile_money";
   const totalDu = dejaPaye ? commande.livraison_frais || 0 : totalGeneral;
-  // Séparées une fois pour les 3 surfaces (écran, PDF, WhatsApp) : aucune
-  // trace de cadeaux nulle part tant que lignesOffertes est vide — la
-  // section dédiée ci-dessous n'est alors jamais rendue.
+  // Séparées une fois pour les 2 surfaces (écran, PDF) : aucune trace de
+  // cadeaux nulle part tant que lignesOffertes est vide — la section
+  // dédiée ci-dessous n'est alors jamais rendue.
   const lignesVendues = commande.lignes.filter((l) => !l.offert);
   const lignesOffertes = commande.lignes.filter((l) => l.offert);
   const businessName = business?.name;
@@ -117,23 +117,6 @@ export default function Receipt({ commande, business, onClose }) {
     year: "numeric",
   });
   const [platformLogo, setPlatformLogo] = useState("");
-  // Détection best-effort du partage natif de fichiers (Web Share API),
-  // calculée pendant le rendu (comme systemPrefersDark dans AuthProvider)
-  // plutôt que dans un effect : c'est une lecture synchrone de l'état du
-  // navigateur, pas un abonnement à un évènement externe qui changerait
-  // pendant que le composant est monté. navigator.canShare() exige un vrai
-  // objet File pour répondre, d'où ce fichier PDF factice minimal ;
-  // indisponible sur la plupart des navigateurs d'ordinateur, disponible
-  // sur la quasi-totalité des téléphones récents (Android Chrome, iOS
-  // Safari).
-  const [canShareFiles] = useState(() => {
-    if (typeof navigator === "undefined" || !navigator.canShare) return false;
-    try {
-      return navigator.canShare({ files: [new File([""], "test.pdf", { type: "application/pdf" })] });
-    } catch {
-      return false;
-    }
-  });
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const printRef = useRef(null);
 
@@ -200,58 +183,6 @@ export default function Receipt({ commande, business, onClose }) {
     } finally {
       setGeneratingPdf(false);
     }
-  }
-
-  // Sur les appareils supportant le partage natif de fichiers, "Envoyer par
-  // WhatsApp" génère le PDF puis ouvre le menu de partage du téléphone (le
-  // PDF y est joint directement, l'utilisateur choisit WhatsApp dedans) —
-  // remplace le message texte pré-rempli, plus riche mais qui n'attachait
-  // jamais le PDF lui-même. Ailleurs (essentiellement les ordinateurs), le
-  // message texte pré-rempli reste le seul chemin disponible : un bouton
-  // "Télécharger le PDF" séparé complète alors ce bouton (voir plus bas).
-  async function envoyerWhatsApp() {
-    if (canShareFiles) {
-      setGeneratingPdf(true);
-      try {
-        const blob = await genererPdfBlob();
-        if (!blob) return;
-        const file = new File([blob], nomFichierPdf(), { type: "application/pdf" });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: nomFichierPdf() });
-        } else {
-          telechargerBlob(blob, nomFichierPdf());
-        }
-      } catch (err) {
-        // AbortError : l'utilisateur a simplement fermé le menu de partage,
-        // pas une vraie erreur à signaler.
-        if (err?.name !== "AbortError") {
-          console.error("Échec du partage du PDF :", err);
-          window.alert(t("receipt.pdfError"));
-        }
-      } finally {
-        setGeneratingPdf(false);
-      }
-      return;
-    }
-
-    const numero = toWhatsAppNumber(client?.telephone);
-    if (!numero) return;
-    const lignesTxt = lignesVendues.map((l) => `- ${l.nom} ×${l.quantite} ${uniteLabel(l.unite)}`).join("\n");
-    // Section distincte, jamais mélangée à la liste ci-dessus, et
-    // entièrement absente du message si aucun cadeau n'a été renseigné.
-    const cadeauxTxt =
-      lignesOffertes.length > 0
-        ? `\n\n${t("receipt.cadeauxTitle")}\n${lignesOffertes.map((l) => `- 🎁 ${l.nom} ×${l.quantite} ${uniteLabel(l.unite)}`).join("\n")}`
-        : "";
-    const message = t("receipt.whatsappMessage", {
-      clientNom: client?.nom || "",
-      numero: commande.numero,
-      businessName: businessName || "Doka",
-      lignesTxt: lignesTxt + cadeauxTxt,
-      livraisonLine: commande.livraison_frais > 0 ? t("receipt.whatsappLivraisonLine", { frais: fmt(commande.livraison_frais) }) : "",
-      total: fmt(totalGeneral),
-    });
-    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(message)}`, "_blank");
   }
 
   return (
@@ -363,24 +294,14 @@ export default function Receipt({ commande, business, onClose }) {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <button
-              className="sb-btn"
-              style={{ width: "100%", justifyContent: "center", background: "#25D366", color: "#fff" }}
-              onClick={envoyerWhatsApp}
-              disabled={generatingPdf || (!canShareFiles && !toWhatsAppNumber(client?.telephone))}
+              className="sb-btn sb-btn-primary"
+              style={{ width: "100%", justifyContent: "center" }}
+              onClick={telechargerPdf}
+              disabled={generatingPdf}
             >
-              <MessageCircle size={14} /> {generatingPdf ? t("receipt.generationPdf") : t("receipt.envoyerWhatsApp")}
+              <Download size={14} /> {generatingPdf ? t("receipt.generationPdf") : t("receipt.telechargerPdf")}
             </button>
-            {!canShareFiles && (
-              <button
-                className="sb-btn sb-btn-ghost"
-                style={{ width: "100%", justifyContent: "center" }}
-                onClick={telechargerPdf}
-                disabled={generatingPdf}
-              >
-                <Download size={14} /> {generatingPdf ? t("receipt.generationPdf") : t("receipt.telechargerPdf")}
-              </button>
-            )}
-            <button className="sb-btn sb-btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => window.print()}>
+            <button className="sb-btn sb-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => window.print()}>
               <Printer size={14} /> {t("receipt.imprimerPdf")}
             </button>
           </div>
@@ -477,7 +398,7 @@ export default function Receipt({ commande, business, onClose }) {
                 <th className="sb-receipt-print-table-photo"></th>
                 <th>{t("receipt.tableArticle")}</th>
                 <th style={{ textAlign: "right" }}>{t("receipt.tablePrixUnitaire")}</th>
-                <th style={{ textAlign: "center" }}>{t("receipt.tableQuantite")}</th>
+                <th style={{ textAlign: "right" }}>{t("receipt.tableQuantite")}</th>
                 <th style={{ textAlign: "right" }}>{t("receipt.tableSousTotal")}</th>
               </tr>
             </thead>
@@ -495,7 +416,7 @@ export default function Receipt({ commande, business, onClose }) {
                   </td>
                   <td className="sb-nom-tronque" style={{ maxWidth: 340 }}>{tronquerMilieuNom(l.nom, LONGUEUR_NOM_IMPRESSION)}</td>
                   <td style={{ textAlign: "right" }}>{fmt(l.prix_vente)}</td>
-                  <td style={{ textAlign: "center" }}>
+                  <td style={{ textAlign: "right" }}>
                     {l.quantite} {uniteLabel(l.unite)}
                   </td>
                   <td style={{ textAlign: "right" }}>{fmt(l.prix_vente * l.quantite)}</td>
@@ -524,7 +445,7 @@ export default function Receipt({ commande, business, onClose }) {
                   <tr>
                     <th className="sb-receipt-print-table-photo"></th>
                     <th>{t("receipt.tableArticle")}</th>
-                    <th style={{ textAlign: "center" }}>{t("receipt.tableQuantite")}</th>
+                    <th style={{ textAlign: "right" }}>{t("receipt.tableQuantite")}</th>
                     <th style={{ textAlign: "right" }}></th>
                   </tr>
                 </thead>
@@ -541,7 +462,7 @@ export default function Receipt({ commande, business, onClose }) {
                         )}
                       </td>
                       <td className="sb-nom-tronque" style={{ maxWidth: 340 }}>{tronquerMilieuNom(l.nom, LONGUEUR_NOM_IMPRESSION)}</td>
-                      <td style={{ textAlign: "center" }}>
+                      <td style={{ textAlign: "right" }}>
                         {l.quantite} {uniteLabel(l.unite)}
                       </td>
                       <td style={{ textAlign: "right", fontWeight: 700 }}>{t("receipt.offertPrint")}</td>

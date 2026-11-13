@@ -674,7 +674,7 @@ pour les cadeaux offerts — jamais `var(--emerald)`/`var(--emerald-bg)`,
 qui suivraient le mode sombre de l'app alors que ce composant reste
 toujours sur fond blanc, écran comme impression).
 
-## Confirmation de commande : mise en page d'origine, multi-page sans coupure + partage PDF WhatsApp
+## Confirmation de commande : mise en page d'origine, multi-page sans coupure
 
 **Mise en page aérée d'origine, sans exigence de tenir sur une seule
 page** : la version imprimée/PDF (`components/Receipt.js`, bloc
@@ -694,8 +694,8 @@ symbole graphique, seulement du texte : « CADEAUX OFFERTS » (titre de la
 seconde table) et « Offert » (à la place du prix, dans sa dernière
 colonne) en toutes lettres. Ce choix ne concerne que cette version
 imprimée/PDF : l'aperçu à l'écran (fenêtre modale ouverte avant
-impression) et le message WhatsApp pré-rempli gardent leurs emojis
-(`receipt.cadeauxTitle`, `CadeauBadge`) — deux clés i18n dédiées
+impression/téléchargement) garde ses emojis (`receipt.cadeauxTitle`,
+`CadeauBadge`) — deux clés i18n dédiées
 (`receipt.cadeauxTitrePrint`, `receipt.offertPrint`) portent la version
 sobre utilisée uniquement dans `.sb-receipt-print`, sans toucher aux
 textes déjà affichés ailleurs. Même principe pour le tampon : la mention
@@ -770,17 +770,27 @@ print` ne s'appliqueraient pas à ce moment-là ; seul l'affichage
 (`display`) reste conditionnel, soit par une vraie impression, soit par
 `.sb-receipt-print-capture`.
 
-Bouton « Envoyer par WhatsApp » : sur les appareils supportant le partage
-natif de fichiers (`navigator.canShare({ files: […] })`, la quasi-totalité
-des téléphones récents), génère le PDF puis ouvre le menu de partage du
-téléphone avec le PDF déjà joint — la personne choisit WhatsApp dans ce
-menu, sans dépendre du numéro enregistré côté client (contrairement à
-l'ancien lien `wa.me`). Sur les appareils qui ne le supportent pas
-(essentiellement les navigateurs d'ordinateur), le bouton garde son
-ancien comportement (message texte pré-rempli vers `wa.me`, qui a
-toujours besoin d'un numéro de téléphone client valide) et un bouton
-séparé **Télécharger le PDF** apparaît à côté, pour joindre le fichier à
-la main dans WhatsApp Web/Desktop.
+**Bouton « Envoyer par WhatsApp » retiré** : partageait le PDF via le
+menu de partage natif du téléphone (`navigator.canShare({ files: […] })`)
+quand disponible, avec un repli en message texte pré-rempli vers `wa.me`
+sinon — mais tant que ce partage natif était disponible (la quasi-totalité
+des téléphones récents, Android Chrome et iOS Safari inclus), le bouton
+**Télécharger le PDF** restait cette fois masqué
+(`{!canShareFiles && (...)}`), laissant le partage WhatsApp comme seul
+chemin vers le PDF sur mobile. Si la personne annulait le menu de partage
+(`AbortError`, explicitement avalé sans message) ou que WhatsApp n'était
+simplement pas installé, rien ne se passait, sans aucun message
+d'erreur — exactement le symptôme « le bouton Télécharger ne déclenche
+plus rien » rapporté depuis un téléphone. **Télécharger le PDF**
+(`telechargerPdf()`, inchangée) est désormais le **seul** bouton principal
+et reste **toujours affiché**, sur ordinateur comme sur téléphone — plus
+de condition `canShareFiles`, plus de dépendance au partage natif ni à
+WhatsApp. `envoyerWhatsApp()`, l'état `canShareFiles` et les clés i18n
+`receipt.envoyerWhatsApp`/`whatsappMessage`/`whatsappLivraisonLine`
+(devenues inutilisées) ont été retirés ; `toWhatsAppNumber` reste exporté
+par `lib/format.js`, toujours utilisé par le contact support
+(`app/(app)/aide/page.js`, `components/FooterSupport.js`), sans rapport
+avec ce composant.
 
 Nécessite `jspdf`/`html2canvas` (ajoutés à `package.json`), chargés via un
 import dynamique dans `genererPdfBlob()` pour ne pas alourdir le chargement
@@ -1189,6 +1199,50 @@ toujours sur fond blanc indépendamment du mode sombre de l'app) —
 n'imprime alors aucune couleur de fond mais respecte toujours la couleur
 du texte. Les autres quantités gardent la couleur normale du document
 (`color` non précisé, hérite du noir par défaut).
+
+**Déclenchement de l'impression, fiabilisé** : contrairement aux autres
+documents imprimés de l'app (contenu toujours présent dans le DOM,
+simplement masqué par CSS hors de `@media print`), celui du stock exige
+une requête Supabase avant de pouvoir afficher quoi que ce soit — le
+portail `.sb-stock-print` ne se monte qu'une fois `printRows` renseigné.
+`imprimerStock()` enchaînait auparavant un `await` réseau puis
+`setPrintRows(...)`, avec `window.print()` déclenché séparément depuis un
+`useEffect` + `requestAnimationFrame` au prochain rendu — une indirection
+en plus entre le clic d'origine et `window.print()`, et surtout aucune
+gestion d'erreur : la moindre requête en échec (réseau, session expirée)
+laissait le bouton sembler ne rien faire, sans aucun message. Désormais,
+`flushSync(() => setPrintRows(data || []))` force React à committer
+`printRows` de façon synchrone, et `window.print()` suit immédiatement
+dans le **même tick** plutôt que dans un effect séparé ; toute erreur de
+la requête est explicitement attrapée et affichée
+(`articles.impressionError`) au lieu d'échouer en silence.
+
+### Alignement des colonnes dans les PDF
+
+Règle commune à tous les tableaux imprimés : libellés alignés à gauche,
+montants alignés à droite (`text-align: right`, posé à la fois sur le
+`<th>` et sur chaque `<td>` de la colonne — l'un sans l'autre désaligne
+l'en-tête par rapport aux valeurs). Deux vrais désalignements trouvés et
+corrigés :
+
+- **Trésorerie** (`app/(app)/tresorerie/page.js`,
+  `.sb-tresorerie-print-table`) : les colonnes CA et Marge n'avaient
+  jamais reçu `text-align: right`, ni sur l'en-tête ni sur les cellules —
+  alignées à gauche par défaut comme la colonne Mois, au lieu d'être
+  alignées à droite comme toute colonne de montant.
+- **Revenus Doka** (`app/(app)/admin/page.js`,
+  `.sb-revenus-print-table`) : même défaut sur la colonne Montant. La
+  colonne Date de validation reste alignée à gauche par défaut (une date
+  n'est pas un montant).
+
+Un troisième point, plus une question de cohérence que d'oubli :
+la colonne Quantité de la confirmation de commande imprimée/PDF
+(`components/Receipt.js`, tableaux vendus et cadeaux offerts) était
+centrée (`text-align: center`) alors que toutes les colonnes voisines
+(prix unitaire, sous-total) sont alignées à droite — un nombre au milieu
+de colonnes de montants alignées à droite rompt la grille verticale.
+Alignée à droite comme le reste, pour une colonne de chiffres
+parfaitement verticale du haut en bas du tableau.
 
 Plutôt que des boutons d'action collés sur chaque ligne (petits boutons
 `padding: 4px 8px`, plusieurs par ligne, difficiles à toucher sans erreur

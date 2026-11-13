@@ -610,7 +610,7 @@ export default function AdminPage() {
               <thead>
                 <tr>
                   <th>{t("admin.revenus.colBoutique")}</th>
-                  <th>{t("admin.revenus.colMontant")}</th>
+                  <th style={{ textAlign: "right" }}>{t("admin.revenus.colMontant")}</th>
                   <th>{t("admin.revenus.colDateValidation")}</th>
                 </tr>
               </thead>
@@ -618,7 +618,7 @@ export default function AdminPage() {
                 {paiementsTries.map((p) => (
                   <tr key={p.id}>
                     <td>{nomBoutique(p.business_id)}</td>
-                    <td>{fmt(p.montant)}</td>
+                    <td style={{ textAlign: "right" }}>{fmt(p.montant)}</td>
                     <td>{p.valide_at ? new Date(p.valide_at).toLocaleDateString(dateLocale(business?.langue)) : "—"}</td>
                   </tr>
                 ))}
