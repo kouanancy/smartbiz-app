@@ -390,16 +390,16 @@ export default function TresoreriePage() {
               <thead>
                 <tr>
                   <th>{t("tresorerie.colMois")}</th>
-                  <th>{t("tresorerie.colCa")}</th>
-                  <th>{t("tresorerie.colMarge")}</th>
+                  <th style={{ textAlign: "right" }}>{t("tresorerie.colCa")}</th>
+                  <th style={{ textAlign: "right" }}>{t("tresorerie.colMarge")}</th>
                 </tr>
               </thead>
               <tbody>
                 {tableRows.map((b) => (
                   <tr key={b.key}>
                     <td>{b.labelFull}</td>
-                    <td>{fmt(b.ca)}</td>
-                    <td>{fmt(b.marge)}</td>
+                    <td style={{ textAlign: "right" }}>{fmt(b.ca)}</td>
+                    <td style={{ textAlign: "right" }}>{fmt(b.marge)}</td>
                   </tr>
                 ))}
               </tbody>
