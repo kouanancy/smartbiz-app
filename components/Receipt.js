@@ -103,6 +103,13 @@ export default function Receipt({ commande, business, onClose }) {
   // page (aperçu écran + impression A4).
   const dejaPaye = commande.paiement_mode === "mobile_money";
   const totalDu = dejaPaye ? commande.livraison_frais || 0 : totalGeneral;
+  // acompteVerse vient déjà calculé du composant appelant (somme des
+  // acomptes au statut 'verse' — voir app/(app)/nouvelle/page.js,
+  // app/(app)/commandes/[id]/page.js), jamais recalculé ici : ce
+  // composant ne connaît la commande que par ce que son appelant lui
+  // transmet, jamais par sa propre requête Supabase.
+  const acompteVerse = commande.acompteVerse || 0;
+  const resteAPayer = Math.max(0, totalDu - acompteVerse);
   // Séparées une fois pour les 2 surfaces (écran, PDF) : aucune trace de
   // cadeaux nulle part tant que lignesOffertes est vide — la section
   // dédiée ci-dessous n'est alors jamais rendue.
@@ -281,9 +288,15 @@ export default function Receipt({ commande, business, onClose }) {
               {dejaPaye && <DejaPayeBadge t={t} />}
             </span>
           </div>
+          {acompteVerse > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
+              <span style={{ color: "#6B6A63" }}>{t("receipt.acompteVerseLabel")}</span>
+              <span className="sb-mono">− {fmt(acompteVerse)}</span>
+            </div>
+          )}
           <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 14.5, marginBottom: 16 }}>
-            <span>{dejaPaye ? t("receipt.totalAPayerLivraison") : t("receipt.total")}</span>
-            <span className="sb-mono">{fmt(totalDu)}</span>
+            <span>{acompteVerse > 0 ? t("receipt.resteAPayerLabel") : dejaPaye ? t("receipt.totalAPayerLivraison") : t("receipt.total")}</span>
+            <span className="sb-mono">{fmt(acompteVerse > 0 ? resteAPayer : totalDu)}</span>
           </div>
 
           <div style={{ textAlign: "center", marginBottom: 12 }}>
@@ -487,9 +500,15 @@ export default function Receipt({ commande, business, onClose }) {
                 <strong>{fmt(commande.livraison_frais)}</strong>
               </div>
             )}
+            {acompteVerse > 0 && (
+              <div>
+                <span>{t("receipt.acompteVerseLabel")}</span>
+                <strong>− {fmt(acompteVerse)}</strong>
+              </div>
+            )}
             <div className="total">
-              <span>{dejaPaye ? t("receipt.totalAPayerLivraison") : t("receipt.totalAPayer")}</span>
-              <strong>{fmt(totalDu)}</strong>
+              <span>{acompteVerse > 0 ? t("receipt.resteAPayerLabel") : dejaPaye ? t("receipt.totalAPayerLivraison") : t("receipt.totalAPayer")}</span>
+              <strong>{fmt(acompteVerse > 0 ? resteAPayer : totalDu)}</strong>
             </div>
           </div>
 
