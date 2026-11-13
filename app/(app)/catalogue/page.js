@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Copy, Printer, Share2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Copy, Download, Share2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, tronquerMilieuNom } from "@/lib/format";
 import { THEMES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
+import { exporterPdf } from "@/lib/pdfExport";
+import { dateFichier } from "@/lib/exportExcel";
 
 const FILTRE_TOUTES = "toutes";
 const FILTRE_SANS_CATEGORIE = "sans-categorie";
@@ -58,6 +60,8 @@ export default function CataloguePage() {
   const [loading, setLoading] = useState(true);
   const [filtreCategorie, setFiltreCategorie] = useState(FILTRE_TOUTES);
   const [copyMsg, setCopyMsg] = useState("");
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const printRef = useRef(null);
 
   const accent = THEMES[business?.theme_key || "orange"].accent;
 
@@ -104,16 +108,31 @@ export default function CataloguePage() {
     return `${titre}\n\n${lignes}\n\n${t("catalogue.shareFooter")}`;
   }
 
-  function imprimer() {
-    const original = document.title;
-    document.title =
-      `${t("catalogue.title")} — ${business?.name || "Doka"}` + (activeCategoryLabel ? ` — ${activeCategoryLabel}` : "");
-    const restore = () => {
-      document.title = original;
-      window.removeEventListener("afterprint", restore);
-    };
-    window.addEventListener("afterprint", restore);
-    window.print();
+  // Capture .sb-catalogue-banner + .sb-catalogue-grid (voir printRef plus
+  // bas) et la télécharge/la partage de façon fiable sur téléphone — voir
+  // lib/pdfExport.js. .sb-catalogue-print-mode (globals.css) y applique
+  // temporairement la même mise en page que @media print (3 colonnes,
+  // nom tronqué sur 3 lignes...), gardée par ailleurs pour l'impression
+  // native (Ctrl+P) qui, elle, continue de s'appliquer à la grille affichée
+  // à l'écran sans passer par cette fonction.
+  async function telechargerPdf() {
+    setGeneratingPdf(true);
+    const el = printRef.current;
+    el?.classList.add("sb-pdf-export-capture", "sb-catalogue-print-mode");
+    try {
+      await exporterPdf({
+        getElement: () => el,
+        nomFichier: `catalogue-${dateFichier()}.pdf`,
+        labelGeneration: t("catalogue.generationPdf"),
+        onCaptured: () => el?.classList.remove("sb-pdf-export-capture", "sb-catalogue-print-mode"),
+      });
+    } catch (err) {
+      console.error("Échec de la génération du PDF :", err);
+      window.alert(t("catalogue.pdfError"));
+    } finally {
+      el?.classList.remove("sb-pdf-export-capture", "sb-catalogue-print-mode");
+      setGeneratingPdf(false);
+    }
   }
 
   async function copierTexte() {
@@ -156,8 +175,8 @@ export default function CataloguePage() {
           <button className="sb-btn" style={{ background: "#25D366", color: "#fff" }} onClick={partagerWhatsApp}>
             <Share2 size={13} /> {t("catalogue.partager")}
           </button>
-          <button className="sb-btn sb-btn-primary" onClick={imprimer}>
-            <Printer size={13} /> {t("catalogue.imprimerPdf")}
+          <button className="sb-btn sb-btn-primary" onClick={telechargerPdf} disabled={generatingPdf}>
+            <Download size={13} /> {generatingPdf ? t("catalogue.generationPdf") : t("catalogue.telechargerPdf")}
           </button>
         </div>
       </div>
@@ -180,54 +199,62 @@ export default function CataloguePage() {
         ))}
       </div>
 
-      <div className="sb-catalogue-banner">
-        <div className="sb-catalogue-banner-logo">
-          {business?.logo_url ? (
-            <img src={business.logo_url} alt={business?.name || "Logo"} />
-          ) : (
-            <div className="sb-catalogue-banner-logo-fallback">
-              {(business?.name || "SB").slice(0, 2).toUpperCase()}
+      {/* ref sur ce wrapper (et lui seul, pas la page entière) : il ne
+          contient volontairement que le bandeau + la grille, jamais les
+          boutons/filtres au-dessus (sb-no-print) — exactement ce que capture
+          déjà @media print pour une impression native, maintenant aussi
+          capturé par html2canvas (voir telechargerPdf, lib/pdfExport.js)
+          pour un vrai export PDF téléchargeable. */}
+      <div ref={printRef}>
+        <div className="sb-catalogue-banner">
+          <div className="sb-catalogue-banner-logo">
+            {business?.logo_url ? (
+              <img src={business.logo_url} alt={business?.name || "Logo"} />
+            ) : (
+              <div className="sb-catalogue-banner-logo-fallback">
+                {(business?.name || "SB").slice(0, 2).toUpperCase()}
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="sb-catalogue-banner-name">{business?.name || t("common.defaultBusinessName")}</div>
+            <div className="sb-catalogue-banner-tagline">
+              {activeCategoryLabel ? `${t("catalogue.headerSub")} — ${activeCategoryLabel}` : t("catalogue.headerSub")}
             </div>
-          )}
-        </div>
-        <div>
-          <div className="sb-catalogue-banner-name">{business?.name || t("common.defaultBusinessName")}</div>
-          <div className="sb-catalogue-banner-tagline">
-            {activeCategoryLabel ? `${t("catalogue.headerSub")} — ${activeCategoryLabel}` : t("catalogue.headerSub")}
           </div>
         </div>
-      </div>
 
-      {filtres.length === 0 ? (
-        <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 16 }}>{t("catalogue.aucunArticle")}</p>
-      ) : (
-        <div className="sb-catalogue-grid">
-          {chunk(filtres, ARTICLES_PAR_PAGE_IMPRESSION).map((groupe, gi) => (
-            <div key={gi} className="sb-catalogue-page-group">
-              {groupe.map((a) => (
-                <div key={a.id} className="sb-catalogue-card">
-                  {a.image_url ? (
-                    <div className="sb-catalogue-thumb-img">
-                      <img src={a.image_url} alt={a.nom} />
+        {filtres.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 16 }}>{t("catalogue.aucunArticle")}</p>
+        ) : (
+          <div className="sb-catalogue-grid">
+            {chunk(filtres, ARTICLES_PAR_PAGE_IMPRESSION).map((groupe, gi) => (
+              <div key={gi} className="sb-catalogue-page-group">
+                {groupe.map((a) => (
+                  <div key={a.id} className="sb-catalogue-card sb-pdf-no-split">
+                    {a.image_url ? (
+                      <div className="sb-catalogue-thumb-img">
+                        <img src={a.image_url} alt={a.nom} />
+                      </div>
+                    ) : (
+                      <div className="sb-catalogue-thumb" style={{ background: accent }}>
+                        {a.nom.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="sb-catalogue-nom">
+                      <span className="sb-catalogue-nom-screen">{a.nom}</span>
+                      <span className="sb-catalogue-nom-print">{tronquerMilieuNom(a.nom, LONGUEUR_NOM_IMPRESSION)}</span>
                     </div>
-                  ) : (
-                    <div className="sb-catalogue-thumb" style={{ background: accent }}>
-                      {a.nom.slice(0, 1).toUpperCase()}
+                    <div className="sb-catalogue-prix">
+                      {fmt(a.prix_vente)} <span className="sb-catalogue-unite">/ {uniteLabel(a.unite)}</span>
                     </div>
-                  )}
-                  <div className="sb-catalogue-nom">
-                    <span className="sb-catalogue-nom-screen">{a.nom}</span>
-                    <span className="sb-catalogue-nom-print">{tronquerMilieuNom(a.nom, LONGUEUR_NOM_IMPRESSION)}</span>
                   </div>
-                  <div className="sb-catalogue-prix">
-                    {fmt(a.prix_vente)} <span className="sb-catalogue-unite">/ {uniteLabel(a.unite)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <p className="sb-no-print" style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 16 }}>
         {t("catalogue.instagramNote")}

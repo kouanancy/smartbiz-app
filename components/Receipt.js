@@ -2,15 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, Download, Image as ImageIcon, Printer, X } from "lucide-react";
+import { CheckCircle2, Download, Image as ImageIcon, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
-
-// Marge @page (voir globals.css, .sb-receipt-print) — réutilisée ici pour
-// que le PDF généré par html2canvas/jsPDF (genererPdfBlob) corresponde à
-// la même mise en page A4 que l'impression navigateur classique.
-const PAGE_MARGIN_MM = 16;
+import { exporterPdf } from "@/lib/pdfExport";
 
 // Seuil de troncature des noms d'article dans le tableau imprimé/PDF
 // (table à 5 colonnes — photo, article, prix unitaire, quantité,
@@ -142,52 +138,35 @@ export default function Receipt({ commande, business, onClose }) {
     return `commande-${commande.numero}.pdf`;
   }
 
-  // Capture .sb-receipt-print (déjà stylée pour l'A4, voir globals.css) via
-  // jsPDF.html() — qui délègue le rendu à html2canvas en interne — puis
-  // renvoie le PDF sous forme de Blob. Le bloc est normalement display:none
-  // à l'écran ; .sb-receipt-print-capture le rend temporairement visible
-  // (mais hors écran, jamais visible pour l'utilisateur) le temps de la
-  // capture, indispensable pour qu'html2canvas puisse le mesurer/rendre.
-  async function genererPdfBlob() {
-    const el = printRef.current;
-    if (!el) return null;
-    const { default: jsPDF } = await import("jspdf");
-    el.classList.add("sb-receipt-print-capture");
-    try {
-      const pdf = new jsPDF({ unit: "mm", format: "a4" });
-      await pdf.html(el, {
-        x: PAGE_MARGIN_MM,
-        y: PAGE_MARGIN_MM,
-        width: 210 - PAGE_MARGIN_MM * 2,
-        windowWidth: el.scrollWidth || 900,
-        html2canvas: { scale: 2, useCORS: true },
-      });
-      return pdf.output("blob");
-    } finally {
-      el.classList.remove("sb-receipt-print-capture");
-    }
-  }
-
-  function telechargerBlob(blob, nomFichier) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = nomFichier;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
+  // Capture .sb-receipt-print (déjà stylée pour l'A4, voir globals.css) et
+  // la télécharge/la partage de façon fiable sur téléphone — voir
+  // lib/pdfExport.js pour la logique commune à tous les exports PDF de
+  // l'app (reçu, stock, catalogue, trésorerie) et la cause exacte du
+  // problème sur mobile. Le bloc est normalement display: none à l'écran ;
+  // .sb-pdf-export-capture le rend temporairement visible (dans la fenêtre,
+  // jamais hors écran — voir globals.css) le temps de la capture,
+  // indispensable pour qu'html2canvas puisse le mesurer/rendre, et
+  // exporterPdf pose son propre cache plein écran par-dessus pendant ce
+  // temps pour qu'il ne soit jamais visible pour l'utilisatrice — onCaptured
+  // retire cette classe dès la capture terminée (pas seulement à la toute
+  // fin, qui peut traîner plusieurs secondes sur le sélecteur de partage du
+  // système), pour qu'elle ne reste jamais affichée sans ce cache.
   async function telechargerPdf() {
     setGeneratingPdf(true);
+    const el = printRef.current;
+    el?.classList.add("sb-pdf-export-capture");
     try {
-      const blob = await genererPdfBlob();
-      if (blob) telechargerBlob(blob, nomFichierPdf());
+      await exporterPdf({
+        getElement: () => el,
+        nomFichier: nomFichierPdf(),
+        labelGeneration: t("receipt.generationPdf"),
+        onCaptured: () => el?.classList.remove("sb-pdf-export-capture"),
+      });
     } catch (err) {
       console.error("Échec de la génération du PDF :", err);
       window.alert(t("receipt.pdfError"));
     } finally {
+      el?.classList.remove("sb-pdf-export-capture");
       setGeneratingPdf(false);
     }
   }
@@ -196,7 +175,7 @@ export default function Receipt({ commande, business, onClose }) {
     <>
       {/* Aperçu à l'écran — fenêtre modale, masquée à l'impression */}
       <div className="sb-modal-overlay sb-no-print" onClick={onClose}>
-        <div className="sb-card" style={{ width: 380, background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+        <div className="sb-card sb-receipt-preview" style={{ width: 380 }} onClick={(e) => e.stopPropagation()}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
             {logo ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -305,19 +284,14 @@ export default function Receipt({ commande, business, onClose }) {
             </span>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <button
-              className="sb-btn sb-btn-primary"
-              style={{ width: "100%", justifyContent: "center" }}
-              onClick={telechargerPdf}
-              disabled={generatingPdf}
-            >
-              <Download size={14} /> {generatingPdf ? t("receipt.generationPdf") : t("receipt.telechargerPdf")}
-            </button>
-            <button className="sb-btn sb-btn-ghost" style={{ width: "100%", justifyContent: "center" }} onClick={() => window.print()}>
-              <Printer size={14} /> {t("receipt.imprimerPdf")}
-            </button>
-          </div>
+          <button
+            className="sb-btn sb-btn-primary"
+            style={{ width: "100%", justifyContent: "center" }}
+            onClick={telechargerPdf}
+            disabled={generatingPdf}
+          >
+            <Download size={14} /> {generatingPdf ? t("receipt.generationPdf") : t("receipt.telechargerPdf")}
+          </button>
 
           <p style={{ textAlign: "center", fontSize: 10.5, color: "#A6A29D", margin: "12px 0 0", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
             {platformLogo && <img src={platformLogo} alt="" style={{ height: 12, width: 12, objectFit: "contain" }} />}
@@ -348,7 +322,7 @@ export default function Receipt({ commande, business, onClose }) {
             </div>
           </div>
 
-          <div className="sb-receipt-print-info">
+          <div className="sb-receipt-print-info sb-pdf-no-split">
             <div className="sb-receipt-print-info-block">
               <h3>{t("receipt.printClient")}</h3>
               <div>
@@ -417,7 +391,7 @@ export default function Receipt({ commande, business, onClose }) {
             </thead>
             <tbody>
               {lignesVendues.map((l, i) => (
-                <tr key={`v-${i}`}>
+                <tr key={`v-${i}`} className="sb-pdf-no-split">
                   <td className="sb-receipt-print-table-photo">
                     {l.image_url ? (
                       <img src={l.image_url} alt="" />
@@ -464,7 +438,7 @@ export default function Receipt({ commande, business, onClose }) {
                 </thead>
                 <tbody>
                   {lignesOffertes.map((l, i) => (
-                    <tr key={`o-${i}`}>
+                    <tr key={`o-${i}`} className="sb-pdf-no-split">
                       <td className="sb-receipt-print-table-photo">
                         {l.image_url ? (
                           <img src={l.image_url} alt="" />
@@ -486,7 +460,7 @@ export default function Receipt({ commande, business, onClose }) {
             </>
           )}
 
-          <div className="sb-receipt-print-totals">
+          <div className="sb-receipt-print-totals sb-pdf-no-split">
             <div>
               <span>{t("receipt.totalArticles")}</span>
               <strong style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -512,7 +486,7 @@ export default function Receipt({ commande, business, onClose }) {
             </div>
           </div>
 
-          <div className="sb-receipt-print-stamp">
+          <div className="sb-receipt-print-stamp sb-pdf-no-split">
             <span>{t("receipt.stampConfirmee")}</span>
           </div>
 

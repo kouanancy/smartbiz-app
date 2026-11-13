@@ -1611,22 +1611,127 @@ a {
   }
 }
 
+/* .sb-catalogue-print-mode : même mise en page que le bloc @media print
+   ci-dessus (3 colonnes, nom tronqué sur 3 lignes...), posée temporairement
+   en classe ordinaire par telechargerPdf (app/(app)/catalogue/page.js) le
+   temps de la capture html2canvas — un export PDF téléchargeable, en plus
+   de l'impression native (Ctrl+P, qui continue de passer par le bloc
+   ci-dessus, inchangé). Pas de regroupement par page de 6 (break-after:
+   page, utile seulement à la pagination native) : lib/pdfExport.js découpe
+   lui-même les pages au pixel près, sans jamais couper une fiche
+   (.sb-catalogue-card porte la classe sb-pdf-no-split, voir page.js) — un
+   nombre de fiches par page naturellement variable selon l'espace restant,
+   plutôt qu'un nombre fixe pensé pour un moteur de pagination différent. */
+.sb-catalogue-print-mode .sb-catalogue-grid {
+  display: block;
+}
+.sb-catalogue-print-mode .sb-catalogue-page-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.sb-catalogue-print-mode .sb-catalogue-card {
+  box-shadow: none;
+  transform: none;
+}
+.sb-catalogue-print-mode .sb-catalogue-nom {
+  height: 52px;
+  overflow: hidden;
+}
+.sb-catalogue-print-mode .sb-catalogue-nom-screen {
+  display: none;
+}
+.sb-catalogue-print-mode .sb-catalogue-nom-print {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Aperçu à l'écran de la confirmation de commande (modale, voir       */
+/*  components/Receipt.js) — un document de type "papier" : il garde    */
+/*  toujours un fond blanc et des textes foncés fixes, jamais les        */
+/*  variables --card/--ink qui suivraient le mode sombre de l'app       */
+/*  (:root[data-theme="dark"]). Avant cette classe, la carte forçait     */
+/*  juste background:#fff en style inline mais laissait "color" hériter */
+/*  de .sb-root (var(--ink)) — clair par défaut, mais devenant la teinte */
+/*  claire du mode sombre sur ce fond resté blanc, illisible. Toutes les */
+/*  valeurs ici sont recopiées en dur, jamais via var(...), par le même  */
+/*  principe que .sb-receipt-print plus bas (sa version imprimée).       */
+/* ------------------------------------------------------------------ */
+.sb-receipt-preview {
+  background: #fff;
+  color: #2e2c2b;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Export PDF commun (voir lib/pdfExport.js, exporterPdf) — partagé par */
+/*  la confirmation de commande, le stock, le catalogue et la trésorerie. */
+/*  Posée temporairement sur le bloc "impression" dédié de chacune de ces */
+/*  pages (normalement display: none, voir .sb-receipt-print juste en     */
+/*  dessous et les blocs équivalents plus loin dans ce fichier) pendant   */
+/*  que jsPDF/html2canvas le capture pour produire un vrai fichier PDF.   */
+/*  position: fixed + left: 0 (jamais left: -9999px, utilisé avant ce   */
+/*  correctif) : Safari/WebKit ne peint pas de façon fiable un élément   */
+/*  positionné très loin hors de la fenêtre visible, ce qui pouvait      */
+/*  produire une capture html2canvas vide ou tronquée sur iPhone/iPad    */
+/*  (contrairement à Chrome, plus tolérant) — voir lib/pdfExport.js et   */
+/*  README.md pour le détail de cette cause. Rester dans la fenêtre      */
+/*  visible impose en retour de le cacher autrement : exporterPdf pose   */
+/*  son propre cache plein écran par-dessus (z-index 500, créé en JS)    */
+/*  avant de démarrer la capture, quelle que soit la page qui l'appelle  */
+/*  — z-index ici volontairement bas (60), seulement pour rester sous ce */
+/*  cache commun. Largeur/hauteur volontairement non contraintes ici     */
+/*  (ni width/right, ni height/min-height) : laissées à la seule charge  */
+/*  des règles propres à chaque bloc (max-width + margin: 0 auto plus    */
+/*  bas) — un essai avec min-height: 100vh ici a fait mesurer une        */
+/*  hauteur de 0 par html2canvas (vérifié avec Playwright, PDF illisible */
+/*  en résultant), ce moteur ne rejouant pas fidèlement le calcul CSS     */
+/*  d'une boîte en position: fixed avec left/right et margin: auto       */
+/*  combinés. !important nécessaire : chacun de ces blocs a sa propre    */
+/*  règle display: none de base à écraser sans dépendre de l'ordre des   */
+/*  sélecteurs.                                                          */
+/* ------------------------------------------------------------------ */
+.sb-pdf-export-capture {
+  display: block !important;
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  /* Largeur forcée à la largeur imprimable A4 (178mm = 210mm - 2×16mm de
+     marge @page), identique à CAPTURE_WIDTH_PX dans lib/pdfExport.js :
+     sans elle, l'élément capturé prend la largeur de son conteneur normal
+     (souvent toute la fenêtre), alors que html2canvas simule de son côté
+     une fenêtre de 178mm pour le rendu — deux mises en page différentes,
+     avec des hauteurs de ligne/carte différentes. lib/pdfExport.js lit les
+     coordonnées des zones protégées (sb-pdf-no-split) directement sur cet
+     élément tel qu'affiché à l'écran (getBoundingClientRect), donc dans
+     SA mise en page à lui : sans cette largeur forcée, ces coordonnées ne
+     correspondent plus à rien dans le canevas capturé (repéré en test sur
+     le catalogue, dont la grille n'a sinon aucune largeur fixe — les
+     reçu/stock/trésorerie y échappaient par hasard, déjà contraints à
+     178mm par leur propre max-width, mais seulement sur un écran assez
+     large pour l'atteindre : un vrai téléphone, plus étroit, aurait eu le
+     même problème). */
+  width: 178mm !important;
+  z-index: 60;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Reçu de commande — mise en page dédiée à l'impression / PDF (A4)  */
 /*  Rendue via un portail dans <body> (voir components/Receipt.js),   */
 /*  donc invisible à l'écran et indépendante de la page qui l'ouvre.  */
 /*                                                                     */
 /*  Les règles visuelles ci-dessous sont volontairement en dehors de   */
-/*  @media print (contrairement à avant) : le PDF partageable par      */
-/*  WhatsApp (Web Share API) est généré en capturant ce même bloc via  */
-/*  html2canvas pendant un rendu écran normal (voir genererPdfBlob     */
-/*  dans Receipt.js), pas pendant une impression réelle — des règles   */
-/*  scopées à @media print ne s'appliqueraient pas à cette capture-là. */
-/*  Seul l'affichage (display: none/block) reste conditionnel : cache  */
-/*  par défaut, montré soit par une vraie impression (@media print),   */
-/*  soit temporairement par .sb-receipt-print-capture pendant la       */
-/*  génération du PDF (position hors écran, jamais visible pour        */
-/*  l'utilisateur).                                                    */
+/*  @media print (contrairement à avant) : le PDF téléchargeable est   */
+/*  généré en capturant ce même bloc via html2canvas pendant un rendu   */
+/*  écran normal (voir lib/pdfExport.js), pas pendant une impression    */
+/*  réelle — des règles scopées à @media print ne s'appliqueraient pas  */
+/*  à cette capture-là. Seul l'affichage (display: none/block) reste    */
+/*  conditionnel : caché par défaut, montré soit par une vraie          */
+/*  impression (@media print), soit temporairement par                 */
+/*  .sb-pdf-export-capture pendant la génération du PDF.                 */
 /* ------------------------------------------------------------------ */
 
 .sb-receipt-print {
@@ -1644,13 +1749,9 @@ a {
   color: #2e2c2b;
   background: #fff;
 }
-.sb-receipt-print.sb-receipt-print-capture {
-  display: block;
-  position: fixed;
-  top: 0;
-  left: -9999px;
-  z-index: -1;
-}
+/* .sb-pdf-export-capture (classe commune, voir plus bas juste avant ce
+   bloc) gère l'affichage temporaire pendant la génération — ne rien
+   redéfinir ici. */
 .sb-receipt-print-header {
   display: flex;
   align-items: flex-start;
@@ -1750,6 +1851,31 @@ a {
   break-inside: avoid;
   page-break-inside: avoid;
 }
+/* La bordure de séparation vit sur le <tr> (bordure de ligne, une seule
+   fois), jamais répétée sur chaque <td> : avec border-collapse: collapse,
+   une bordure posée indépendamment sur chaque cellule d'une même ligne
+   dépend de la hauteur que CHAQUE cellule calcule elle-même pour se
+   fondre dans la ligne — la cellule photo+nom (hauteur dictée par la
+   miniature 34px) et les cellules de texte (hauteur dictée par une seule
+   ligne de chiffres) partent de hauteurs intrinsèques différentes, et le
+   moteur de rendu utilisé pour le PDF (html2canvas, voir genererPdfBlob
+   dans Receipt.js) ne les réaligne pas de façon fiable sur la hauteur
+   commune de la ligne comme le fait un navigateur à l'écran — résultat
+   observé : la bordure sous la cellule photo+nom décalée par rapport aux
+   colonnes Prix unitaire/Quantité/Sous-total. Une bordure unique portée
+   par le <tr> n'a qu'une seule hauteur possible, celle de la ligne
+   entière, quel que soit le moteur de rendu. vertical-align: middle
+   centre en plus le contenu de chaque cellule dans cette même hauteur de
+   ligne, miniature comme texte, au lieu de dépendre de la valeur par
+   défaut du navigateur (potentiellement différente entre l'écran et la
+   capture PDF). */
+.sb-receipt-print-table tbody tr {
+  border-bottom: 1px solid #e4e2d8;
+}
+.sb-receipt-print-table td,
+.sb-receipt-print-table th {
+  vertical-align: middle;
+}
 .sb-receipt-print-table th {
   text-align: left;
   font-size: 11px;
@@ -1762,7 +1888,6 @@ a {
 .sb-receipt-print-table td {
   padding: 14px 8px;
   font-size: 13.5px;
-  border-bottom: 1px solid #e4e2d8;
 }
 .sb-receipt-print-table-photo {
   width: 44px;
@@ -1879,132 +2004,150 @@ a {
 /*  usage comptable.                                                   */
 /* ------------------------------------------------------------------ */
 
+/* Comme .sb-receipt-print plus haut : les règles visuelles ci-dessous sont
+   volontairement en dehors de @media print, pour pouvoir être capturées
+   par jsPDF/html2canvas pendant un rendu écran normal (voir
+   lib/pdfExport.js et tresorerie/page.js) — un vrai export PDF
+   téléchargeable, plus seulement un rapport imprimable manuellement. Seul
+   l'affichage (display: none/block) reste conditionnel : caché par défaut,
+   montré soit par une vraie impression (@media print), soit temporairement
+   par .sb-pdf-export-capture pendant la génération du PDF (voir plus haut
+   dans ce fichier). */
 .sb-tresorerie-print {
   display: none;
+  width: 100%;
+  max-width: 178mm;
+  margin: 0 auto;
+  font-family: "Inter", sans-serif;
+  color: #2e2c2b;
+  background: #fff;
+}
+.sb-tresorerie-print-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 2px solid #2e2c2b;
+  padding-bottom: 18px;
+  margin-bottom: 28px;
+}
+.sb-tresorerie-print-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sb-tresorerie-print-brand img {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+.sb-tresorerie-print-logo-fallback {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  background: #e07a29;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+}
+.sb-tresorerie-print-brand-name {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+}
+.sb-tresorerie-print-title {
+  text-align: right;
+}
+.sb-tresorerie-print-title h1 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.sb-tresorerie-print-title p {
+  font-size: 12.5px;
+  color: #6e6b68;
+  margin: 2px 0 0;
+}
+.sb-tresorerie-print-totals {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+.sb-tresorerie-print-totals > div {
+  flex: 1;
+  border: 1px solid #e4e2d8;
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+.sb-tresorerie-print-totals .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8a8682;
+  margin-bottom: 8px;
+}
+.sb-tresorerie-print-totals .value {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 22px;
+  font-weight: 700;
+}
+.sb-tresorerie-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+.sb-tresorerie-print-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6e6b68;
+  padding: 10px 8px;
+  border-bottom: 2px solid #2e2c2b;
+}
+.sb-tresorerie-print-table td,
+.sb-tresorerie-print-table th {
+  vertical-align: middle;
+}
+.sb-tresorerie-print-table td {
+  padding: 12px 8px;
+  font-size: 13px;
+  border-bottom: 1px solid #e4e2d8;
+}
+.sb-tresorerie-print-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  text-align: center;
+  font-size: 11px;
+  color: #a6a29d;
+  border-top: 1px solid #e4e2d8;
+  padding-top: 18px;
+  margin-top: 12px;
+}
+.sb-tresorerie-print-footer img {
+  height: 12px;
+  width: 12px;
+  object-fit: contain;
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
   body:has(.sb-tresorerie-print) .sb-root {
     display: none !important;
   }
   .sb-tresorerie-print {
     display: block;
-    width: 100%;
-    max-width: 178mm;
-    margin: 0 auto;
-    font-family: "Inter", sans-serif;
-    color: #2e2c2b;
-  }
-  .sb-tresorerie-print-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 20px;
-    border-bottom: 2px solid #2e2c2b;
-    padding-bottom: 18px;
-    margin-bottom: 28px;
-  }
-  .sb-tresorerie-print-brand {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-  .sb-tresorerie-print-brand img {
-    width: 52px;
-    height: 52px;
-    border-radius: 10px;
-    object-fit: cover;
-  }
-  .sb-tresorerie-print-logo-fallback {
-    width: 52px;
-    height: 52px;
-    border-radius: 10px;
-    background: #e07a29;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: "Space Grotesk", sans-serif;
-    font-weight: 700;
-    font-size: 18px;
-  }
-  .sb-tresorerie-print-brand-name {
-    font-family: "Space Grotesk", sans-serif;
-    font-weight: 700;
-    font-size: 24px;
-  }
-  .sb-tresorerie-print-title {
-    text-align: right;
-  }
-  .sb-tresorerie-print-title h1 {
-    font-family: "Space Grotesk", sans-serif;
-    font-size: 17px;
-    font-weight: 700;
-    margin: 0 0 6px;
-  }
-  .sb-tresorerie-print-title p {
-    font-size: 12.5px;
-    color: #6e6b68;
-    margin: 2px 0 0;
-  }
-  .sb-tresorerie-print-totals {
-    display: flex;
-    gap: 20px;
-    margin-bottom: 28px;
-  }
-  .sb-tresorerie-print-totals > div {
-    flex: 1;
-    border: 1px solid #e4e2d8;
-    border-radius: 10px;
-    padding: 16px 18px;
-  }
-  .sb-tresorerie-print-totals .label {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #8a8682;
-    margin-bottom: 8px;
-  }
-  .sb-tresorerie-print-totals .value {
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 22px;
-    font-weight: 700;
-  }
-  .sb-tresorerie-print-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 24px;
-  }
-  .sb-tresorerie-print-table th {
-    text-align: left;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #6e6b68;
-    padding: 10px 8px;
-    border-bottom: 2px solid #2e2c2b;
-  }
-  .sb-tresorerie-print-table td {
-    padding: 12px 8px;
-    font-size: 13px;
-    border-bottom: 1px solid #e4e2d8;
-  }
-  .sb-tresorerie-print-footer {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    text-align: center;
-    font-size: 11px;
-    color: #a6a29d;
-    border-top: 1px solid #e4e2d8;
-    padding-top: 18px;
-    margin-top: 12px;
-  }
-  .sb-tresorerie-print-footer img {
-    height: 12px;
-    width: 12px;
-    object-fit: contain;
   }
 }
 
@@ -2017,169 +2160,191 @@ a {
 /*  plus sobre (pas de valeur chiffrée en gros sur la première carte).  */
 /* ------------------------------------------------------------------ */
 
+/* Comme .sb-receipt-print plus haut : les règles visuelles ci-dessous sont
+   volontairement en dehors de @media print, pour pouvoir être capturées
+   par jsPDF/html2canvas pendant un rendu écran normal (voir
+   lib/pdfExport.js et articles/page.js) — un vrai export PDF
+   téléchargeable, plus seulement un rapport imprimable manuellement. Seul
+   l'affichage (display: none/block) reste conditionnel. */
 .sb-stock-print {
   display: none;
+  width: 100%;
+  max-width: 178mm;
+  margin: 0 auto;
+  font-family: "Inter", sans-serif;
+  color: #2e2c2b;
+  background: #fff;
+}
+.sb-stock-print-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 2px solid #2e2c2b;
+  padding-bottom: 18px;
+  margin-bottom: 28px;
+}
+.sb-stock-print-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sb-stock-print-brand img {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+.sb-stock-print-logo-fallback {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  background: #e07a29;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+}
+.sb-stock-print-brand-name {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+}
+.sb-stock-print-title {
+  text-align: right;
+}
+.sb-stock-print-title h1 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.sb-stock-print-title p {
+  font-size: 12.5px;
+  color: #6e6b68;
+  margin: 2px 0 0;
+}
+.sb-stock-print-totals {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+.sb-stock-print-totals > div {
+  flex: 1;
+  border: 1px solid #e4e2d8;
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+.sb-stock-print-totals .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8a8682;
+  margin-bottom: 8px;
+}
+.sb-stock-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+/* Jamais une ligne coupée en plein milieu entre deux pages — même
+   principe que .sb-receipt-print-table tr (ci-dessus), qui l'avait
+   déjà ; cette règle manquait ici alors que le rapport de stock peut
+   tout autant déborder sur plusieurs pages qu'un grand nombre
+   d'articles référencés. */
+.sb-stock-print-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+/* Bordure portée par la ligne, pas par chaque cellule, et contenu
+   centré verticalement — même correctif, pour la même raison, que
+   .sb-receipt-print-table ci-dessus (colonne photo plus haute que les
+   colonnes de texte, bordure sinon potentiellement décalée une fois
+   capturée par html2canvas plutôt qu'affichée par un navigateur). */
+.sb-stock-print-table tbody tr {
+  border-bottom: 1px solid #e4e2d8;
+}
+.sb-stock-print-table td,
+.sb-stock-print-table th {
+  vertical-align: middle;
+}
+.sb-stock-print-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6e6b68;
+  padding: 10px 8px;
+  border-bottom: 2px solid #2e2c2b;
+}
+.sb-stock-print-table td {
+  padding: 12px 8px;
+  font-size: 13px;
+}
+/* Classe dédiée plutôt que td:first-child : la colonne photo
+   (.sb-stock-print-table-photo ci-dessous) est désormais la première
+   cellule de chaque ligne, le code article n'est plus le first-child. */
+.sb-stock-print-table-code {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+}
+/* Même gabarit que .sb-receipt-print-table-photo (components/Receipt.js,
+   juste au-dessus) : miniature carrée, ou pictogramme par défaut
+   (ImageIcon) si l'article n'a pas de photo — cohérent avec le reste de
+   l'application (ArticleSelect.js, fiche article, confirmation de
+   commande imprimée). */
+.sb-stock-print-table-photo {
+  width: 44px;
+}
+.sb-stock-print-table-photo img {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
+}
+.sb-stock-print-table-photo-fallback {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  background: #f2f1ef;
+  border: 1px solid #e4e2d8;
+  color: #a6a29d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sb-stock-print-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  text-align: center;
+  font-size: 11px;
+  color: #a6a29d;
+  border-top: 1px solid #e4e2d8;
+  padding-top: 18px;
+  margin-top: 12px;
+}
+.sb-stock-print-footer img {
+  height: 12px;
+  width: 12px;
+  object-fit: contain;
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
   body:has(.sb-stock-print) .sb-root {
     display: none !important;
   }
   .sb-stock-print {
     display: block;
-    width: 100%;
-    max-width: 178mm;
-    margin: 0 auto;
-    font-family: "Inter", sans-serif;
-    color: #2e2c2b;
-  }
-  .sb-stock-print-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 20px;
-    border-bottom: 2px solid #2e2c2b;
-    padding-bottom: 18px;
-    margin-bottom: 28px;
-  }
-  .sb-stock-print-brand {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-  .sb-stock-print-brand img {
-    width: 52px;
-    height: 52px;
-    border-radius: 10px;
-    object-fit: cover;
-  }
-  .sb-stock-print-logo-fallback {
-    width: 52px;
-    height: 52px;
-    border-radius: 10px;
-    background: #e07a29;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: "Space Grotesk", sans-serif;
-    font-weight: 700;
-    font-size: 18px;
-  }
-  .sb-stock-print-brand-name {
-    font-family: "Space Grotesk", sans-serif;
-    font-weight: 700;
-    font-size: 24px;
-  }
-  .sb-stock-print-title {
-    text-align: right;
-  }
-  .sb-stock-print-title h1 {
-    font-family: "Space Grotesk", sans-serif;
-    font-size: 17px;
-    font-weight: 700;
-    margin: 0 0 6px;
-  }
-  .sb-stock-print-title p {
-    font-size: 12.5px;
-    color: #6e6b68;
-    margin: 2px 0 0;
-  }
-  .sb-stock-print-totals {
-    display: flex;
-    gap: 20px;
-    margin-bottom: 28px;
-  }
-  .sb-stock-print-totals > div {
-    flex: 1;
-    border: 1px solid #e4e2d8;
-    border-radius: 10px;
-    padding: 16px 18px;
-  }
-  .sb-stock-print-totals .label {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #8a8682;
-    margin-bottom: 8px;
-  }
-  .sb-stock-print-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 24px;
-  }
-  /* Jamais une ligne coupée en plein milieu entre deux pages — même
-     principe que .sb-receipt-print-table tr (ci-dessus), qui l'avait
-     déjà ; cette règle manquait ici alors que le rapport de stock peut
-     tout autant déborder sur plusieurs pages qu'un grand nombre
-     d'articles référencés. */
-  .sb-stock-print-table tr {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-  .sb-stock-print-table th {
-    text-align: left;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #6e6b68;
-    padding: 10px 8px;
-    border-bottom: 2px solid #2e2c2b;
-  }
-  .sb-stock-print-table td {
-    padding: 12px 8px;
-    font-size: 13px;
-    border-bottom: 1px solid #e4e2d8;
-  }
-  /* Classe dédiée plutôt que td:first-child : la colonne photo
-     (.sb-stock-print-table-photo ci-dessous) est désormais la première
-     cellule de chaque ligne, le code article n'est plus le first-child. */
-  .sb-stock-print-table-code {
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 12px;
-  }
-  /* Même gabarit que .sb-receipt-print-table-photo (components/Receipt.js,
-     juste au-dessus) : miniature carrée, ou pictogramme par défaut
-     (ImageIcon) si l'article n'a pas de photo — cohérent avec le reste de
-     l'application (ArticleSelect.js, fiche article, confirmation de
-     commande imprimée). */
-  .sb-stock-print-table-photo {
-    width: 44px;
-  }
-  .sb-stock-print-table-photo img {
-    width: 34px;
-    height: 34px;
-    border-radius: 6px;
-    object-fit: cover;
-    display: block;
-  }
-  .sb-stock-print-table-photo-fallback {
-    width: 34px;
-    height: 34px;
-    border-radius: 6px;
-    background: #f2f1ef;
-    border: 1px solid #e4e2d8;
-    color: #a6a29d;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .sb-stock-print-footer {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    text-align: center;
-    font-size: 11px;
-    color: #a6a29d;
-    border-top: 1px solid #e4e2d8;
-    padding-top: 18px;
-    margin-top: 12px;
-  }
-  .sb-stock-print-footer img {
-    height: 12px;
-    width: 12px;
-    object-fit: contain;
   }
 }
 
