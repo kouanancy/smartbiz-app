@@ -1,16 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPortal, flushSync } from "react-dom";
-import { FileSpreadsheet, Image as ImageIcon, Plus, Printer, RefreshCw, Search, TrendingUp, X } from "lucide-react";
+import { Download, FileSpreadsheet, Image as ImageIcon, Plus, RefreshCw, Search, TrendingUp, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 import { UNITES, PAGE_SIZE } from "@/lib/constants";
 import { exportToExcel, dateFichier } from "@/lib/exportExcel";
+import { exporterPdf } from "@/lib/pdfExport";
 import ImageUploadField from "@/components/ImageUploadField";
 import Pagination from "@/components/Pagination";
 import ClearableInput from "@/components/ClearableInput";
@@ -79,6 +80,8 @@ export default function ArticlesPage() {
   const [enAttenteParArticle, setEnAttenteParArticle] = useState({});
   const [platformLogo, setPlatformLogo] = useState("");
   const [printRows, setPrintRows] = useState(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const printRef = useRef(null);
 
   // Logo Doka pour le pied de page du rapport imprimé — indépendant du
   // logo de boutique, affiché dans l'en-tête (même principe que
@@ -310,25 +313,40 @@ export default function ArticlesPage() {
 
   // Même requête dédiée (tout le stock filtré, jamais seulement la page
   // affichée) que exporterExcel ci-dessus — remplit le portail
-  // d'impression plus bas, puis déclenche l'impression. La requête est
-  // forcément asynchrone (il faut les données avant de les afficher),
-  // mais flushSync force React à committer printRows de façon synchrone
-  // avant l'appel à window.print() qui suit immédiatement, dans le même
-  // tick plutôt que dans un effect + requestAnimationFrame séparés —
-  // moins fragile pour rattacher ce print() au geste de clic d'origine
-  // selon le navigateur. En cas d'échec de la requête (réseau, session
-  // expirée...), un message d'erreur explicite : sans cela, le bouton
-  // semblait simplement ne rien faire.
-  async function imprimerStock() {
+  // d'impression plus bas, puis capture ce bloc en PDF (voir
+  // lib/pdfExport.js). Cette requête ne démarre qu'à l'intérieur de
+  // getElement, donc après l'éventuelle ouverture de fenêtre que fait déjà
+  // exporterPdf AVANT tout await (nécessaire sur Safari, voir
+  // lib/pdfExport.js) — peu importe ensuite sa durée (réseau lent...),
+  // l'activation utilisateur du clic n'est plus en jeu à ce stade.
+  // flushSync force React à committer printRows de façon synchrone avant
+  // de lire printRef.current, plutôt que dans un effect séparé. En cas
+  // d'échec de la requête (réseau, session expirée...), un message
+  // d'erreur explicite : sans cela, le bouton semblait ne rien faire.
+  async function telechargerPdf() {
+    setGeneratingPdf(true);
+    let el = null;
     try {
-      const { data, error } = await appliquerFiltresArticles(supabase.from("articles").select("*").eq("business_id", business.id)).order(
-        "nom"
-      );
-      if (error) throw error;
-      flushSync(() => setPrintRows(data || []));
-      window.print();
+      await exporterPdf({
+        getElement: async () => {
+          const { data, error } = await appliquerFiltresArticles(
+            supabase.from("articles").select("*").eq("business_id", business.id)
+          ).order("nom");
+          if (error) throw error;
+          flushSync(() => setPrintRows(data || []));
+          el = printRef.current;
+          el?.classList.add("sb-pdf-export-capture");
+          return el;
+        },
+        nomFichier: `stock-${dateFichier()}.pdf`,
+        labelGeneration: t("articles.generationPdf"),
+        onCaptured: () => el?.classList.remove("sb-pdf-export-capture"),
+      });
     } catch (err) {
       window.alert(t("articles.impressionError", { message: err.message }));
+    } finally {
+      el?.classList.remove("sb-pdf-export-capture");
+      setGeneratingPdf(false);
     }
   }
 
@@ -354,8 +372,8 @@ export default function ArticlesPage() {
           <button className="sb-btn sb-btn-ghost" onClick={exporterExcel}>
             <FileSpreadsheet size={14} /> {t("common.exporterExcel")}
           </button>
-          <button className="sb-btn sb-btn-ghost" onClick={imprimerStock}>
-            <Printer size={14} /> {t("articles.imprimerPdf")}
+          <button className="sb-btn sb-btn-ghost" onClick={telechargerPdf} disabled={generatingPdf}>
+            <Download size={14} /> {generatingPdf ? t("articles.generationPdf") : t("articles.telechargerPdf")}
           </button>
           <button className="sb-btn sb-btn-primary" onClick={() => setShowForm((s) => !s)}>
             <Plus size={14} /> {t("articles.newArticle")}
@@ -687,7 +705,7 @@ export default function ArticlesPage() {
     {typeof document !== "undefined" &&
       printRows !== null &&
       createPortal(
-        <div className="sb-stock-print">
+        <div className="sb-stock-print" ref={printRef}>
           <div className="sb-stock-print-header">
             <div className="sb-stock-print-brand">
               {business?.logo_url ? (

@@ -844,19 +844,21 @@ principe que le regroupement de `.sb-catalogue-card` par 6
 que l'élément visuel lui-même — mais ici pour un débordement de
 `transform` plutôt que de flux normal.
 
-**Partage direct par WhatsApp (PDF joint)** : `genererPdfBlob()` capture
-`.sb-receipt-print` (déjà stylé pour l'A4) via `jsPDF.html()` — qui
-délègue le rendu à `html2canvas` en interne — et renvoie un vrai fichier
-PDF plutôt qu'une simple invite d'impression navigateur. Le bloc est
-normalement `display: none` à l'écran ; une classe
-`.sb-receipt-print-capture` (position hors écran, jamais visible) le rend
-temporairement mesurable par `html2canvas` le temps de la capture. Les
-styles visuels du reçu (`.sb-receipt-print-header`, `-table`, `-totals`...)
-sont volontairement en dehors de `@media print` — une capture déclenchée
-par clic n'est pas une impression réelle, des règles scopées à `@media
-print` ne s'appliqueraient pas à ce moment-là ; seul l'affichage
-(`display`) reste conditionnel, soit par une vraie impression, soit par
-`.sb-receipt-print-capture`.
+**Partage direct par WhatsApp (PDF joint)** : capture `.sb-receipt-print`
+(déjà stylé pour l'A4) et renvoie un vrai fichier PDF plutôt qu'une simple
+invite d'impression navigateur. Le bloc est normalement `display: none` à
+l'écran ; une classe le rend temporairement mesurable le temps de la
+capture. Les styles visuels du reçu (`.sb-receipt-print-header`, `-table`,
+`-totals`...) sont volontairement en dehors de `@media print` — une
+capture déclenchée par clic n'est pas une impression réelle, des règles
+scopées à `@media print` ne s'appliqueraient pas à ce moment-là ; seul
+l'affichage (`display`) reste conditionnel, soit par une vraie impression,
+soit par cette classe. *(Mécanisme réécrit depuis — voir la section
+« Export PDF : mode sombre, bouton unique, téléchargement mobile fiable,
+bordures du tableau » plus bas pour le détail actuel : `jsPDF.html()`
+abandonné pour un bug qui rendait le PDF illisible, classe renommée
+`.sb-pdf-export-capture` et partagée avec les autres exports PDF de
+l'app.)*
 
 **Bouton « Envoyer par WhatsApp » retiré** : partageait le PDF via le
 menu de partage natif du téléphone (`navigator.canShare({ files: […] })`)
@@ -870,20 +872,210 @@ chemin vers le PDF sur mobile. Si la personne annulait le menu de partage
 simplement pas installé, rien ne se passait, sans aucun message
 d'erreur — exactement le symptôme « le bouton Télécharger ne déclenche
 plus rien » rapporté depuis un téléphone. **Télécharger le PDF**
-(`telechargerPdf()`, inchangée) est désormais le **seul** bouton principal
-et reste **toujours affiché**, sur ordinateur comme sur téléphone — plus
-de condition `canShareFiles`, plus de dépendance au partage natif ni à
-WhatsApp. `envoyerWhatsApp()`, l'état `canShareFiles` et les clés i18n
+(`telechargerPdf()`) est devenu le **seul** bouton principal à ce
+moment-là et restait **toujours affiché**, sur ordinateur comme sur
+téléphone — plus de condition `canShareFiles`, plus de dépendance au
+partage natif ni à WhatsApp. `envoyerWhatsApp()`, l'état `canShareFiles`
+et les clés i18n
 `receipt.envoyerWhatsApp`/`whatsappMessage`/`whatsappLivraisonLine`
 (devenues inutilisées) ont été retirés ; `toWhatsAppNumber` reste exporté
 par `lib/format.js`, toujours utilisé par le contact support
 (`app/(app)/aide/page.js`, `components/FooterSupport.js`), sans rapport
-avec ce composant.
+avec ce composant. *(Un second bouton, « Imprimer / Télécharger en PDF »
+— repli sur `window.print()` — avait ensuite été réintroduit à côté dans
+un cycle ultérieur, sans mise à jour de ce paragraphe ; retiré à son tour
+depuis, voir la section « Export PDF... » plus bas — la modale n'a
+aujourd'hui de nouveau qu'un seul bouton, « Télécharger en PDF ».)*
 
-Nécessite `jspdf`/`html2canvas` (ajoutés à `package.json`), chargés via un
-import dynamique dans `genererPdfBlob()` pour ne pas alourdir le chargement
-initial de l'app — ces bibliothèques ne sont récupérées qu'au moment où
-un PDF est réellement demandé.
+Nécessite `jspdf`/`html2canvas` (ajoutés à `package.json`) — voir la
+section « Export PDF... » plus bas pour l'implémentation actuelle
+(`lib/pdfExport.js`), partagée avec les autres exports PDF de l'app.
+
+## Export PDF : mode sombre, bouton unique, téléchargement mobile fiable, bordures du tableau
+
+Quatre correctifs distincts sur la confirmation de commande
+(`components/Receipt.js`), étendus au stock, au catalogue et à la
+trésorerie dès qu'ils partagent le même mécanisme (`lib/pdfExport.js`,
+nouveau fichier qui centralise désormais toute génération/tout
+téléchargement de PDF de l'app, plutôt que de dupliquer cette logique dans
+chaque page).
+
+**1. Mode sombre de l'aperçu à l'écran.** La modale (`.sb-card`, fond
+blanc forcé en style inline) laissait `color` hériter de `.sb-root`
+(`var(--ink)`) — clair par défaut, mais devenant la teinte claire du mode
+sombre (`:root[data-theme="dark"]`) sur ce fond resté blanc : nom de la
+boutique, n° de commande, date, client, livraison, paiement, lignes
+d'article et total quasiment illisibles dès que la boutique a activé le
+mode sombre. Un document de type « papier » doit garder ses propres
+couleurs fixes, jamais celles du thème de l'app. Corrigé par une nouvelle
+classe `.sb-receipt-preview` (`app/globals.css`), posée à côté de
+`.sb-card` sur la modale, qui fixe `background: #fff` et `color: #2e2c2b`
+en dur (jamais via `var(...)`) — même principe déjà appliqué à
+`.sb-receipt-print`, sa version imprimée/PDF. Toutes les valeurs déjà
+codées en dur sur des `span` individuels (`#6B6A63`, `#A6A29D`...)
+restaient inchangées et correctes ; seul le texte sans couleur explicite
+en profitait implicitement. Vérifié avec Playwright : couleurs calculées
+(`getComputedStyle`) identiques en mode clair et en mode sombre
+(`rgb(255, 255, 255)` / `rgb(46, 44, 43)`).
+
+**2. Un seul bouton.** La modale avait deux boutons : « Télécharger le
+PDF » (`sb-btn-primary`, téléchargement réel par Blob) et « Imprimer /
+Télécharger en PDF » (`sb-btn-ghost`, `window.print()` — voir point 3
+pour pourquoi ce second chemin ne réglait de toute façon rien de fiable
+sur mobile). Le second bouton est retiré ; le premier, reformulé
+« Télécharger en PDF », reste seul et utilise déjà `.sb-btn-primary`
+(`background: linear-gradient(135deg, var(--accent), var(--accent-deep))`,
+`color: #fff`) — la couleur de thème de la boutique, jamais une couleur
+fixe, et déjà lisible dans les deux modes puisque `--accent`/`--accent-deep`
+ne sont volontairement pas redéfinies par `:root[data-theme="dark"]` (voir
+plus haut, section Mode sombre). `Printer` (icône) et les clés i18n
+`receipt.imprimerPdf` (les quatre langues/namespaces concernés) retirés ;
+`receipt.pdfError` reformulé sans mentionner ce bouton disparu.
+
+**3. Téléchargement qui ne fonctionnait pas sur téléphone — cause exacte
+et correctif.** Trois causes distinctes identifiées, cumulées :
+
+   a. **Le PDF généré était corrompu** — pages blanches, `jsPDF.html()`
+      (qui délègue à `html2canvas` en interne) produisait un fichier
+      illisible (`pdftoppm`/le lecteur PDF natif de Chromium montrent 7
+      pages blanches pour un reçu de 3 articles) avec la version 4.2.1 de
+      jsPDF utilisée par l'app — reproduit aussi bien avec l'ancien
+      positionnement hors écran (`left: -9999px`) qu'avec un nouveau,
+      donc un bug de la bibliothèque elle-même, pas de ce composant, mais
+      qui rendait tout téléchargement inutile depuis la création de cette
+      fonctionnalité, **sur ordinateur comme sur téléphone** — jamais
+      remarqué faute d'avoir jamais rouvert le fichier réellement produit
+      (le screenshot de la modale ou « un téléchargement se déclenche »
+      ne suffisent pas à le révéler). Corrigé en abandonnant
+      `pdf.html()` : `lib/pdfExport.js` pilote `html2canvas` directement
+      (un seul appel, un seul vrai canevas) puis découpe ce rendu en
+      pages A4 à la main avec la primitive la plus simple de jsPDF
+      (`pdf.addImage()`, une tranche du canevas par page) — jamais une
+      ligne/un bloc protégé (voir point 4) coupé entre deux pages, grâce
+      à une classe `sb-pdf-no-split` posée sur chaque zone à préserver
+      (lignes du tableau, bloc client/livraison, totaux, tampon pour le
+      reçu ; chaque fiche pour le catalogue), dont les coordonnées
+      ajustent la découpe candidate quand elle tomberait en plein milieu.
+   b. **Safari (bureau et iOS) ne déclenche pas de façon fiable un vrai
+      téléchargement** pour une URL `blob:` via `<a download>` — il ouvre
+      le fichier dans son lecteur intégré au lieu de l'enregistrer, selon
+      la version. Chrome (Android comme bureau) n'a pas ce problème.
+   c. **Safari lie l'autorisation d'ouvrir une fenêtre/de naviguer à
+      l'activation utilisateur du clic d'origine** — un seul `await` avant
+      d'agir (la génération du PDF prend facilement 300ms à plusieurs
+      secondes) suffit à la lui faire perdre, l'action échouant alors
+      silencieusement. Chrome tolère un délai nettement plus long.
+
+   Stratégie retenue dans `exporterPdf()` (`lib/pdfExport.js`), dans
+   l'ordre : l'API Web Share avec fichiers quand le navigateur la
+   supporte (`navigator.canShare({ files: […] })` — iOS Safari et Chrome
+   Android la supportent tous les deux pour un PDF, elle délègue au
+   sélecteur natif du téléphone et contourne b. et c. à la fois) ; sinon,
+   sur Safari spécifiquement (détecté sans dépendre de `canShare`, par
+   user-agent — `estSafari()`, qui exclut explicitement Chrome/Firefox
+   pour iOS, eux aussi sous WebKit par obligation du système mais sans ce
+   problème), une fenêtre `window.open('', '_blank')` ouverte **avant tout
+   await**, repointée vers le PDF (`location.href`) une fois prêt — une
+   fois ouverte, la rediriger plus tard ne redemande pas l'activation
+   utilisateur, seule l'ouverture l'exigeait ; sinon (Chrome, Firefox...),
+   le téléchargement direct par `<a download>`, qui fonctionne très bien
+   chez eux même après un await. Un cache plein écran (`position: fixed;
+   inset: 0`, créé en JS, jamais visible plus d'un instant) couvre l'écran
+   pendant la génération, nécessaire parce que l'élément à capturer doit
+   rester dans la fenêtre visible (voir point suivant) plutôt que
+   positionné hors écran.
+   d. **Élément à capturer positionné hors écran** (`left: -9999px`) :
+      Safari/WebKit est connu pour ne pas peindre de façon fiable un
+      élément aussi loin de la fenêtre visible, ce qui pouvait rendre une
+      capture `html2canvas` vide ou tronquée sur iPhone/iPad (contrairement
+      à Chrome, plus tolérant) — cause plausible, non confirmée
+      isolément faute d'un vrai moteur WebKit dans ce bac à sable (voir
+      limite de vérification plus bas), mais corrigée par précaution en
+      même temps que a. : l'élément reste désormais dans la fenêtre
+      visible (classe commune `.sb-pdf-export-capture`), cachée par le
+      cache plein écran du point précédent plutôt que par un
+      positionnement hors écran.
+
+   **Piège rencontré en corrigeant d et étendant le mécanisme au
+   catalogue** : `.sb-pdf-export-capture` ne fixait d'abord que la
+   position, jamais la largeur de l'élément capturé. Sans largeur forcée,
+   l'élément prend celle de son conteneur ambiant (toute la fenêtre, pour
+   une grille comme celle du catalogue, qui n'a pas de `max-width` propre
+   contrairement au reçu/stock/trésorerie) — alors que `html2canvas` simule
+   de son côté une fenêtre de 178mm (`windowWidth`) pour le rendu capturé.
+   Deux mises en page différentes, avec des hauteurs de ligne/fiche
+   différentes : les coordonnées des zones protégées (`sb-pdf-no-split`,
+   lues sur l'élément tel qu'affiché à l'écran) ne correspondaient plus à
+   rien dans le canevas réellement capturé, et des fiches de catalogue se
+   retrouvaient malgré tout coupées en deux entre les pages 1 et 2 (repéré
+   en testant concrètement le PDF obtenu, pas en relisant le code).
+   Corrigé en ajoutant `width: 178mm !important` à `.sb-pdf-export-capture`
+   — le reçu/stock/trésorerie y échappaient par chance, déjà contraints à
+   178mm par leur propre `max-width`, mais seulement sur un écran assez
+   large pour l'atteindre ; un vrai téléphone, plus étroit que 178mm,
+   aurait exposé le même problème pour eux aussi.
+
+**4. Décalage de bordure dans le tableau d'articles du PDF.** La bordure
+sous la cellule photo+nom ne descendait pas à la même hauteur que les
+colonnes Prix unitaire/Quantité/Sous-total. `.sb-receipt-print-table`
+posait la bordure indépendamment sur chaque `<td>` (`border-collapse:
+collapse`) — une cellule haute (miniature 34px) et des cellules de texte
+(une seule ligne de chiffres) partent de hauteurs intrinsèques
+différentes, que le moteur de capture (`html2canvas`) ne réaligne pas de
+façon fiable sur la hauteur commune de la ligne comme le fait un
+navigateur à l'écran. Corrigé en portant la bordure sur le `<tr>`
+lui-même (`.sb-receipt-print-table tbody tr { border-bottom }`, une seule
+fois par ligne, jamais recalculée séparément par cellule) et en ajoutant
+`vertical-align: middle` à toutes les cellules — vérifié visuellement sur
+un vrai PDF généré (reçu court et reçu de 40 articles sur 4 pages) :
+bordures alignées sur toute la largeur de chaque ligne, y compris la
+ligne « Total articles »/« Total à payer à la livraison » (déjà correcte,
+hors tableau — simples `<div>` en `flex`, aucun risque de ce décalage).
+
+**Étendu au stock, au catalogue et à la trésorerie** : ces trois pages
+reposaient uniquement sur `window.print()` (bouton « Imprimer / PDF »),
+sans bouton de téléchargement réel — reformulés « Télécharger en PDF »,
+ils passent désormais par le même `exporterPdf()`. Stock et trésorerie
+disposaient déjà d'un bloc `.sb-stock-print`/`.sb-tresorerie-print`
+dédié (portail dans `<body>`, invisible à l'écran) mais stylé entièrement
+à l'intérieur de `@media print` — inutilisable pour une capture
+déclenchée par clic (même raison que pour le reçu, voir plus haut) ; ces
+règles ont été sorties de `@media print` vers le niveau racine, à
+l'identique du reçu, `@media print` ne gardant plus que le simple
+basculement d'affichage pour une impression native (Ctrl+P) encore
+possible par ailleurs. Le tableau du stock partage la même colonne photo
+que le reçu, donc le même correctif de bordure (point 4). Le catalogue,
+lui, n'avait pas de bloc dédié : sa mise en page imprimée réutilise la
+grille déjà affichée à l'écran, reflowée uniquement par `@media print`
+(voir section « Catalogue » plus haut, qui reste exacte pour l'impression
+native) — une classe `.sb-catalogue-print-mode`, appliquée temporairement
+en plus de `.sb-pdf-export-capture` sur un nouveau wrapper englobant le
+bandeau boutique + la grille (jamais les boutons/filtres, qui restent
+hors de ce wrapper), reproduit la même mise en page (3 colonnes, nom
+tronqué sur 3 lignes) sans dépendre de `@media print`. Contrairement au
+regroupement par 6 fiches/page pensé pour la pagination native
+(`.sb-catalogue-page-group`, `break-after: page` — conservé, inchangé,
+pour Ctrl+P), l'export PDF ne regroupe plus par 6 : `lib/pdfExport.js`
+découpe lui-même les pages au pixel près sans jamais couper une fiche
+(`sb-pdf-no-split` sur chaque `.sb-catalogue-card`), avec un nombre de
+fiches par page naturellement variable selon l'espace restant plutôt
+qu'un nombre fixe pensé pour un moteur de pagination différent.
+
+**Limite de vérification dans ce bac à sable** : seul Chromium est
+installé (pas de binaire Safari/WebKit ni d'appareil Android/iOS réel).
+Vérifié avec Playwright/Chromium headless : génération réelle d'un PDF
+(reçu court, reçu de 40 articles sur 4 pages, catalogue de 20 articles
+sur 3 pages) relu avec `pdftoppm` et le lecteur PDF natif de Chromium —
+contenu complet, correctement paginé, aucune ligne/fiche coupée, bordures
+alignées ; couleurs de la modale en mode clair/sombre ; et, avec un
+user-agent Safari iOS simulé (moteur de rendu toujours Chromium — un
+user-agent ne change pas le moteur, seulement ce que `navigator.userAgent`
+rapporte) et l'API Web Share désactivée de force, que le chemin « fenêtre
+réservée avant tout await » s'exécute bien sans erreur et aboutit à une
+URL `blob:` dans cette fenêtre. Ce qui reste non vérifiable ici : le
+comportement réel d'un Safari/WebKit authentique (ouverture inline du PDF
+plutôt que téléchargement forcé, fenêtre de partage native) et tout
+appareil Android/iOS physique.
 
 ## Articles offerts (cadeaux)
 

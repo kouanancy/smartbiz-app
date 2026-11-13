@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { FileSpreadsheet, Printer } from "lucide-react";
+import { Download, FileSpreadsheet } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from "recharts";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
@@ -12,6 +12,7 @@ import useElementWidth from "@/lib/useElementWidth";
 import { THEMES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import { exportToExcel, dateFichier } from "@/lib/exportExcel";
+import { exporterPdf } from "@/lib/pdfExport";
 
 const MOIS_A_AFFICHER = 12;
 const PERIODE_MOIS = { mois: 1, trimestre: 3, semestre: 6, annee: 12 };
@@ -143,6 +144,8 @@ export default function TresoreriePage() {
   const [periode, setPeriode] = useState("trimestre");
   const [platformLogo, setPlatformLogo] = useState("");
   const [acomptesEnAttente, setAcomptesEnAttente] = useState(0);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const printRef = useRef(null);
 
   // Destination de la notification push hebdomadaire (voir
   // app/api/cron/rapport-hebdo) : /tresorerie?periode=semaine ouvre
@@ -238,15 +241,28 @@ export default function TresoreriePage() {
     chartWidth
   );
 
-  function imprimer() {
-    const original = document.title;
-    document.title = `${t("tresorerie.rapportTitle")} — ${business?.name || "Doka"}`;
-    const restore = () => {
-      document.title = original;
-      window.removeEventListener("afterprint", restore);
-    };
-    window.addEventListener("afterprint", restore);
-    window.print();
+  // Capture .sb-tresorerie-print (déjà stylée pour l'A4, voir globals.css)
+  // et la télécharge/la partage de façon fiable sur téléphone — voir
+  // lib/pdfExport.js pour la logique commune à tous les exports PDF de
+  // l'app et la cause exacte du problème sur mobile qu'elle corrige.
+  async function telechargerPdf() {
+    setGeneratingPdf(true);
+    const el = printRef.current;
+    el?.classList.add("sb-pdf-export-capture");
+    try {
+      await exporterPdf({
+        getElement: () => el,
+        nomFichier: `tresorerie-${dateFichier()}.pdf`,
+        labelGeneration: t("tresorerie.generationPdf"),
+        onCaptured: () => el?.classList.remove("sb-pdf-export-capture"),
+      });
+    } catch (err) {
+      console.error("Échec de la génération du PDF :", err);
+      window.alert(t("tresorerie.pdfError"));
+    } finally {
+      el?.classList.remove("sb-pdf-export-capture");
+      setGeneratingPdf(false);
+    }
   }
 
   function exporterExcel() {
@@ -272,8 +288,8 @@ export default function TresoreriePage() {
             <button className="sb-btn sb-btn-ghost" onClick={exporterExcel}>
               <FileSpreadsheet size={13} /> {t("common.exporterExcel")}
             </button>
-            <button className="sb-btn sb-btn-primary" onClick={imprimer}>
-              <Printer size={13} /> {t("tresorerie.imprimerPdf")}
+            <button className="sb-btn sb-btn-primary" onClick={telechargerPdf} disabled={generatingPdf}>
+              <Download size={13} /> {generatingPdf ? t("tresorerie.generationPdf") : t("tresorerie.telechargerPdf")}
             </button>
           </div>
         </div>
@@ -390,7 +406,7 @@ export default function TresoreriePage() {
           dans globals.css. */}
       {typeof document !== "undefined" &&
         createPortal(
-          <div className="sb-tresorerie-print">
+          <div className="sb-tresorerie-print" ref={printRef}>
             <div className="sb-tresorerie-print-header">
               <div className="sb-tresorerie-print-brand">
                 {business?.logo_url ? (
