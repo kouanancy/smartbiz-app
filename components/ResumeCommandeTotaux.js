@@ -11,21 +11,22 @@
 // page A4, badge aux couleurs figées indépendantes du thème), qui
 // applique la même règle séparément.
 //
-// "Mobile Money" == payé au moment de la commande (in-app), donc le
-// montant des articles est déjà réglé ("Déjà payé") et exclu du total
-// encore dû — seuls les frais de livraison restent à percevoir à la
-// livraison. "Paiement à la livraison" (comportement historique) ne
-// change rien : le total dû reste articles + livraison.
+// dejaPaye vient de commandes.paye_totalite — coché explicitement à la
+// création ou à la modification (jamais déduit de paiement_mode, qui ne
+// décrit que le moyen de paiement choisi, Mobile Money ou Espèces, pas si
+// la commande est réglée). Quand vrai, le montant des articles est déjà
+// réglé ("Déjà payé") et exclu du total encore dû — seuls les frais de
+// livraison restent à percevoir à la livraison ; sinon le total dû reste
+// articles + livraison.
 export default function ResumeCommandeTotaux({
   t,
   fmt,
   totalArticles,
   fraisLivraison,
-  paiementMode,
+  dejaPaye = false,
   margeReelle,
   toujoursAfficherFraisLivraison = false,
 }) {
-  const dejaPaye = paiementMode === "mobile_money";
   const totalDu = dejaPaye ? fraisLivraison : totalArticles + fraisLivraison;
 
   return (

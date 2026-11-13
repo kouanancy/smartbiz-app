@@ -91,13 +91,15 @@ export default function Receipt({ commande, business, onClose }) {
   const uniteLabel = (u) => t(`common.unites.${u || "unite"}`);
   const client = commande.client;
   const totalGeneral = commande.ca + (commande.livraison_frais || 0);
-  // Mobile Money == payé au moment de la commande (in-app) : le montant
-  // des articles est déjà réglé, seuls les frais de livraison restent dus
-  // à la livraison — voir components/ResumeCommandeTotaux.js pour la même
-  // règle appliquée aux résumés côté écran (Nouvelle commande, modifier/
-  // consulter une commande), ce composant-ci gérant sa propre mise en
-  // page (aperçu écran + impression A4).
-  const dejaPaye = commande.paiement_mode === "mobile_money";
+  // commande.paye_totalite vient déjà calculé/transmis par l'appelant
+  // (Nouvelle commande, détail d'une commande) — jamais déduit de
+  // paiement_mode, qui ne décrit que le moyen de paiement (Mobile Money ou
+  // Espèces), pas si la commande est réglée (voir
+  // components/ResumeCommandeTotaux.js pour la même règle appliquée aux
+  // résumés côté écran, ce composant-ci gérant sa propre mise en page
+  // aperçu écran + impression A4). Quand vrai, le montant des articles est
+  // déjà réglé, seuls les frais de livraison restent dus à la livraison.
+  const dejaPaye = commande.paye_totalite === true;
   const totalDu = dejaPaye ? commande.livraison_frais || 0 : totalGeneral;
   // acompteVerse vient déjà calculé du composant appelant (somme des
   // acomptes au statut 'verse' — voir app/(app)/nouvelle/page.js,

@@ -641,16 +641,114 @@ livraison — enregistré dès maintenant (`commande_acomptes`,
 `supabase-commande-acomptes-migration.sql` : `commande_id`, `business_id`,
 `montant`, `mode_paiement`, `date_versement`, `statut` `'verse'` ou
 `'rembourse'`, RLS identique aux autres tables rattachées directement à
-`business_id`). Possible dès la création (`app/(app)/nouvelle/page.js`,
-section « Acompte (facultatif) » entre Paiement et Résumé) ou après coup
-(`app/(app)/commandes/[id]/page.js`, bouton « Ajouter un acompte » +
-liste des acomptes déjà enregistrés). **Reste à payer = total de la
-commande (même règle que `ResumeCommandeTotaux.js`/`Receipt.js` ci-dessous
-— articles + livraison, ou seulement la livraison en Mobile Money déjà
-réglé) − somme des acomptes au statut `'verse'`** (`totalAcompteVerse()`/
-`resteAPayerCommande()`, `app/(app)/commandes/[id]/page.js`) — jamais une
-colonne stockée, toujours recalculé à partir des lignes réellement
-présentes.
+`business_id`). **Reste à payer = total de la commande (même règle que
+`ResumeCommandeTotaux.js`/`Receipt.js` ci-dessous — articles + livraison,
+ou seulement la livraison si `paye_totalite`) − somme des acomptes au
+statut `'verse'`** (`totalAcompteVerse()`/`resteAPayerCommande()`,
+`app/(app)/commandes/[id]/page.js`) — jamais une colonne stockée, toujours
+recalculé à partir des lignes réellement présentes.
+
+### Refonte : acompte et paiement complet mutuellement exclusifs
+
+Revu en profondeur après la première version (toujours facultative et
+indépendante du mode de paiement) : la saisie d'une commande distingue
+désormais clairement deux chemins qui ne se recouvrent jamais.
+
+**`app/(app)/nouvelle/page.js`, juste en dessous de la section Livraison**
+(inchangée) : une case **« Acompte »**, décochée par défaut.
+
+- **Cochée** : affiche « Montant de l'acompte » (validé : supérieur à 0
+  et strictement inférieur au total, sinon `nouvelle.acompteMontantInvalide`
+  bloque l'enregistrement) et « Mode de paiement » de l'acompte (Mobile
+  Money ou Espèces) — **et masque entièrement** la section Paiement du bas
+  : une commande avec acompte n'a pas de mode de paiement propre
+  (`paiement_mode` retombe sur sa valeur par défaut, affichée « Espèces »,
+  sans signification particulière) ni de `paye_totalite`, qui ne peut
+  jamais être vrai en même temps qu'un acompte.
+- **Décochée** : affiche la section Paiement (Espèces ou Mobile Money,
+  avec son opérateur si Mobile Money — inchangé) et, en dessous, une
+  nouvelle case **« Payé en totalité »**.
+
+**Correctif central : choisir Mobile Money ne marque plus automatiquement
+la commande comme payée.** Avant cette refonte, `paiement_mode ===
+'mobile_money'` suffisait à afficher « Déjà payé » et à limiter le total
+dû aux frais de livraison — mélangeant deux informations différentes (le
+moyen de paiement utilisé, et si la commande est réglée). `paiement_mode`
+(`'livraison' | 'mobile_money'`, label « Espèces » pour `'livraison'`
+depuis cette refonte — voir plus bas) ne décrit désormais plus que le
+moyen de paiement ; une nouvelle colonne booléenne **`commandes.paye_totalite`**
+(ajoutée par `supabase-acomptes-paye-totalite-migration.sql`), cochée
+volontairement via cette seule case, porte seule l'information « articles
+déjà réglés, seuls les frais de livraison restent dus » — reprise par
+`components/ResumeCommandeTotaux.js` (prop `dejaPaye`, plus directement
+dérivée de `paiementMode`) et `components/Receipt.js` (`commande.paye_totalite`,
+plus `paiement_mode === "mobile_money"`). Un client qui paie par Mobile
+Money sans que la boutique coche « Payé en totalité » voit donc
+maintenant, à raison, le total complet encore dû — exactement le
+comportement attendu quand le paiement effectif n'a en réalité pas encore
+eu lieu.
+
+**Commande payée en totalité : aucun acompte possible**, ni à la création
+(la case Acompte et « Payé en totalité » sont mutuellement exclusives
+dans le formulaire) ni à la modification (voir plus bas) — et la règle est
+reprise côté base : `verifier_stock_theorique_acompte()` (le même trigger
+`before insert` sur `commande_acomptes` qui vérifie déjà le stock
+théorique, étendu par cette seconde migration) refuse toute insertion si
+`commandes.paye_totalite` est vrai, avec un message explicite, avant même
+de regarder le stock.
+
+**`commande_acomptes.mode_paiement` passe d'une liste de libellés**
+(Espèces + les 4 opérateurs Mobile Money) **à deux valeurs codées**
+(`'especes'` | `'mobile_money'`, `MODES_PAIEMENT_ACOMPTE` dans
+`lib/constants.js`, labellisées à l'affichage via `lib/i18n`) — un
+acompte n'a pas besoin de savoir quel opérateur a été utilisé,
+contrairement à `commandes.paiement_mode` qui garde le sien
+(`paiement_operateur`). Contrainte `check (mode_paiement in ('mobile_money',
+'especes')) not valid` posée après normalisation des lignes déjà
+enregistrées avec un ancien libellé — n'exige pas la revalidation
+immédiate des lignes existantes, strict pour toute nouvelle insertion.
+
+**« Solder la commande »** (`app/(app)/commandes/[id]/page.js`,
+`solderCommande()`) : un seul bouton, à côté du reste à payer dans le
+détail d'une commande avec acompte — jamais de bouton « Encaisser le
+solde » séparé. Enregistre le reste à payer comme un dernier acompte
+(daté d'aujourd'hui, mode de paiement repris du dernier acompte déjà
+versé — aucune saisie), sauf s'il est déjà à 0 (plusieurs acomptes
+peuvent avoir déjà tout couvert sans jamais avoir été explicitement
+soldés), puis passe `commandes.solde` à `true`. **Le bouton « Livré » ne
+se débloque que via ce `solde` persisté**, jamais en recalculant le reste
+à payer en direct (`marquerLivree()` vérifie `totalAcompteVerse(commande)
+> 0 && !commande.solde`) — une commande reste bloquée tant que la
+commerçante n'a pas explicitement confirmé le solde, même si la somme des
+acomptes couvre déjà tout le total. « Ajouter un acompte » (un acompte
+supplémentaire, tant que la commande n'est pas soldée) reste disponible
+par ailleurs, masqué dès que `paye_totalite` ou `solde`.
+
+**Modification d'une commande avec acompte** : la section Paiement/Payé
+en totalité disparaît entièrement de la modale de modification dès que la
+commande a déjà un acompte versé (seuls Ajouter un acompte/Solder la
+commande, hors de cette modale, font encore évoluer ce qui est dû) ; et
+le total ne peut pas devenir inférieur aux acomptes déjà versés
+(`commandes.editTotalInferieurAcomptesError`, vérifié dans
+`validerEdition()` avant tout enregistrement) — sinon le reste à payer
+masquerait silencieusement un total réduit en dessous de ce qui est déjà
+encaissé. Le total étant recalculé à partir des lignes réellement
+présentes, changer les articles d'une commande avec acompte recalcule
+d'emblée sa réservation de stock théorique (même mécanisme que ci-dessous,
+rien de spécifique à coder).
+
+**Commandes existantes : aucune rupture.** `paye_totalite` et `solde`
+valent `false` par défaut pour toute commande déjà créée ; la migration
+de refonte reporte une seule fois l'ancien comportement Mobile Money vers
+`paye_totalite` (`update commandes set paye_totalite = true where
+paiement_mode = 'mobile_money'`), avant même qu'aucune commande n'ait pu
+avoir d'acompte — l'affichage « Déjà payé » des commandes déjà créées
+reste donc identique après la migration. Seul changement cosmétique,
+assumé et non spécifique à une commande donnée : le libellé de
+`paiement_mode = 'livraison'` passe de « Paiement à la livraison » à
+« Espèces » partout (`lib/i18n`), plus cohérent avec le vocabulaire
+« Espèces/Mobile Money » désormais utilisé pour un acompte comme pour le
+paiement complet d'une commande.
 
 **Réservation : aucun nouveau mécanisme, la logique du stock théorique
 déjà existante suffit.** Le stock théorique (stock réel − quantités des
@@ -681,14 +779,15 @@ en pratique sur la même commande — la simplicité l'emporte ici sur une
 protection contre une course qui ne se produit pas dans l'usage réel.
 
 **Livraison bloquée tant que non soldée** : si une commande a au moins un
-acompte `'verse'` et qu'il reste un solde dû, le bouton « Livré »
-(`app/(app)/commandes/[id]/page.js`) est désactivé, avec un message
-indiquant le reste à payer — repris aussi en garde-fou direct dans
-`marquerLivree()` au cas où. Une commande **sans aucun acompte** garde
-exactement son comportement d'avant : rien ne bloque jamais sa livraison,
-seul le stock réel insuffisant le fait déjà (inchangé). Une fois soldée
-(reste à payer ≤ 0), la livraison redevient possible et déduit le stock
-réel normalement.
+acompte `'verse'` et que `commandes.solde` n'est pas encore `true`, le
+bouton « Livré » (`app/(app)/commandes/[id]/page.js`) est désactivé, avec
+un message indiquant le reste à payer — repris aussi en garde-fou direct
+dans `marquerLivree()` au cas où. Une commande **sans aucun acompte**
+garde exactement son comportement d'avant : rien ne bloque jamais sa
+livraison, seul le stock réel insuffisant le fait déjà (inchangé). Une
+fois soldée (voir « Solder la commande » plus haut — jamais seulement
+reste à payer ≤ 0, qui ne suffit plus à elle seule depuis cette refonte),
+la livraison redevient possible et déduit le stock réel normalement.
 
 **Annulation** : `trg_rembourser_acomptes_a_annulation` (trigger
 `after update` sur `commandes`, déclenché uniquement au passage vers
@@ -718,47 +817,67 @@ finale devient « Reste à payer » plutôt que « Total (à payer) » —
 aperçu écran et impression/PDF, à l'intérieur du même bloc totaux déjà
 protégé par `break-inside: avoid` (`.sb-receipt-print-totals`, voir plus
 bas « Confirmation de commande »), donc jamais coupé entre deux pages.
-Le badge « Déjà payé » du Mobile Money reste géré séparément, inchangé :
-les deux mécanismes s'additionnent simplement si jamais combinés (reste à
-payer = total dû après Mobile Money, moins les acomptes).
+Le badge « Déjà payé » (désormais piloté par `paye_totalite`, voir
+section suivante) reste géré séparément : les deux mécanismes
+s'additionnent simplement si jamais combinés (reste à payer = total dû
+après « Payé en totalité », moins les acomptes) — en pratique jamais
+combinés depuis cette refonte, `paye_totalite` et un acompte étant
+mutuellement exclusifs à la création comme à la modification.
 
-## Mode de paiement : Mobile Money déjà réglé vs paiement à la livraison
+## Mode de paiement vs payé en totalité : deux informations distinctes
 
-`commandes.paiement_mode` (`'livraison' | 'mobile_money'`, voir
-`smartbiz-schema.sql`) distingue deux réalités très différentes une fois
-la commande passée : **« Paiement à la livraison »** (défaut, comportement
-historique) — rien n'est encore payé, tout (articles + frais de
-livraison) reste dû au moment de la livraison ; **« Mobile Money »** — le
-client règle le montant des articles au moment de la commande (paiement
-in-app, hors de ce dépôt), donc **seuls les frais de livraison restent
-dus à la livraison**. Sans cette distinction, tous les résumés chiffrés
-de commande affichaient le même « Total à payer » (articles + livraison)
-quel que soit le mode, laissant croire à tort qu'un article déjà réglé
-via Mobile Money restait dû à la livraison.
+`commandes.paiement_mode` (`'livraison' | 'mobile_money'`, libellé
+« Espèces » | « Mobile Money » — voir `smartbiz-schema.sql` pour la
+colonne, `lib/i18n` pour le libellé actuel) décrit uniquement **le moyen
+de paiement choisi**, plus jamais si la commande est réglée. Avant la
+refonte des acomptes (voir section précédente), choisir Mobile Money
+suffisait à lui seul à marquer la commande « Déjà payé » — mélangeant le
+moyen de paiement et le fait d'être payé, et empêchant de représenter un
+Mobile Money non encore réglé. Une colonne booléenne dédiée,
+**`commandes.paye_totalite`**, portée par une case à cocher explicite
+« Payé en totalité » (`app/(app)/nouvelle/page.js` à la création,
+`app/(app)/commandes/[id]/page.js` à la modification — jamais disponible
+pour une commande qui a déjà un acompte, voir section précédente), porte
+désormais seule cette information : cochée, **seuls les frais de
+livraison restent dus à la livraison** (articles déjà réglés, quel que
+soit le moyen de paiement) ; décochée (le cas par défaut, y compris en
+Mobile Money), le total complet (articles + livraison) reste dû comme
+pour n'importe quelle commande non réglée. Sans cette distinction, tous
+les résumés chiffrés de commande affichaient le même « Total à payer »
+quel que soit le mode, laissant croire à tort qu'un article réglé par
+Mobile Money restait dû à la livraison — et, après la refonte, l'inverse
+aurait été vrai sans `paye_totalite` : un Mobile Money non réglé aurait
+semblé payé du seul fait du moyen de paiement choisi.
 
 **`components/ResumeCommandeTotaux.js`** : bloc de résumé (Total
 articles / Frais de livraison / Total à payer / Marge réelle estimée)
 réutilisé par les 3 endroits qui l'affichent côté écran — Nouvelle
 commande (`app/(app)/nouvelle/page.js`), modification et consultation
 d'une commande existante (`app/(app)/commandes/[id]/page.js`, les deux)
-— pour que la règle Mobile Money ne soit écrite qu'une seule fois plutôt
-que dupliquée avec un risque de divergence. En Mobile Money : la ligne
-« Total articles » porte un badge « Déjà payé » (`sb-badge
-sb-badge-emerald`, theme-aware — ces 3 pages restent sensibles au mode
-sombre, contrairement à `components/Receipt.js` ci-dessous) à côté du
-montant, et la ligne « Total à payer » devient « Total à payer à la
-livraison », dont la valeur se limite aux frais de livraison (0 si
-récupération en boutique). En « Paiement à la livraison », rien ne
-change par rapport au comportement historique.
+— prend désormais un booléen `dejaPaye` explicite (plus un `paiementMode`
+dont il aurait fallu déduire la règle lui-même), passé par chacun des
+3 appelants depuis `paye_totalite` (`commande.paye_totalite` en
+consultation, l'état local de la case à cocher en création/modification)
+— pour que la règle ne soit écrite qu'une seule fois plutôt que dupliquée
+avec un risque de divergence. `dejaPaye` vrai : la ligne « Total
+articles » porte un badge « Déjà payé » (`sb-badge sb-badge-emerald`,
+theme-aware — ces 3 pages restent sensibles au mode sombre, contrairement
+à `components/Receipt.js` ci-dessous) à côté du montant, et la ligne
+« Total à payer » devient « Total à payer à la livraison », dont la
+valeur se limite aux frais de livraison (0 si récupération en boutique).
+`dejaPaye` faux : rien ne change par rapport au comportement historique
+« paiement à la livraison ».
 
 `components/Receipt.js` (aperçu écran de la confirmation + version
 imprimée/PDF, voir section suivante) applique la même règle séparément,
-avec sa propre mise en page : la ligne « Total articles » est nouvelle
-sur l'aperçu écran (jusque-là seul un total général articles+livraison
-apparaissait, sans détailler la part déjà réglée), déjà présente sur la
-version imprimée. Badge « Déjà payé » à couleurs figées
-(`DejaPayeBadge`, même principe que `CadeauBadge` déjà dans ce fichier
-pour les cadeaux offerts — jamais `var(--emerald)`/`var(--emerald-bg)`,
+avec sa propre mise en page et sa propre source (`commande.paye_totalite`,
+transmis par l'appelant comme tout le reste de la commande affichée ici —
+jamais recalculé par ce composant) : la ligne « Total articles » est
+nouvelle sur l'aperçu écran (jusque-là seul un total général
+articles+livraison apparaissait, sans détailler la part déjà réglée),
+déjà présente sur la version imprimée. Badge « Déjà payé » à couleurs
+figées (`DejaPayeBadge`, même principe que `CadeauBadge` déjà dans ce
+fichier pour les cadeaux offerts — jamais `var(--emerald)`/`var(--emerald-bg)`,
 qui suivraient le mode sombre de l'app alors que ce composant reste
 toujours sur fond blanc, écran comme impression).
 
