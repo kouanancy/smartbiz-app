@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, ShieldCheck, ShieldOff, Trash2, X, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ShieldCheck, ShieldOff, Trash2, Truck, X, XCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
@@ -144,6 +144,18 @@ export default function CommercantDetailPage() {
     if (commercant.owner_id === moi.owner_id) refreshBusiness();
   }
 
+  async function toggleModuleAchats() {
+    const { data, error } = await supabase
+      .rpc("admin_set_module_achats_actif", { p_business_id: commercant.id, p_actif: !commercant.module_achats_actif })
+      .single();
+    if (error) {
+      setMsg(t("admin.moduleAchatsToggleError", { message: error.message }));
+      return;
+    }
+    setCommercant(data);
+    if (commercant.owner_id === moi.owner_id) refreshBusiness();
+  }
+
   if (!moi?.is_admin) return null;
 
   if (commercant === undefined) return <p className="sb-sub">{t("common.loading")}</p>;
@@ -216,6 +228,14 @@ export default function CommercantDetailPage() {
               {paiementEnAttente ? t("admin.voirJustificatif", { montant: fmt(paiementEnAttente.montant) }) : "—"}
             </div>
           </div>
+          <div>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
+              {t("admin.colModuleAchats")}
+            </div>
+            <span className={`sb-badge ${commercant.module_achats_actif ? "sb-badge-emerald" : "sb-badge-amber"}`}>
+              {t(commercant.module_achats_actif ? "admin.moduleAchatsActif" : "admin.moduleAchatsInactif")}
+            </span>
+          </div>
         </div>
 
         {paiementEnAttente && (
@@ -271,6 +291,10 @@ export default function CommercantDetailPage() {
           <button className="sb-btn sb-btn-ghost" onClick={toggleAdmin}>
             {commercant.is_admin ? <ShieldOff size={15} /> : <ShieldCheck size={15} />}{" "}
             {commercant.is_admin ? t("admin.retirerAdmin") : t("admin.donnerAdmin")}
+          </button>
+          <button className="sb-btn sb-btn-ghost" onClick={toggleModuleAchats}>
+            <Truck size={15} />{" "}
+            {commercant.module_achats_actif ? t("admin.desactiverModuleAchats") : t("admin.activerModuleAchats")}
           </button>
           {!estMoi && (
             <button

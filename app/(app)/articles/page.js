@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPortal, flushSync } from "react-dom";
-import { Download, FileSpreadsheet, Image as ImageIcon, Plus, RefreshCw, Search, TrendingUp, X } from "lucide-react";
+import { ArrowLeft, Download, FileSpreadsheet, Image as ImageIcon, Plus, RefreshCw, Search, TrendingUp, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
@@ -354,9 +354,16 @@ export default function ArticlesPage() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
+  const moduleAchatsActif = !!business?.module_achats_actif;
+
   return (
     <>
     <div>
+      {moduleAchatsActif && (
+        <button className="sb-back-link" onClick={() => router.push("/stock")}>
+          <ArrowLeft size={15} /> {t("stock.backToLanding")}
+        </button>
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h1 className="sb-h1">{t("articles.title")}</h1>
@@ -375,9 +382,11 @@ export default function ArticlesPage() {
           <button className="sb-btn sb-btn-ghost" onClick={telechargerPdf} disabled={generatingPdf}>
             <Download size={14} /> {generatingPdf ? t("articles.generationPdf") : t("articles.telechargerPdf")}
           </button>
-          <button className="sb-btn sb-btn-primary" onClick={() => setShowForm((s) => !s)}>
-            <Plus size={14} /> {t("articles.newArticle")}
-          </button>
+          {!moduleAchatsActif && (
+            <button className="sb-btn sb-btn-primary" onClick={() => setShowForm((s) => !s)}>
+              <Plus size={14} /> {t("articles.newArticle")}
+            </button>
+          )}
         </div>
       </div>
 

@@ -85,6 +85,7 @@ export default function ArticleDetailPage() {
   }, [business?.id, params.id]);
 
   const categorieName = (id) => categories.find((c) => c.id === id)?.nom ?? t("common.sansCategorie");
+  const moduleAchatsActif = !!business?.module_achats_actif;
 
   function ouvrirReappro() {
     setReapproForm({ quantite: "", prix_achat: String(article.prix_achat), frais_annexes: String(article.frais_annexes || 0) });
@@ -138,6 +139,9 @@ export default function ArticleDetailPage() {
       nom: article.nom,
       categorie_id: article.categorie_id || "",
       unite: article.unite || "unite",
+      // Lecture seule une fois le module Achats actif (voir plus bas,
+      // validerEdition) : conservés dans le formulaire uniquement pour
+      // l'affichage, jamais renvoyés dans ce cas lors de l'enregistrement.
       prix_achat: String(article.prix_achat),
       frais_annexes: String(article.frais_annexes || 0),
       prix_vente: String(article.prix_vente),
@@ -160,8 +164,12 @@ export default function ArticleDetailPage() {
         nom: editForm.nom.trim(),
         categorie_id: editForm.categorie_id || null,
         unite: editForm.unite || "unite",
-        prix_achat: Number(editForm.prix_achat) || 0,
-        frais_annexes: Number(editForm.frais_annexes) || 0,
+        // Coût d'achat et coût moyen : non modifiables à la main une fois
+        // le module Achats actif (calculés uniquement par les réceptions,
+        // voir trg_verrouiller_cout_achat -- supabase-achats-
+        // approvisionnement-migration.sql), donc jamais envoyés ici dans
+        // ce cas.
+        ...(moduleAchatsActif ? {} : { prix_achat: Number(editForm.prix_achat) || 0, frais_annexes: Number(editForm.frais_annexes) || 0 }),
         prix_vente: Number(editForm.prix_vente) || 0,
         stock: Math.max(0, Number(editForm.stock) || 0),
         seuil: Number(editForm.seuil) || 3,
@@ -269,7 +277,10 @@ export default function ArticleDetailPage() {
         )}
 
         <div className="sb-detail-actions">
-          <button className="sb-btn sb-btn-ghost" onClick={ouvrirReappro}>
+          <button
+            className="sb-btn sb-btn-ghost"
+            onClick={moduleAchatsActif ? () => router.push(`/achats/nouvelle?article=${article.id}`) : ouvrirReappro}
+          >
             <RefreshCw size={15} /> {t("articles.reappro")}
           </button>
           <button className="sb-btn sb-btn-primary" onClick={ouvrirEdition}>
@@ -417,25 +428,41 @@ export default function ArticleDetailPage() {
                 </select>
               </div>
               <div className="sb-form-grid">
-                <PrixAchatConvertible
-                  t={t}
-                  label={t("articles.prixAchatLabel")}
-                  placeholder={t("articles.prixAchatPlaceholder")}
-                  value={editForm.prix_achat}
-                  onValueChange={(v) => setEditForm({ ...editForm, prix_achat: v })}
-                  tauxDefaut={business?.taux_change_valeur}
-                  deviseDefaut={business?.taux_change_devise}
-                />
-                <div className="sb-field">
-                  <label>{t("articles.fraisAnnexesLabel")}</label>
-                  <input
-                    className="sb-input"
-                    placeholder={t("articles.fraisAnnexesPlaceholder")}
-                    type="number"
-                    value={editForm.frais_annexes}
-                    onChange={(e) => setEditForm({ ...editForm, frais_annexes: e.target.value })}
-                  />
-                </div>
+                {moduleAchatsActif ? (
+                  <>
+                    <div className="sb-field">
+                      <label>{t("articles.prixAchatLabel")}</label>
+                      <input className="sb-input" value={fmt(article.prix_achat)} disabled />
+                      <p style={{ fontSize: 11, color: "var(--muted)", margin: "4px 2px 0" }}>{t("articles.coutAchatVerrouilleNote")}</p>
+                    </div>
+                    <div className="sb-field">
+                      <label>{t("articles.fraisAnnexesLabel")}</label>
+                      <input className="sb-input" value={fmt(article.frais_annexes || 0)} disabled />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <PrixAchatConvertible
+                      t={t}
+                      label={t("articles.prixAchatLabel")}
+                      placeholder={t("articles.prixAchatPlaceholder")}
+                      value={editForm.prix_achat}
+                      onValueChange={(v) => setEditForm({ ...editForm, prix_achat: v })}
+                      tauxDefaut={business?.taux_change_valeur}
+                      deviseDefaut={business?.taux_change_devise}
+                    />
+                    <div className="sb-field">
+                      <label>{t("articles.fraisAnnexesLabel")}</label>
+                      <input
+                        className="sb-input"
+                        placeholder={t("articles.fraisAnnexesPlaceholder")}
+                        type="number"
+                        value={editForm.frais_annexes}
+                        onChange={(e) => setEditForm({ ...editForm, frais_annexes: e.target.value })}
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="sb-field">
                   <label>{t("articles.prixVenteLabel")}</label>
                   <input

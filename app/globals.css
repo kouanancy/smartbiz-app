@@ -895,6 +895,49 @@ a {
   grid-template-columns: 1.3fr 1fr;
   gap: 16px;
 }
+/* Page d'accueil du Stock une fois le module Achats actif (deux cartes
+   Article / Achats et approvisionnement, voir app/(app)/stock/page.js) —
+   une simple carte-lien, sans rapport avec .sb-plan-card (sélection de
+   formule, état actif/indisponible). */
+.sb-choice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 720px;
+}
+.sb-choice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.sb-choice-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.sb-choice-card-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+.sb-choice-card-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.sb-choice-card-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin: 0;
+}
 .sb-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -976,7 +1019,8 @@ a {
     grid-template-columns: repeat(2, 1fr);
   }
   .sb-dash-split,
-  .sb-form-grid {
+  .sb-form-grid,
+  .sb-choice-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -2344,6 +2388,172 @@ a {
     display: none !important;
   }
   .sb-stock-print {
+    display: block;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Export PDF d'une réception (Achats et approvisionnement) — même     */
+/*  principe/structure que .sb-stock-print ci-dessus (une seule table,  */
+/*  pas de bloc client/livraison), colonnes propres aux lignes de       */
+/*  réception. Voir app/(app)/achats/[id]/page.js.                      */
+/* ------------------------------------------------------------------ */
+.sb-reception-print {
+  display: none;
+  width: 100%;
+  max-width: 178mm;
+  margin: 0 auto;
+  font-family: "Inter", sans-serif;
+  color: #2e2c2b;
+  background: #fff;
+}
+.sb-reception-print-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 2px solid #2e2c2b;
+  padding-bottom: 18px;
+  margin-bottom: 20px;
+}
+.sb-reception-print-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sb-reception-print-brand img {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+.sb-reception-print-logo-fallback {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  background: #e07a29;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+}
+.sb-reception-print-brand-name {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+}
+.sb-reception-print-title {
+  text-align: right;
+}
+.sb-reception-print-title h1 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.sb-reception-print-title p {
+  font-size: 12.5px;
+  color: #6e6b68;
+  margin: 2px 0 0;
+}
+.sb-reception-print-info {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.sb-reception-print-info-block {
+  flex: 1;
+}
+.sb-reception-print-info-block h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8a8682;
+  margin: 0 0 6px;
+}
+.sb-reception-print-info-block div {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.sb-reception-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+.sb-reception-print-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.sb-reception-print-table tbody tr {
+  border-bottom: 1px solid #e4e2d8;
+}
+.sb-reception-print-table td,
+.sb-reception-print-table th {
+  vertical-align: middle;
+}
+.sb-reception-print-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6e6b68;
+  padding: 10px 8px;
+  border-bottom: 2px solid #2e2c2b;
+}
+.sb-reception-print-table td {
+  padding: 12px 8px;
+  font-size: 13px;
+}
+.sb-reception-print-totals {
+  display: flex;
+  justify-content: flex-end;
+}
+.sb-reception-print-totals-block {
+  width: 260px;
+}
+.sb-reception-print-totals-block div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 6px 0;
+}
+.sb-reception-print-totals-block .total {
+  border-top: 2px solid #2e2c2b;
+  margin-top: 6px;
+  padding-top: 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.sb-reception-print-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  text-align: center;
+  font-size: 11px;
+  color: #a6a29d;
+  border-top: 1px solid #e4e2d8;
+  padding-top: 18px;
+  margin-top: 12px;
+}
+.sb-reception-print-footer img {
+  height: 12px;
+  width: 12px;
+  object-fit: contain;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
+  body:has(.sb-reception-print) .sb-root {
+    display: none !important;
+  }
+  .sb-reception-print {
     display: block;
   }
 }

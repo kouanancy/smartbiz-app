@@ -1467,6 +1467,131 @@ pour les réappros déjà existants avant cette migration (`NULL`, affiché
   d'écraser directement le coût moyen (ex. correction d'une erreur de
   saisie), inchangée par cette migration.
 
+## Achats et approvisionnement (réceptions de marchandise)
+
+Module facultatif, activable **boutique par boutique** par l'Administration
+(`supabase-achats-approvisionnement-migration.sql`), qui remplace
+l'ancien réapprovisionnement direct (`reappros`, ci-dessus) par des
+**réceptions de marchandise** structurées, avec leur propre numérotation,
+leurs propres frais annexes (répartis ou non) et leur propre historique —
+sans dupliquer la logique du coût moyen pondéré, réutilisée telle quelle.
+
+**Activation** : `businesses.module_achats_actif` (booléen, `false` par
+défaut, jamais accordée en écriture à `authenticated` — même principe que
+`subscription_status`/`is_admin`, voir « Fonctionnement du compte /
+abonnement » plus haut).
+Seule `admin_set_module_achats_actif()` (`security definer`, vérifie
+`is_admin_user()`) peut la modifier, depuis l'interrupteur « Module
+Achats » de la fiche commerçant (`app/(app)/admin/commercants/[id]/page.js`).
+Les comptes admin l'ont automatiquement dès la migration. **Module
+inactif : rien ne change** — `articles`/`app/(app)/articles/page.js` et
+le réapprovisionnement par `reappros` fonctionnent exactement comme
+avant, et le menu « Stock » (renommé depuis « Stock / Articles », l'écran
+reste identique) ouvre directement la liste d'articles.
+
+**Module actif**, le menu « Stock » ouvre d'abord une page d'accueil à
+deux cartes (`app/(app)/stock/page.js`) : « Article » (la liste
+habituelle, `/articles`) et « Achats et approvisionnement » (l'historique
+des réceptions, `/achats`). Sur la carte Article : la création directe
+d'un nouvel article disparaît (uniquement possible via une réception
+désormais), et `prix_achat`/`frais_annexes` deviennent en lecture seule
+dans « Modifier l'article » — **appliqué aussi côté base de données** par
+`trg_verrouiller_cout_achat` (`before update` sur `articles`), qui ne
+bloque que les écritures faites directement sous le rôle `authenticated`
+(`current_user = 'authenticated'`) quand `module_achats_actif` est vrai
+pour la boutique de l'article : le trigger de coût moyen
+(`appliquer_cout_moyen_pondere()`, toujours `security definer`) et les
+deux fonctions de réception ci-dessous écrivent, elles, sous les
+privilèges du propriétaire de la fonction (jamais `authenticated`), donc
+jamais bloquées — un `grant`/`revoke` de colonne classique ne suffisait
+pas ici puisque la restriction dépend de `module_achats_actif`, propre à
+chaque boutique, pas d'un privilège global sur la table. Le bouton
+« Réapprovisionner » d'une fiche article ouvre alors une nouvelle
+réception pré-remplie avec cet article (`/achats/nouvelle?article=<id>`)
+plutôt que l'ancienne fenêtre de réappro direct.
+
+**Tables** (`receptions`/`reception_lignes`, RLS identique aux autres
+tables métier — accès limité à sa boutique). Une réception est d'abord un
+**brouillon** (`statut = 'brouillon'`) : son numéro (`REC-0001`, séquence
+par boutique, `businesses.next_numero_reception`) est attribué tout de
+suite par `gerer_numero_reception()`, même principe que `gerer_code_article()`
+(« Code article » ci-dessus), mais **le stock n'est pas touché** avant
+validation. Un brouillon reste modifiable/supprimable à volonté
+(`app/(app)/achats/[id]/page.js` sert à la fois d'éditeur de brouillon et
+de consultation une fois validé/annulé) : fournisseur (texte libre,
+facultatif), date, lignes ajoutées/retirées une à une (article existant
+via `ArticleSelect`, ou création d'un nouvel article inline — nom,
+catégorie, unité, photo, prix de vente — dont le code `ART-xxxx` n'est
+attribué qu'à la validation, par le trigger existant). Une réception
+validée ou annulée n'est plus modifiable : verrouillé par
+`trg_verrouiller_reception_update`/`_delete`/`_ligne`, même mécanisme de
+distinction par `current_user` que `trg_verrouiller_cout_achat` ci-dessus.
+
+**Frais annexes, groupés ou non** : un seul article, la case « Frais
+groupés » reste grisée (toutes les lignes d'un brouillon à une seule
+ligne forcent `frais_groupes = false`) et le champ frais annexes
+s'applique directement à cette ligne. Deux lignes ou plus, la case devient
+cochable ; cochée, un seul montant (`receptions.frais_total`) est réparti
+au prorata de la valeur d'achat (`quantité × coût unitaire`) de chaque
+ligne au moment de la validation — la **dernière ligne reçoit le reste
+exact** plutôt qu'une part arrondie séparément, pour que la somme des
+parts égale toujours le total saisi au centime. Si le nombre de lignes
+redescend à une seule (suppression), les frais groupés sont automatiquement
+reportés sur cette ligne restante et la case se regrise
+(`ajusterFraisGroupesSiUnSeul()`, côté client — le vrai calcul, lui, n'est
+de toute façon refait qu'à la validation).
+
+**Validation** (`valider_reception(p_reception_id)`, `security definer`,
+vérifie `owner_id = auth.uid()` sur la boutique de la réception comme
+`verifier_expiration_abonnement()`) : une seule transaction qui, pour
+chaque ligne, dans l'ordre de création — crée le nouvel article s'il n'existe
+pas encore (`insert into articles`, code `ART-xxxx` attribué par le
+trigger déjà en place), verrouille la ligne `articles` concernée
+(`select ... for update`, même principe que `appliquer_cout_moyen_pondere()`),
+calcule la part de frais répartie, en déduit le coût de revient unitaire
+(coût unitaire + frais réparti ÷ quantité), **recalcule le coût moyen
+pondéré en réutilisant exactement la même formule** — extraite dans
+`calculer_cout_moyen_pondere()`, appelée aussi bien par
+`appliquer_cout_moyen_pondere()` (réappro direct, module inactif) que par
+`valider_reception()` (aucune duplication de cette logique) —, augmente
+le stock réel de la quantité reçue, puis enregistre sur la ligne
+elle-même le stock et le coût moyen avant/après (`stock_avant`/`_apres`,
+`prix_achat_moyen_avant`/`_apres`, `frais_annexes_moyen_avant`/`_apres`),
+pour l'historique et une éventuelle annulation. Contrôles faits avant
+toute écriture (en cas d'échec, rien n'est créé ni modifié) : au moins
+une ligne, quantités/coûts/frais non négatifs, noms de nouveaux articles
+non vides et non dupliqués (entre eux comme avec le stock existant).
+**Double clic** : le bouton se désactive dès le premier clic côté client,
+et côté base `select ... for update` sur la réception sérialise tout
+appel concurrent — le second voit déjà `statut <> 'brouillon'` une fois
+le premier terminé, et échoue proprement (« Cette réception a déjà été
+validée ou annulée. ») plutôt que de revalider.
+
+**Annulation** (`annuler_reception(p_reception_id)`, réception validée
+uniquement) : possible seulement si la réception est, pour **chacun** de
+ses articles, la plus récente réception validée (sinon : « corrigez par
+une nouvelle réception »), et si le stock actuel couvre encore la
+quantité reçue par cette réception (sinon, même message). Si ces deux
+conditions tiennent, le stock et le coût moyen de chaque article sont
+restaurés aux valeurs `_avant` enregistrées à la validation, et la
+réception passe à `'annulee'`. Les articles créés par cette réception
+restent présents, à 0 de stock — jamais supprimés.
+
+**Historique** (`/achats`, pagination à 10 comme les autres listes) :
+numéro, date, fournisseur, nombre de lignes, total, statut. Le détail
+d'une réception (`/achats/<id>`) propose un export PDF A4
+(`lib/pdfExport.js`, mêmes garanties qu'ailleurs : aucun élément coupé
+entre deux pages, noms d'articles tronqués au milieu) une fois la
+réception validée ou annulée.
+
+**Ce qui ne change pas** : une réception ne touche jamais qu'au stock
+**réel** — les réservations d'acomptes et le calcul du stock théorique
+gardent leurs propres règles (« Stock théorique » ci-dessous), et les
+marges déjà capturées sur des commandes existantes ne sont jamais
+recalculées (même garantie que pour le CMUP ci-dessus). Aucune régression
+sur l'impression/trésorerie/catalogue, qui ne lisent que `articles` et
+n'ont aucune notion du module Achats.
+
 ## Troncature des noms d'article à l'écran et à l'impression
 
 `lib/format.js` → `tronquerMilieuNom(nom, maxLen)` : raccourcit un nom
