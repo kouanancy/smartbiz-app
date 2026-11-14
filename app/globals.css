@@ -98,8 +98,13 @@ a {
   min-height: 100vh;
   display: flex;
 }
+/* white-space: nowrap : .sb-mono ne sert qu'à des valeurs courtes par
+   nature (codes article, numéros, montants, quantités, téléphone) —
+   jamais un texte libre — qui ne doivent jamais se couper au milieu
+   (ex. "ART-0023" en "ART-" / "0023" dans une colonne un peu étroite). */
 .sb-mono {
   font-family: "IBM Plex Mono", monospace;
+  white-space: nowrap;
 }
 .sb-display {
   font-family: "Space Grotesk", sans-serif;
@@ -1419,6 +1424,21 @@ a {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* Appliquée directement sur un <td> (tableaux Articles, Statistiques,
+   Achats, Nouvelle commande, Confirmation de commande imprimée...), pas
+   seulement sur un <span>/<p> à l'intérieur d'une cellule : display: block
+   ci-dessus sortait alors ce <td> de la mise en page de tableau, lui
+   faisant perdre vertical-align et sa pleine hauteur de ligne — bordure
+   de séparation décalée vers le haut par rapport aux autres cellules de
+   la même ligne (constaté sur la liste des articles). Remis en
+   display: table-cell pour les <td>, les <th> suivant par cohérence —
+   overflow/text-overflow/white-space continuent de s'appliquer
+   normalement sur une cellule de tableau, aucun des deux n'exige
+   display: block. */
+td.sb-nom-tronque,
+th.sb-nom-tronque {
+  display: table-cell;
+}
 
 /* Sélecteur d'article avec miniature (Nouvelle commande) — un <select>
    natif ne peut pas afficher d'image dans ses <option>, d'où ce panneau
@@ -2334,6 +2354,7 @@ a {
 .sb-stock-print-table-code {
   font-family: "IBM Plex Mono", monospace;
   font-size: 12px;
+  white-space: nowrap;
 }
 /* Même gabarit que .sb-receipt-print-table-photo (components/Receipt.js,
    juste au-dessus) : miniature carrée, ou pictogramme par défaut

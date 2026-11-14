@@ -97,7 +97,7 @@ export default function StatistiquesPage() {
                 <tr>
                   <th>{t("statistiques.colRang")}</th>
                   <th>{t("statistiques.colArticle")}</th>
-                  <th>{t("statistiques.colQuantite")}</th>
+                  <th style={{ textAlign: "right" }}>{t("statistiques.colQuantite")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -105,7 +105,7 @@ export default function StatistiquesPage() {
                   <tr key={nom}>
                     <td className="sb-mono">{i + 1}</td>
                     <td className="sb-nom-tronque" title={nom}>{tronquerMilieuNom(nom)}</td>
-                    <td className="sb-mono">{quantite}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{quantite}</td>
                   </tr>
                 ))}
               </tbody>

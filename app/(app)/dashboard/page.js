@@ -251,16 +251,16 @@ export default function DashboardPage() {
                     <th>{t("dashboard.colNumero")}</th>
                     <th>{t("dashboard.colCliente")}</th>
                     <th>{t("dashboard.colDate")}</th>
-                    <th>{t("dashboard.colCa")}</th>
+                    <th style={{ textAlign: "right" }}>{t("dashboard.colCa")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {dernieresCommandes.map((c) => (
                     <tr key={c.id}>
                       <td className="sb-mono">{c.numero}</td>
-                      <td>{c.clients?.nom ?? "—"}</td>
+                      <td className="sb-nom-tronque">{c.clients?.nom ?? "—"}</td>
                       <td style={{ color: "var(--muted)" }}>{new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
-                      <td className="sb-mono">{fmt(c.ca)}</td>
+                      <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(c.ca)}</td>
                     </tr>
                   ))}
                 </tbody>

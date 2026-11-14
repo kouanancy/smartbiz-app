@@ -1804,6 +1804,69 @@ l'édition d'une commande ; catégories pour un article) plutôt que de les
 recevoir de la page liste, dont ils sont maintenant complètement
 indépendants — chacun peut être ouvert directement par son URL.
 
+## Alignement des tableaux et listes
+
+Cinq défauts constatés sur la liste des articles (code qui revenait à la
+ligne, bordure pointillée décalée, alignement vertical incohérent dans
+une même ligne, « Sans catégorie » sur deux lignes, miniature clignée sur
+le bord) venaient de deux causes précises, communes à la quasi-totalité
+des tableaux de l'app — corrigées une seule fois dans `app/globals.css`
+plutôt que reprises tableau par tableau :
+
+- **`.sb-nom-tronque` posée directement sur un `<td>`** (très largement
+  majoritaire, voir « Troncature des noms d'article » ci-dessus) :
+  `display: block` sortait ce `<td>` de la mise en page de tableau — il
+  ne s'étirait plus à la hauteur de la ligne et ignorait
+  `vertical-align`, d'où une bordure de séparation dessinée plus haut que
+  celle des autres cellules et un contenu collé en haut plutôt que
+  centré. `td.sb-nom-tronque, th.sb-nom-tronque { display: table-cell; }`
+  rétablit un comportement de cellule normal — `overflow`/`white-space`/
+  `text-overflow` (la troncature elle-même) n'ont jamais eu besoin de
+  `display: block` pour s'appliquer, seul l'usage sur un `<span>`/`<p>`
+  en dehors d'un tableau (ex. fiche article) en avait réellement besoin,
+  et le garde toujours.
+- **`.sb-mono` sans `white-space: nowrap`** : un code (`ART-0023`), un
+  montant ou une quantité pouvait revenir à la ligne au milieu dans une
+  colonne un peu étroite. `.sb-mono` ne sert jamais à un texte libre —
+  uniquement des valeurs courtes par nature (codes, numéros, montants,
+  téléphone) — `white-space: nowrap` y est donc sans risque pour tout
+  l'historique des appels existants.
+
+**Trois endroits avaient la même cause, en plus directe** :
+`display: "flex"` posé en style inline sur le `<td>` lui-même (plutôt que
+sur un `<div>` à l'intérieur), pour aligner un nom d'article tronqué à
+côté d'un badge « Offert »/« Cadeau » (lignes de commande,
+`app/(app)/commandes/[id]/page.js` ×2, `app/(app)/nouvelle/page.js`) —
+même symptôme, même correctif (le `<td>` redevient une cellule normale,
+le flex ne s'applique plus qu'au `<div>` qui l'entoure).
+
+**Colonnes chiffrées non alignées à droite** : plusieurs tableaux
+laissaient leurs colonnes montants/quantités alignées à gauche par
+défaut (liste des articles, commandes, tableaux de bord, clients,
+trésorerie, achats, administration, abonnements), contrairement à la
+convention déjà suivie ailleurs (lignes de commande, acomptes, rapports
+imprimés). `text-align: right` ajouté sur l'en-tête et la cellule de
+chaque colonne concernée, partout où ce n'était pas déjà le cas — jamais
+sur une quantité déjà volontairement centrée (ex. tableau des lignes
+vendues de la confirmation de commande), laissée inchangée. Catégorie,
+nom de client/boutique/fournisseur et adresse e-mail reçoivent
+`.sb-nom-tronque` là où ils ne l'avaient pas encore, pour la même raison
+que les noms d'article (une seule ligne, jamais de retour à la ligne
+indésirable).
+
+**Miniature d'article dans la liste du stock** : largeur de colonne
+désormais réservée explicitement (`width: 48` sur l'en-tête), comme déjà
+pratiqué pour le même composant `.sb-thumb-upload` dans le tableau des
+lignes d'une commande — la largeur réellement nécessaire (miniature +
+remplissage) n'était pas garantie quand le tableau devait se compresser
+pour tenir dans la largeur disponible.
+
+Aucun de ces correctifs ne touche la mise en page des PDF/exports
+imprimés eux-mêmes (déjà corrigée dans un cycle précédent, voir
+« À l'impression et dans les PDF » ci-dessus) — seul le correctif
+`.sb-nom-tronque`/`.sb-mono` s'y applique aussi automatiquement, les deux
+classes étant partagées entre l'écran et l'impression.
+
 ## Historique client enrichi
 
 Sur `app/(app)/clients/[id]/page.js`, deux nouveaux champs dans la grille

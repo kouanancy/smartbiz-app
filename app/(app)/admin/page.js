@@ -362,7 +362,7 @@ export default function AdminPage() {
             <thead>
               <tr>
                 <th>{t("admin.revenus.colBoutique")}</th>
-                <th>{t("admin.revenus.colMontant")}</th>
+                <th style={{ textAlign: "right" }}>{t("admin.revenus.colMontant")}</th>
                 <th style={{ cursor: "pointer" }} onClick={() => setTriDateAsc((s) => !s)}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                     {t("admin.revenus.colDateValidation")} <ArrowUpDown size={12} />
@@ -381,8 +381,8 @@ export default function AdminPage() {
               ) : (
                 paiementsTries.map((p) => (
                   <tr key={p.id}>
-                    <td>{nomBoutique(p.business_id)}</td>
-                    <td className="sb-mono">{fmt(p.montant)}</td>
+                    <td className="sb-nom-tronque">{nomBoutique(p.business_id)}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(p.montant)}</td>
                     <td>{p.valide_at ? new Date(p.valide_at).toLocaleDateString(dateLocale(business?.langue)) : "—"}</td>
                     <td>
                       <button
@@ -534,8 +534,8 @@ export default function AdminPage() {
                       onClick={() => router.push(`/admin/commercants/${b.id}`)}
                       style={expireBientot(b) && !estMoi ? { background: "var(--amber-bg)" } : undefined}
                     >
-                      <td>{b.name || t("common.defaultBusinessName")}</td>
-                      <td style={{ color: "var(--muted)" }}>{b.email || "—"}</td>
+                      <td className="sb-nom-tronque">{b.name || t("common.defaultBusinessName")}</td>
+                      <td className="sb-nom-tronque" style={{ color: "var(--muted)" }}>{b.email || "—"}</td>
                       <td>
                         <span className={`sb-badge ${STATUT_BADGE_CLASS[b.subscription_status] || "sb-badge-amber"}`}>
                           {t(`common.subscriptionStatus.${b.subscription_status}`)}

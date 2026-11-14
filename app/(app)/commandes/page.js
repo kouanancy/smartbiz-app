@@ -162,7 +162,7 @@ export default function CommandesPage() {
                 <th>{t("dashboard.colDate")}</th>
                 <th>{t("commandes.colCliente")}</th>
                 <th>{t("commandes.colStatut")}</th>
-                <th>{t("commandes.colCa")}</th>
+                <th style={{ textAlign: "right" }}>{t("commandes.colCa")}</th>
               </tr>
             </thead>
             <tbody>
@@ -175,7 +175,7 @@ export default function CommandesPage() {
                 >
                   <td className="sb-mono">{c.numero}</td>
                   <td>{new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
-                  <td>{c.clients?.nom ?? "—"}</td>
+                  <td className="sb-nom-tronque">{c.clients?.nom ?? "—"}</td>
                   <td>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <span className={`sb-badge ${STATUT_BADGE_CLASS[c.statut] || "sb-badge-amber"}`}>
@@ -186,7 +186,7 @@ export default function CommandesPage() {
                       )}
                     </span>
                   </td>
-                  <td className="sb-mono">{fmt(c.ca)}</td>
+                  <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(c.ca)}</td>
                 </tr>
               ))}
             </tbody>

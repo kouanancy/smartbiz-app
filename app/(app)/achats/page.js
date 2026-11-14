@@ -98,8 +98,8 @@ export default function AchatsPage() {
                   <th>{t("dashboard.colNumero")}</th>
                   <th>{t("dashboard.colDate")}</th>
                   <th>{t("achats.colFournisseur")}</th>
-                  <th>{t("achats.colNbArticles")}</th>
-                  <th>{t("achats.colTotal")}</th>
+                  <th style={{ textAlign: "right" }}>{t("achats.colNbArticles")}</th>
+                  <th style={{ textAlign: "right" }}>{t("achats.colTotal")}</th>
                   <th>{t("commandes.colStatut")}</th>
                 </tr>
               </thead>
@@ -113,9 +113,9 @@ export default function AchatsPage() {
                   >
                     <td className="sb-mono">{r.numero}</td>
                     <td>{new Date(r.date_reception).toLocaleDateString(dateLocale(business?.langue))}</td>
-                    <td>{r.fournisseur || "—"}</td>
-                    <td className="sb-mono">{(r.reception_lignes || []).length}</td>
-                    <td className="sb-mono">{fmt(totalReception(r))}</td>
+                    <td className="sb-nom-tronque">{r.fournisseur || "—"}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{(r.reception_lignes || []).length}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(totalReception(r))}</td>
                     <td>
                       <span className={`sb-badge ${STATUT_BADGE_CLASS[r.statut] || "sb-badge-amber"}`}>
                         {t(`achats.statut.${r.statut}`)}
