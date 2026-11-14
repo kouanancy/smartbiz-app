@@ -83,7 +83,13 @@ export default function Sidebar({ business, onSignOut, onChangeMode }) {
     !business?.is_admin && business?.subscription_status === "essai" && business?.subscription_expires_at
       ? Math.max(1, Math.ceil((new Date(business.subscription_expires_at) - new Date()) / (1000 * 60 * 60 * 24)))
       : null;
-  const navItems = business?.is_admin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
+  // "Stock" ouvre directement la liste d'articles module inactif (comme
+  // aujourd'hui), ou la page d'accueil à deux cartes (Article / Achats et
+  // approvisionnement) une fois le module activé pour cette boutique (voir
+  // app/(app)/stock/page.js).
+  const navItems = (business?.is_admin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS).map((item) =>
+    item.key === "articles" ? { ...item, href: business?.module_achats_actif ? "/stock" : "/articles" } : item
+  );
 
   return (
     <aside className="sb-sidebar">
@@ -134,12 +140,16 @@ export default function Sidebar({ business, onSignOut, onChangeMode }) {
       <nav className={`sb-nav${menuOpen ? " sb-nav-open" : ""}`}>
         {navItems.map((item) => (
           <NavItem
-            key={item.href}
+            key={item.key}
             id={item.id}
             href={item.href}
             icon={<item.icon size={16} />}
             label={t(`sidebar.nav.${item.key}`)}
-            active={pathname === item.href}
+            active={
+              item.key === "articles"
+                ? pathname === "/articles" || pathname.startsWith("/articles/") || pathname === "/stock" || pathname.startsWith("/achats")
+                : pathname === item.href
+            }
             onClick={() => setMenuOpen(false)}
           />
         ))}
