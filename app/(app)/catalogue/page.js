@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, tronquerMilieuNom } from "@/lib/format";
 import { THEMES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
-import { exporterPdf } from "@/lib/pdfExport";
+import PrintPreviewModal from "@/components/PrintPreviewModal";
 import { dateFichier } from "@/lib/exportExcel";
 
 const FILTRE_TOUTES = "toutes";
@@ -60,7 +60,7 @@ export default function CataloguePage() {
   const [loading, setLoading] = useState(true);
   const [filtreCategorie, setFiltreCategorie] = useState(FILTRE_TOUTES);
   const [copyMsg, setCopyMsg] = useState("");
-  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const printRef = useRef(null);
 
   const accent = THEMES[business?.theme_key || "orange"].accent;
@@ -108,31 +108,18 @@ export default function CataloguePage() {
     return `${titre}\n\n${lignes}\n\n${t("catalogue.shareFooter")}`;
   }
 
-  // Capture .sb-catalogue-banner + .sb-catalogue-grid (voir printRef plus
-  // bas) et la télécharge/la partage de façon fiable sur téléphone — voir
+  // .sb-catalogue-banner + .sb-catalogue-grid (voir printRef plus bas) sont
+  // capturées par l'aperçu (components/PrintPreviewModal.js), qui gère
+  // lui-même le téléchargement/le partage fiable sur téléphone — voir
   // lib/pdfExport.js. .sb-catalogue-print-mode (globals.css) y applique
   // temporairement la même mise en page que @media print (3 colonnes,
   // nom tronqué sur 3 lignes...), gardée par ailleurs pour l'impression
   // native (Ctrl+P) qui, elle, continue de s'appliquer à la grille affichée
   // à l'écran sans passer par cette fonction.
-  async function telechargerPdf() {
-    setGeneratingPdf(true);
+  function getElementImpression() {
     const el = printRef.current;
     el?.classList.add("sb-pdf-export-capture", "sb-catalogue-print-mode");
-    try {
-      await exporterPdf({
-        getElement: () => el,
-        nomFichier: `catalogue-${dateFichier()}.pdf`,
-        labelGeneration: t("catalogue.generationPdf"),
-        onCaptured: () => el?.classList.remove("sb-pdf-export-capture", "sb-catalogue-print-mode"),
-      });
-    } catch (err) {
-      console.error("Échec de la génération du PDF :", err);
-      window.alert(t("catalogue.pdfError"));
-    } finally {
-      el?.classList.remove("sb-pdf-export-capture", "sb-catalogue-print-mode");
-      setGeneratingPdf(false);
-    }
+    return el;
   }
 
   async function copierTexte() {
@@ -175,8 +162,8 @@ export default function CataloguePage() {
           <button className="sb-btn" style={{ background: "#25D366", color: "#fff" }} onClick={partagerWhatsApp}>
             <Share2 size={13} /> {t("catalogue.partager")}
           </button>
-          <button className="sb-btn sb-btn-primary" onClick={telechargerPdf} disabled={generatingPdf}>
-            <Download size={13} /> {generatingPdf ? t("catalogue.generationPdf") : t("catalogue.telechargerPdf")}
+          <button className="sb-btn sb-btn-primary" onClick={() => setPreviewOpen(true)}>
+            <Download size={13} /> {t("catalogue.telechargerPdf")}
           </button>
         </div>
       </div>
@@ -203,8 +190,8 @@ export default function CataloguePage() {
           contient volontairement que le bandeau + la grille, jamais les
           boutons/filtres au-dessus (sb-no-print) — exactement ce que capture
           déjà @media print pour une impression native, maintenant aussi
-          capturé par html2canvas (voir telechargerPdf, lib/pdfExport.js)
-          pour un vrai export PDF téléchargeable. */}
+          capturé par html2canvas (voir getElementImpression ci-dessus,
+          lib/pdfExport.js) pour l'aperçu et le PDF téléchargeable. */}
       <div ref={printRef}>
         <div className="sb-catalogue-banner">
           <div className="sb-catalogue-banner-logo">
@@ -255,6 +242,21 @@ export default function CataloguePage() {
           </div>
         )}
       </div>
+
+      <PrintPreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        title={t("catalogue.title")}
+        nomFichier={`catalogue-${dateFichier()}.pdf`}
+        getElement={getElementImpression}
+        onCaptured={() => printRef.current?.classList.remove("sb-pdf-export-capture", "sb-catalogue-print-mode")}
+        labelFermer={t("common.apercuFermer")}
+        labelTelecharger={t("catalogue.telechargerPdf")}
+        labelTelechargement={t("common.apercuTelechargement")}
+        labelGeneration={t("catalogue.generationPdf")}
+        labelErreur={t("catalogue.pdfError")}
+        labelPage={(p, total) => t("common.pageSur", { page: p, total })}
+      />
 
       <p className="sb-no-print" style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 16 }}>
         {t("catalogue.instagramNote")}

@@ -11,11 +11,11 @@ import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 import { UNITES, PAGE_SIZE } from "@/lib/constants";
 import { exportToExcel, dateFichier } from "@/lib/exportExcel";
-import { exporterPdf } from "@/lib/pdfExport";
 import ImageUploadField from "@/components/ImageUploadField";
 import Pagination from "@/components/Pagination";
 import ClearableInput from "@/components/ClearableInput";
 import PrixAchatConvertible from "@/components/PrixAchatConvertible";
+import PrintPreviewModal from "@/components/PrintPreviewModal";
 
 const emptyForm = {
   nom: "",
@@ -80,7 +80,7 @@ export default function ArticlesPage() {
   const [enAttenteParArticle, setEnAttenteParArticle] = useState({});
   const [platformLogo, setPlatformLogo] = useState("");
   const [printRows, setPrintRows] = useState(null);
-  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const printRef = useRef(null);
 
   // Logo Doka pour le pied de page du rapport imprimé — indépendant du
@@ -313,41 +313,22 @@ export default function ArticlesPage() {
 
   // Même requête dédiée (tout le stock filtré, jamais seulement la page
   // affichée) que exporterExcel ci-dessus — remplit le portail
-  // d'impression plus bas, puis capture ce bloc en PDF (voir
-  // lib/pdfExport.js). Cette requête ne démarre qu'à l'intérieur de
-  // getElement, donc après l'éventuelle ouverture de fenêtre que fait déjà
-  // exporterPdf AVANT tout await (nécessaire sur Safari, voir
-  // lib/pdfExport.js) — peu importe ensuite sa durée (réseau lent...),
-  // l'activation utilisateur du clic n'est plus en jeu à ce stade.
-  // flushSync force React à committer printRows de façon synchrone avant
-  // de lire printRef.current, plutôt que dans un effect séparé. En cas
-  // d'échec de la requête (réseau, session expirée...), un message
-  // d'erreur explicite : sans cela, le bouton semblait ne rien faire.
-  async function telechargerPdf() {
-    setGeneratingPdf(true);
-    let el = null;
-    try {
-      await exporterPdf({
-        getElement: async () => {
-          const { data, error } = await appliquerFiltresArticles(
-            supabase.from("articles").select("*").eq("business_id", business.id)
-          ).order("nom");
-          if (error) throw error;
-          flushSync(() => setPrintRows(data || []));
-          el = printRef.current;
-          el?.classList.add("sb-pdf-export-capture");
-          return el;
-        },
-        nomFichier: `stock-${dateFichier()}.pdf`,
-        labelGeneration: t("articles.generationPdf"),
-        onCaptured: () => el?.classList.remove("sb-pdf-export-capture"),
-      });
-    } catch (err) {
-      window.alert(t("articles.impressionError", { message: err.message }));
-    } finally {
-      el?.classList.remove("sb-pdf-export-capture");
-      setGeneratingPdf(false);
-    }
+  // d'impression plus bas, que l'aperçu (components/PrintPreviewModal.js)
+  // capture ensuite pour l'afficher puis, au clic sur son bouton, le
+  // télécharger en PDF (voir lib/pdfExport.js). Cette requête ne démarre
+  // qu'à l'ouverture de l'aperçu (appelée par PrintPreviewModal dès que
+  // previewOpen passe à true). flushSync force React à committer
+  // printRows de façon synchrone avant de lire printRef.current, plutôt
+  // que dans un effect séparé.
+  async function getElementImpression() {
+    const { data, error } = await appliquerFiltresArticles(
+      supabase.from("articles").select("*").eq("business_id", business.id)
+    ).order("nom");
+    if (error) throw error;
+    flushSync(() => setPrintRows(data || []));
+    const el = printRef.current;
+    el?.classList.add("sb-pdf-export-capture");
+    return el;
   }
 
   if (loading) return <p className="sb-sub">{t("common.loading")}</p>;
@@ -379,8 +360,8 @@ export default function ArticlesPage() {
           <button className="sb-btn sb-btn-ghost" onClick={exporterExcel}>
             <FileSpreadsheet size={14} /> {t("common.exporterExcel")}
           </button>
-          <button className="sb-btn sb-btn-ghost" onClick={telechargerPdf} disabled={generatingPdf}>
-            <Download size={14} /> {generatingPdf ? t("articles.generationPdf") : t("articles.telechargerPdf")}
+          <button className="sb-btn sb-btn-ghost" onClick={() => setPreviewOpen(true)}>
+            <Download size={14} /> {t("articles.telechargerPdf")}
           </button>
           {!moduleAchatsActif && (
             <button className="sb-btn sb-btn-primary" onClick={() => setShowForm((s) => !s)}>
@@ -704,13 +685,28 @@ export default function ArticlesPage() {
       )}
     </div>
 
+    <PrintPreviewModal
+      open={previewOpen}
+      onClose={() => setPreviewOpen(false)}
+      title={t("articles.rapportTitle")}
+      nomFichier={`stock-${dateFichier()}.pdf`}
+      getElement={getElementImpression}
+      onCaptured={() => printRef.current?.classList.remove("sb-pdf-export-capture")}
+      labelFermer={t("common.apercuFermer")}
+      labelTelecharger={t("articles.telechargerPdf")}
+      labelTelechargement={t("common.apercuTelechargement")}
+      labelGeneration={t("articles.generationPdf")}
+      labelErreur={(err) => t("articles.impressionError", { message: err.message })}
+      labelPage={(p, total) => t("common.pageSur", { page: p, total })}
+    />
+
     {/* Mise en page dédiée à l'impression — pleine page A4, invisible à
         l'écran. Rendue via un portail directement dans <body> (même
         principe que components/Receipt.js et app/(app)/tresorerie/page.js)
         pour ne dépendre d'aucune structure de page parente. printRows
         (tout le stock filtré, jamais seulement la page affichée — voir
-        imprimerStock) reste null tant qu'aucune impression n'a été
-        demandée, pour ne jamais imprimer un ancien résultat périmé. */}
+        getElementImpression ci-dessus) reste null tant qu'aucun aperçu n'a
+        été ouvert, pour ne jamais afficher un ancien résultat périmé. */}
     {typeof document !== "undefined" &&
       printRows !== null &&
       createPortal(
