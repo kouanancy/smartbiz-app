@@ -757,7 +757,7 @@ export default function ArticlesPage() {
               {printRows.map((a) => {
                 const enRupture = a.stock <= 0;
                 return (
-                  <tr key={a.id}>
+                  <tr key={a.id} className="sb-pdf-no-split">
                     <td className="sb-stock-print-table-photo">
                       {a.image_url ? (
                         <img src={a.image_url} alt="" />

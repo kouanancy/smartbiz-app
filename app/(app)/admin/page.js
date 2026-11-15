@@ -616,7 +616,7 @@ export default function AdminPage() {
               </thead>
               <tbody>
                 {paiementsTries.map((p) => (
-                  <tr key={p.id}>
+                  <tr key={p.id} className="sb-pdf-no-split">
                     <td>{nomBoutique(p.business_id)}</td>
                     <td style={{ textAlign: "right" }}>{fmt(p.montant)}</td>
                     <td>{p.valide_at ? new Date(p.valide_at).toLocaleDateString(dateLocale(business?.langue)) : "—"}</td>

@@ -448,7 +448,7 @@ export default function TresoreriePage() {
               </thead>
               <tbody>
                 {tableRows.map((b) => (
-                  <tr key={b.key}>
+                  <tr key={b.key} className="sb-pdf-no-split">
                     <td>{b.labelFull}</td>
                     <td style={{ textAlign: "right" }}>{fmt(b.ca)}</td>
                     <td style={{ textAlign: "right" }}>{fmt(b.marge)}</td>

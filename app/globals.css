@@ -900,15 +900,17 @@ a {
   grid-template-columns: 1.3fr 1fr;
   gap: 16px;
 }
-/* Page d'accueil du Stock une fois le module Achats actif (deux cartes
-   Article / Achats et approvisionnement, voir app/(app)/stock/page.js) —
-   une simple carte-lien, sans rapport avec .sb-plan-card (sélection de
-   formule, état actif/indisponible). */
+/* Page d'accueil du Stock une fois le module Achats actif (cartes Article
+   / Achats et approvisionnement / Inventaire, voir app/(app)/stock/page.js)
+   -- une simple carte-lien, sans rapport avec .sb-plan-card (sélection de
+   formule, état actif/indisponible). Les trois cartes partagent la même
+   condition d'affichage (module_achats_actif) : jamais un nombre
+   intermédiaire de cartes à prévoir. */
 .sb-choice-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  max-width: 720px;
+  max-width: 980px;
 }
 .sb-choice-card {
   display: flex;

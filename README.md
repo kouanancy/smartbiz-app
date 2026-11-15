@@ -1592,6 +1592,98 @@ recalculées (même garantie que pour le CMUP ci-dessus). Aucune régression
 sur l'impression/trésorerie/catalogue, qui ne lisent que `articles` et
 n'ont aucune notion du module Achats.
 
+## Inventaire (comptage physique, écarts valorisés)
+
+Troisième carte de l'écran Stock (`supabase-inventaire-migration.sql`),
+visible dans **les mêmes conditions que la carte Achats et
+approvisionnement** : aucune nouvelle colonne d'activation, seul
+`businesses.module_achats_actif` (ci-dessus) est relu. Numérotation
+`INV-0001` par boutique, même mécanisme par compteur
+(`businesses.next_numero_inventaire`) que `REC-xxxx`, et même technique
+de verrouillage après validation (trigger non-`security definer`, pour
+que `current_user` distingue un appel direct du client d'une écriture
+interne par une fonction `security definer`) que les réceptions.
+
+**Création** (`creer_inventaire(p_categorie_ids)`, SECURITY DEFINER) :
+périmètre « tous les articles » (`p_categorie_ids` nul) ou une liste de
+catégories choisies — génère aussitôt une ligne par article du périmètre
+avec son **stock réel actuel figé** dans `inventaire_lignes.stock_debut`,
+jamais réécrit ensuite. **Un seul brouillon à la fois par boutique**,
+appliqué par un **index unique partiel**
+(`create unique index ... on inventaires (business_id) where statut =
+'brouillon'`) — pas une simple vérification applicative, une seconde
+ligne `'brouillon'` pour la même boutique est rejetée par Postgres lui-même,
+y compris via un appel direct à l'API. Un brouillon reste modifiable
+(saisie de la quantité comptée et d'une remarque, ligne par ligne, chaque
+champ enregistré à son propre `onBlur` — jamais perdu au rechargement) et
+supprimable tant qu'il n'est pas validé ; validé, plus aucune modification
+n'est possible (vérifié par les mêmes déclencheurs non-`security definer`
+que pour les réceptions).
+
+**Validation** (`valider_inventaire(p_inventaire_id, p_confirmer_ecarts_stock)`,
+SECURITY DEFINER, vérifie `owner_id = auth.uid()` comme
+`valider_reception()`) : pour chaque ligne **comptée** uniquement (les
+non comptées restent intactes), fixe `articles.stock` à la quantité
+comptée après avoir enregistré `stock_validation` (le stock réel juste
+avant cette écriture), `ecart` (comptée − stock_validation) et
+`cout_moyen_validation` (`prix_achat + frais_annexes`, jamais modifié).
+**Le coût moyen n'est jamais touché** — seul le stock l'est — et le stock
+théorique (stock réel − quantités réservées par les commandes en attente,
+déjà calculé côté app, voir « Stock théorique » plus bas) reste donc
+automatiquement juste après validation, sans aucun calcul à dupliquer
+ici. `select ... for update` sur l'inventaire sérialise tout double clic,
+même principe que `valider_reception()`.
+
+**Stock modifié depuis le démarrage** : si le stock réel d'au moins un
+article compté a changé depuis `stock_debut` (une vente livrée ou une
+réception validée pendant que l'inventaire était ouvert), la fonction
+s'arrête avant toute écriture avec un message sentinelle
+(`'STOCK_MODIFIE_DEPUIS_DEBUT'`) que le client reconnaît pour afficher le
+détail des articles concernés et demander une confirmation explicite,
+avant de rappeler la même fonction avec `p_confirmer_ecarts_stock = true`.
+**L'écart est dans tous les cas calculé sur le stock réel actuel**, jamais
+sur `stock_debut` — `inventaire_lignes.stock_modifie_depuis_debut`
+(booléen) garde une trace de ce cas pour l'historique, même une fois
+validé.
+
+**Saisie** (`/inventaire/<id>`, brouillon) : recherche par nom ou code,
+filtre « non comptés seulement », miniature/code/nom tronqué au
+milieu/catégorie comme la liste du stock. Sert aussi bien à un comptage
+direct dans l'app qu'au report d'une fiche papier déjà remplie.
+
+**Fiche d'inventaire imprimable** (PDF A4, brouillon) : colonnes
+code/nom/catégorie/« Quantité comptée » et « Remarque » laissées vides à
+remplir à la main, plus une colonne Stock **optionnelle** (case à cocher
+juste avant le téléchargement — décochée par défaut, pour un comptage à
+l'aveugle). Une fois validé, **rapport d'écarts** distinct : uniquement
+les articles dont l'écart est non nul, avec la valeur de chacun (écart ×
+coût moyen au moment de la validation) et le total — **cette valorisation
+n'apparaît que dans ce rapport, jamais dans la Trésorerie ni le CA/la
+marge**, qui ne lisent ni `inventaires` ni `inventaire_lignes`.
+
+**En-tête de tableau répété sur chaque page** : les deux PDF
+d'inventaire peuvent être longs (tous les articles d'une boutique) — un
+vrai cas que les autres exports PDF de l'app n'avaient encore jamais
+rencontré en pratique. `lib/pdfExport.js` (`genererPdfBlob()`) gagne donc
+une capacité générique : un élément marqué `.sb-pdf-repeat-header`
+(ici le `<thead>`) est redécoupé depuis le canvas déjà capturé et
+redessiné en haut de chaque page suivante, le budget de hauteur de ces
+pages-là étant réduit d'autant — un document sans ce marqueur se comporte
+exactement comme avant (`headerCanvas` reste `null`), aucune régression
+sur les PDF existants. À cette occasion, un oubli réel a été corrigé sur
+plusieurs tableaux déjà en place (bon de réception, revenus Doka,
+trésorerie, rapport de stock) : leurs lignes n'étaient pas marquées
+`.sb-pdf-no-split`, le seul marqueur que `genererPdfBlob()` consulte pour
+ne jamais couper une ligne en plein milieu entre deux pages — un simple
+`break-inside: avoid` en CSS ne protège que l'impression native
+(Ctrl+P), jamais ce chemin d'export (capture + découpe d'image).
+
+**Historique** (`/inventaire`, pagination à 10) : numéro, date,
+périmètre, nombre d'articles comptés, nombre d'écarts, statut. Tant qu'un
+brouillon existe pour la boutique, le bouton « Nouvel inventaire »
+devient « Reprendre le brouillon » plutôt que de laisser l'erreur de
+l'index unique remonter sans contexte.
+
 ## Troncature des noms d'article à l'écran et à l'impression
 
 `lib/format.js` → `tronquerMilieuNom(nom, maxLen)` : raccourcit un nom

@@ -588,7 +588,7 @@ export default function ReceptionDetailPage() {
               </thead>
               <tbody>
                 {lignes.map((l) => (
-                  <tr key={l.id}>
+                  <tr key={l.id} className="sb-pdf-no-split">
                     <td style={{ maxWidth: 260 }}>{tronquerMilieuNom(nomLigne(l), LONGUEUR_NOM_IMPRESSION)}</td>
                     <td style={{ textAlign: "right" }}>{l.quantite} {uniteLabel(uniteLigne(l))}</td>
                     <td style={{ textAlign: "right" }}>{fmt(l.cout_unitaire)}</td>
