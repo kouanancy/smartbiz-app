@@ -147,7 +147,11 @@ export default function Sidebar({ business, onSignOut, onChangeMode }) {
             label={t(`sidebar.nav.${item.key}`)}
             active={
               item.key === "articles"
-                ? pathname === "/articles" || pathname.startsWith("/articles/") || pathname === "/stock" || pathname.startsWith("/achats")
+                ? pathname === "/articles" ||
+                  pathname.startsWith("/articles/") ||
+                  pathname === "/stock" ||
+                  pathname.startsWith("/achats") ||
+                  pathname.startsWith("/inventaire")
                 : pathname === item.href
             }
             onClick={() => setMenuOpen(false)}

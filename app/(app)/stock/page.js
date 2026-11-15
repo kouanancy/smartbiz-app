@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Package, Truck } from "lucide-react";
+import { ChevronRight, ClipboardCheck, Package, Truck } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 import { t as tBase } from "@/lib/i18n";
 
@@ -49,6 +49,16 @@ export default function StockPage() {
           </div>
           <div className="sb-choice-card-title">{t("stock.cardAchatsTitle")}</div>
           <p className="sb-choice-card-desc">{t("stock.cardAchatsDesc")}</p>
+          <span className="sb-btn sb-btn-ghost" style={{ marginTop: "auto" }}>
+            {t("stock.cardOuvrir")} <ChevronRight size={14} />
+          </span>
+        </Link>
+        <Link href="/inventaire" className="sb-card sb-choice-card">
+          <div className="sb-choice-card-icon">
+            <ClipboardCheck size={20} />
+          </div>
+          <div className="sb-choice-card-title">{t("stock.cardInventaireTitle")}</div>
+          <p className="sb-choice-card-desc">{t("stock.cardInventaireDesc")}</p>
           <span className="sb-btn sb-btn-ghost" style={{ marginTop: "auto" }}>
             {t("stock.cardOuvrir")} <ChevronRight size={14} />
           </span>

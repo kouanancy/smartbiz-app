@@ -326,11 +326,11 @@ export default function ReceptionDetailPage() {
               <thead>
                 <tr>
                   <th>{t("achats.colArticleLigne")}</th>
-                  <th>{t("achats.colQuantite")}</th>
-                  <th>{t("achats.colCoutUnitaire")}</th>
-                  <th>{t("achats.colFraisLigne")}</th>
-                  {!estBrouillon && <th>{t("achats.colCoutRevient")}</th>}
-                  {!estBrouillon && <th>{t("achats.colStock")}</th>}
+                  <th style={{ textAlign: "right" }}>{t("achats.colQuantite")}</th>
+                  <th style={{ textAlign: "right" }}>{t("achats.colCoutUnitaire")}</th>
+                  <th style={{ textAlign: "right" }}>{t("achats.colFraisLigne")}</th>
+                  {!estBrouillon && <th style={{ textAlign: "right" }}>{t("achats.colCoutRevient")}</th>}
+                  {!estBrouillon && <th style={{ textAlign: "right" }}>{t("achats.colStock")}</th>}
                   {estBrouillon && <th></th>}
                 </tr>
               </thead>
@@ -341,11 +341,11 @@ export default function ReceptionDetailPage() {
                       {tronquerMilieuNom(nomLigne(l))}
                       {!l.article_id && <span className="sb-badge sb-badge-emerald" style={{ marginLeft: 6, fontSize: 10 }}>{t("achats.nouvelArticleBadge")}</span>}
                     </td>
-                    <td className="sb-mono">{l.quantite} {uniteLabel(uniteLigne(l))}</td>
-                    <td className="sb-mono">{fmt(l.cout_unitaire)}</td>
-                    <td className="sb-mono">{fmt(reception.frais_groupes && estBrouillon ? 0 : estBrouillon ? l.frais_annexes || 0 : l.frais_repartis || 0)}</td>
-                    {!estBrouillon && <td className="sb-mono">{fmt(l.cout_revient_unitaire)}</td>}
-                    {!estBrouillon && <td className="sb-mono">{l.stock_avant} → {l.stock_apres}</td>}
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{l.quantite} {uniteLabel(uniteLigne(l))}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(l.cout_unitaire)}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(reception.frais_groupes && estBrouillon ? 0 : estBrouillon ? l.frais_annexes || 0 : l.frais_repartis || 0)}</td>
+                    {!estBrouillon && <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(l.cout_revient_unitaire)}</td>}
+                    {!estBrouillon && <td className="sb-mono" style={{ textAlign: "right" }}>{l.stock_avant} → {l.stock_apres}</td>}
                     {estBrouillon && (
                       <td>
                         <button className="sb-btn sb-btn-ghost" style={{ padding: "3px 6px" }} onClick={() => supprimerLigne(l)}>
@@ -588,7 +588,7 @@ export default function ReceptionDetailPage() {
               </thead>
               <tbody>
                 {lignes.map((l) => (
-                  <tr key={l.id}>
+                  <tr key={l.id} className="sb-pdf-no-split">
                     <td style={{ maxWidth: 260 }}>{tronquerMilieuNom(nomLigne(l), LONGUEUR_NOM_IMPRESSION)}</td>
                     <td style={{ textAlign: "right" }}>{l.quantite} {uniteLabel(uniteLigne(l))}</td>
                     <td style={{ textAlign: "right" }}>{fmt(l.cout_unitaire)}</td>

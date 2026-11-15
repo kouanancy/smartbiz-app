@@ -616,11 +616,11 @@ export default function NouvelleCommandePage() {
                   <thead>
                     <tr>
                       <th>{t("nouvelle.colArticle")}</th>
-                      <th>{t("nouvelle.colPrixVente")}</th>
-                      <th>{t("nouvelle.colPrixAchat")}</th>
-                      <th>{t("nouvelle.colMarge")}</th>
-                      <th>{t("nouvelle.colQte")}</th>
-                      <th>{t("nouvelle.colSousTotal")}</th>
+                      <th style={{ textAlign: "right" }}>{t("nouvelle.colPrixVente")}</th>
+                      <th style={{ textAlign: "right" }}>{t("nouvelle.colPrixAchat")}</th>
+                      <th style={{ textAlign: "right" }}>{t("nouvelle.colMarge")}</th>
+                      <th style={{ textAlign: "right" }}>{t("nouvelle.colQte")}</th>
+                      <th style={{ textAlign: "right" }}>{t("nouvelle.colSousTotal")}</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -631,15 +631,15 @@ export default function NouvelleCommandePage() {
                       return (
                         <tr key={l.articleId}>
                           <td className="sb-nom-tronque" title={art.nom}>{tronquerMilieuNom(art.nom)}</td>
-                          <td className="sb-mono">{fmt(art.prix_vente)}</td>
-                          <td className="sb-mono">{fmt(art.prix_achat)}</td>
-                          <td className="sb-mono" style={{ color: margeUnitaire >= 0 ? "var(--emerald)" : "var(--coral)" }}>
+                          <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(art.prix_vente)}</td>
+                          <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(art.prix_achat)}</td>
+                          <td className="sb-mono" style={{ textAlign: "right", color: margeUnitaire >= 0 ? "var(--emerald)" : "var(--coral)" }}>
                             {fmt(margeUnitaire)}
                           </td>
-                          <td className="sb-mono">
+                          <td className="sb-mono" style={{ textAlign: "right" }}>
                             {l.quantite} {uniteLabel(art.unite)}
                           </td>
-                          <td className="sb-mono">{fmt(art.prix_vente * l.quantite)}</td>
+                          <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(art.prix_vente * l.quantite)}</td>
                           <td>
                             <button className="sb-btn sb-btn-ghost" style={{ padding: "3px 6px" }} onClick={() => removeLigne(l.articleId)}>
                               <Trash2 size={12} />
@@ -720,8 +720,8 @@ export default function NouvelleCommandePage() {
                   <thead>
                     <tr>
                       <th>{t("nouvelle.colArticle")}</th>
-                      <th>{t("nouvelle.colQte")}</th>
-                      <th>{t("nouvelle.colCout")}</th>
+                      <th style={{ textAlign: "right" }}>{t("nouvelle.colQte")}</th>
+                      <th style={{ textAlign: "right" }}>{t("nouvelle.colCout")}</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -731,18 +731,20 @@ export default function NouvelleCommandePage() {
                       const cout = art.prix_achat + (art.frais_annexes || 0);
                       return (
                         <tr key={l.articleId}>
-                          <td style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span className="sb-badge sb-badge-amber" style={{ flexShrink: 0 }}>
-                              🎁 {t("nouvelle.offert")}
-                            </span>
-                            <span className="sb-nom-tronque" title={art.nom} style={{ flex: 1, minWidth: 0 }}>
-                              {tronquerMilieuNom(art.nom)}
-                            </span>
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span className="sb-badge sb-badge-amber" style={{ flexShrink: 0 }}>
+                                🎁 {t("nouvelle.offert")}
+                              </span>
+                              <span className="sb-nom-tronque" title={art.nom} style={{ flex: 1, minWidth: 0 }}>
+                                {tronquerMilieuNom(art.nom)}
+                              </span>
+                            </div>
                           </td>
-                          <td className="sb-mono">
+                          <td className="sb-mono" style={{ textAlign: "right" }}>
                             {l.quantite} {uniteLabel(art.unite)}
                           </td>
-                          <td className="sb-mono" style={{ color: "var(--coral)" }}>
+                          <td className="sb-mono" style={{ textAlign: "right", color: "var(--coral)" }}>
                             {fmt(cout * l.quantite)}
                           </td>
                           <td>

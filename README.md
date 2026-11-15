@@ -1592,6 +1592,98 @@ recalculées (même garantie que pour le CMUP ci-dessus). Aucune régression
 sur l'impression/trésorerie/catalogue, qui ne lisent que `articles` et
 n'ont aucune notion du module Achats.
 
+## Inventaire (comptage physique, écarts valorisés)
+
+Troisième carte de l'écran Stock (`supabase-inventaire-migration.sql`),
+visible dans **les mêmes conditions que la carte Achats et
+approvisionnement** : aucune nouvelle colonne d'activation, seul
+`businesses.module_achats_actif` (ci-dessus) est relu. Numérotation
+`INV-0001` par boutique, même mécanisme par compteur
+(`businesses.next_numero_inventaire`) que `REC-xxxx`, et même technique
+de verrouillage après validation (trigger non-`security definer`, pour
+que `current_user` distingue un appel direct du client d'une écriture
+interne par une fonction `security definer`) que les réceptions.
+
+**Création** (`creer_inventaire(p_categorie_ids)`, SECURITY DEFINER) :
+périmètre « tous les articles » (`p_categorie_ids` nul) ou une liste de
+catégories choisies — génère aussitôt une ligne par article du périmètre
+avec son **stock réel actuel figé** dans `inventaire_lignes.stock_debut`,
+jamais réécrit ensuite. **Un seul brouillon à la fois par boutique**,
+appliqué par un **index unique partiel**
+(`create unique index ... on inventaires (business_id) where statut =
+'brouillon'`) — pas une simple vérification applicative, une seconde
+ligne `'brouillon'` pour la même boutique est rejetée par Postgres lui-même,
+y compris via un appel direct à l'API. Un brouillon reste modifiable
+(saisie de la quantité comptée et d'une remarque, ligne par ligne, chaque
+champ enregistré à son propre `onBlur` — jamais perdu au rechargement) et
+supprimable tant qu'il n'est pas validé ; validé, plus aucune modification
+n'est possible (vérifié par les mêmes déclencheurs non-`security definer`
+que pour les réceptions).
+
+**Validation** (`valider_inventaire(p_inventaire_id, p_confirmer_ecarts_stock)`,
+SECURITY DEFINER, vérifie `owner_id = auth.uid()` comme
+`valider_reception()`) : pour chaque ligne **comptée** uniquement (les
+non comptées restent intactes), fixe `articles.stock` à la quantité
+comptée après avoir enregistré `stock_validation` (le stock réel juste
+avant cette écriture), `ecart` (comptée − stock_validation) et
+`cout_moyen_validation` (`prix_achat + frais_annexes`, jamais modifié).
+**Le coût moyen n'est jamais touché** — seul le stock l'est — et le stock
+théorique (stock réel − quantités réservées par les commandes en attente,
+déjà calculé côté app, voir « Stock théorique » plus bas) reste donc
+automatiquement juste après validation, sans aucun calcul à dupliquer
+ici. `select ... for update` sur l'inventaire sérialise tout double clic,
+même principe que `valider_reception()`.
+
+**Stock modifié depuis le démarrage** : si le stock réel d'au moins un
+article compté a changé depuis `stock_debut` (une vente livrée ou une
+réception validée pendant que l'inventaire était ouvert), la fonction
+s'arrête avant toute écriture avec un message sentinelle
+(`'STOCK_MODIFIE_DEPUIS_DEBUT'`) que le client reconnaît pour afficher le
+détail des articles concernés et demander une confirmation explicite,
+avant de rappeler la même fonction avec `p_confirmer_ecarts_stock = true`.
+**L'écart est dans tous les cas calculé sur le stock réel actuel**, jamais
+sur `stock_debut` — `inventaire_lignes.stock_modifie_depuis_debut`
+(booléen) garde une trace de ce cas pour l'historique, même une fois
+validé.
+
+**Saisie** (`/inventaire/<id>`, brouillon) : recherche par nom ou code,
+filtre « non comptés seulement », miniature/code/nom tronqué au
+milieu/catégorie comme la liste du stock. Sert aussi bien à un comptage
+direct dans l'app qu'au report d'une fiche papier déjà remplie.
+
+**Fiche d'inventaire imprimable** (PDF A4, brouillon) : colonnes
+code/nom/catégorie/« Quantité comptée » et « Remarque » laissées vides à
+remplir à la main, plus une colonne Stock **optionnelle** (case à cocher
+juste avant le téléchargement — décochée par défaut, pour un comptage à
+l'aveugle). Une fois validé, **rapport d'écarts** distinct : uniquement
+les articles dont l'écart est non nul, avec la valeur de chacun (écart ×
+coût moyen au moment de la validation) et le total — **cette valorisation
+n'apparaît que dans ce rapport, jamais dans la Trésorerie ni le CA/la
+marge**, qui ne lisent ni `inventaires` ni `inventaire_lignes`.
+
+**En-tête de tableau répété sur chaque page** : les deux PDF
+d'inventaire peuvent être longs (tous les articles d'une boutique) — un
+vrai cas que les autres exports PDF de l'app n'avaient encore jamais
+rencontré en pratique. `lib/pdfExport.js` (`genererPdfBlob()`) gagne donc
+une capacité générique : un élément marqué `.sb-pdf-repeat-header`
+(ici le `<thead>`) est redécoupé depuis le canvas déjà capturé et
+redessiné en haut de chaque page suivante, le budget de hauteur de ces
+pages-là étant réduit d'autant — un document sans ce marqueur se comporte
+exactement comme avant (`headerCanvas` reste `null`), aucune régression
+sur les PDF existants. À cette occasion, un oubli réel a été corrigé sur
+plusieurs tableaux déjà en place (bon de réception, revenus Doka,
+trésorerie, rapport de stock) : leurs lignes n'étaient pas marquées
+`.sb-pdf-no-split`, le seul marqueur que `genererPdfBlob()` consulte pour
+ne jamais couper une ligne en plein milieu entre deux pages — un simple
+`break-inside: avoid` en CSS ne protège que l'impression native
+(Ctrl+P), jamais ce chemin d'export (capture + découpe d'image).
+
+**Historique** (`/inventaire`, pagination à 10) : numéro, date,
+périmètre, nombre d'articles comptés, nombre d'écarts, statut. Tant qu'un
+brouillon existe pour la boutique, le bouton « Nouvel inventaire »
+devient « Reprendre le brouillon » plutôt que de laisser l'erreur de
+l'index unique remonter sans contexte.
+
 ## Troncature des noms d'article à l'écran et à l'impression
 
 `lib/format.js` → `tronquerMilieuNom(nom, maxLen)` : raccourcit un nom
@@ -1803,6 +1895,69 @@ rechargent leurs propres listes de référence (clients/articles/zones pour
 l'édition d'une commande ; catégories pour un article) plutôt que de les
 recevoir de la page liste, dont ils sont maintenant complètement
 indépendants — chacun peut être ouvert directement par son URL.
+
+## Alignement des tableaux et listes
+
+Cinq défauts constatés sur la liste des articles (code qui revenait à la
+ligne, bordure pointillée décalée, alignement vertical incohérent dans
+une même ligne, « Sans catégorie » sur deux lignes, miniature clignée sur
+le bord) venaient de deux causes précises, communes à la quasi-totalité
+des tableaux de l'app — corrigées une seule fois dans `app/globals.css`
+plutôt que reprises tableau par tableau :
+
+- **`.sb-nom-tronque` posée directement sur un `<td>`** (très largement
+  majoritaire, voir « Troncature des noms d'article » ci-dessus) :
+  `display: block` sortait ce `<td>` de la mise en page de tableau — il
+  ne s'étirait plus à la hauteur de la ligne et ignorait
+  `vertical-align`, d'où une bordure de séparation dessinée plus haut que
+  celle des autres cellules et un contenu collé en haut plutôt que
+  centré. `td.sb-nom-tronque, th.sb-nom-tronque { display: table-cell; }`
+  rétablit un comportement de cellule normal — `overflow`/`white-space`/
+  `text-overflow` (la troncature elle-même) n'ont jamais eu besoin de
+  `display: block` pour s'appliquer, seul l'usage sur un `<span>`/`<p>`
+  en dehors d'un tableau (ex. fiche article) en avait réellement besoin,
+  et le garde toujours.
+- **`.sb-mono` sans `white-space: nowrap`** : un code (`ART-0023`), un
+  montant ou une quantité pouvait revenir à la ligne au milieu dans une
+  colonne un peu étroite. `.sb-mono` ne sert jamais à un texte libre —
+  uniquement des valeurs courtes par nature (codes, numéros, montants,
+  téléphone) — `white-space: nowrap` y est donc sans risque pour tout
+  l'historique des appels existants.
+
+**Trois endroits avaient la même cause, en plus directe** :
+`display: "flex"` posé en style inline sur le `<td>` lui-même (plutôt que
+sur un `<div>` à l'intérieur), pour aligner un nom d'article tronqué à
+côté d'un badge « Offert »/« Cadeau » (lignes de commande,
+`app/(app)/commandes/[id]/page.js` ×2, `app/(app)/nouvelle/page.js`) —
+même symptôme, même correctif (le `<td>` redevient une cellule normale,
+le flex ne s'applique plus qu'au `<div>` qui l'entoure).
+
+**Colonnes chiffrées non alignées à droite** : plusieurs tableaux
+laissaient leurs colonnes montants/quantités alignées à gauche par
+défaut (liste des articles, commandes, tableaux de bord, clients,
+trésorerie, achats, administration, abonnements), contrairement à la
+convention déjà suivie ailleurs (lignes de commande, acomptes, rapports
+imprimés). `text-align: right` ajouté sur l'en-tête et la cellule de
+chaque colonne concernée, partout où ce n'était pas déjà le cas — jamais
+sur une quantité déjà volontairement centrée (ex. tableau des lignes
+vendues de la confirmation de commande), laissée inchangée. Catégorie,
+nom de client/boutique/fournisseur et adresse e-mail reçoivent
+`.sb-nom-tronque` là où ils ne l'avaient pas encore, pour la même raison
+que les noms d'article (une seule ligne, jamais de retour à la ligne
+indésirable).
+
+**Miniature d'article dans la liste du stock** : largeur de colonne
+désormais réservée explicitement (`width: 48` sur l'en-tête), comme déjà
+pratiqué pour le même composant `.sb-thumb-upload` dans le tableau des
+lignes d'une commande — la largeur réellement nécessaire (miniature +
+remplissage) n'était pas garantie quand le tableau devait se compresser
+pour tenir dans la largeur disponible.
+
+Aucun de ces correctifs ne touche la mise en page des PDF/exports
+imprimés eux-mêmes (déjà corrigée dans un cycle précédent, voir
+« À l'impression et dans les PDF » ci-dessus) — seul le correctif
+`.sb-nom-tronque`/`.sb-mono` s'y applique aussi automatiquement, les deux
+classes étant partagées entre l'écran et l'impression.
 
 ## Historique client enrichi
 

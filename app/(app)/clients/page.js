@@ -289,8 +289,8 @@ export default function ClientsPage() {
                 <th>{t("clients.colTelephone")}</th>
                 <th>{t("clients.colAdresse")}</th>
                 <th>{t("clients.colEmail")}</th>
-                <th>{t("clients.colCommandes")}</th>
-                <th>{t("clients.colTotalAchats")}</th>
+                <th style={{ textAlign: "right" }}>{t("clients.colCommandes")}</th>
+                <th style={{ textAlign: "right" }}>{t("clients.colTotalAchats")}</th>
                 <th>{t("clients.colStatut")}</th>
               </tr>
             </thead>
@@ -300,12 +300,12 @@ export default function ClientsPage() {
                 const desactive = c.actif === false;
                 return (
                   <tr key={c.id} className="sb-row-clickable" onClick={() => router.push(`/clients/${c.id}`)}>
-                    <td>{c.nom}</td>
-                    <td style={{ color: "var(--muted)" }}>{c.telephone}</td>
-                    <td style={{ color: "var(--muted)" }}>{c.adresse || "—"}</td>
-                    <td style={{ color: "var(--muted)" }}>{c.email || "—"}</td>
-                    <td className="sb-mono">{s.count}</td>
-                    <td className="sb-mono">{fmt(s.total)}</td>
+                    <td className="sb-nom-tronque">{c.nom}</td>
+                    <td className="sb-mono" style={{ color: "var(--muted)" }}>{c.telephone}</td>
+                    <td className="sb-nom-tronque" style={{ color: "var(--muted)" }}>{c.adresse || "—"}</td>
+                    <td className="sb-nom-tronque" style={{ color: "var(--muted)" }}>{c.email || "—"}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{s.count}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(s.total)}</td>
                     <td>
                       {desactive ? (
                         <span className="sb-badge sb-badge-amber">{t("common.badgeDesactive")}</span>

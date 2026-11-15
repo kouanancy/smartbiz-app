@@ -81,7 +81,7 @@ export default function PaiementsEnAttentePage() {
                 <tr>
                   <th>{t("admin.colBoutique")}</th>
                   <th>{t("admin.colFormule")}</th>
-                  <th>{t("paiement.colMontant")}</th>
+                  <th style={{ textAlign: "right" }}>{t("paiement.colMontant")}</th>
                   <th>{t("admin.colDateSoumission")}</th>
                 </tr>
               </thead>
@@ -90,9 +90,9 @@ export default function PaiementsEnAttentePage() {
                   const jours = Math.floor((maintenant - new Date(p.created_at)) / (1000 * 60 * 60 * 24));
                   return (
                     <tr key={p.id} className="sb-row-clickable" onClick={() => router.push(`/admin/commercants/${p.business_id}`)}>
-                      <td>{nomBoutique(p.business_id)}</td>
+                      <td className="sb-nom-tronque">{nomBoutique(p.business_id)}</td>
                       <td>{t(`common.plans.${formuleBoutique(p.business_id)}.nom`)}</td>
-                      <td className="sb-mono">{fmt(p.montant)}</td>
+                      <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(p.montant)}</td>
                       <td>
                         {new Date(p.created_at).toLocaleDateString(dateLocale(business?.langue))}{" "}
                         <span style={{ color: "var(--text-faint)", fontSize: 12 }}>({t("admin.depuisNJours", { n: jours })})</span>

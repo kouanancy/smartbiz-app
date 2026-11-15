@@ -262,7 +262,7 @@ export default function PaiementAbonnement({ business, plan }) {
               <thead>
                 <tr>
                   <th>{t("dashboard.colDate")}</th>
-                  <th>{t("paiement.colMontant")}</th>
+                  <th style={{ textAlign: "right" }}>{t("paiement.colMontant")}</th>
                   <th>{t("admin.colStatut")}</th>
                 </tr>
               </thead>
@@ -270,7 +270,7 @@ export default function PaiementAbonnement({ business, plan }) {
                 {historique.map((p) => (
                   <tr key={p.id}>
                     <td>{new Date(p.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
-                    <td className="sb-mono">{fmt(p.montant)}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(p.montant)}</td>
                     <td>
                       <span className={`sb-badge ${STATUT_BADGE_CLASS[p.statut] || "sb-badge-amber"}`}>
                         {t(`paiement.statut.${p.statut}`)}

@@ -545,16 +545,16 @@ export default function ArticlesPage() {
           <table className="sb-table">
             <thead>
               <tr>
-                <th></th>
+                <th style={{ width: 48 }}></th>
                 <th>{t("articles.colCode")}</th>
                 <th>{t("articles.colArticle")}</th>
                 <th>{t("articles.colCategorie")}</th>
-                <th>{t("articles.colAchat")}</th>
-                <th>{t("articles.colFraisAnnexes")}</th>
-                <th>{t("articles.colVente")}</th>
-                <th>{t("articles.colMargeReelle")}</th>
-                <th>{t("articles.colStock")}</th>
-                <th>{t("articles.colStockTheorique")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colAchat")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colFraisAnnexes")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colVente")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colMargeReelle")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colStock")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colStockTheorique")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -573,18 +573,18 @@ export default function ArticlesPage() {
                     </td>
                     <td className="sb-mono" style={{ color: "var(--muted)" }}>{a.code}</td>
                     <td className="sb-nom-tronque" title={a.nom}>{tronquerMilieuNom(a.nom)}</td>
-                    <td style={{ color: "var(--muted)" }}>{categorieName(a.categorie_id)}</td>
-                    <td className="sb-mono">{fmt(a.prix_achat)}</td>
-                    <td className="sb-mono">{fmt(a.frais_annexes || 0)}</td>
-                    <td className="sb-mono">{fmt(a.prix_vente)}</td>
-                    <td className="sb-mono" style={{ color: margeReelle >= 0 ? "var(--emerald)" : "var(--coral)" }}>
+                    <td className="sb-nom-tronque" style={{ color: "var(--muted)" }}>{categorieName(a.categorie_id)}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(a.prix_achat)}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(a.frais_annexes || 0)}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(a.prix_vente)}</td>
+                    <td className="sb-mono" style={{ textAlign: "right", color: margeReelle >= 0 ? "var(--emerald)" : "var(--coral)" }}>
                       {fmt(margeReelle)}
                     </td>
-                    <td className="sb-mono">
+                    <td className="sb-mono" style={{ textAlign: "right" }}>
                       {a.stock} {uniteLabel(a.unite)}
                     </td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <td style={{ textAlign: "right" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
                         <span className="sb-mono">
                           {theorique} {uniteLabel(a.unite)}
                         </span>
@@ -624,10 +624,10 @@ export default function ArticlesPage() {
             <thead>
               <tr>
                 <th>{t("articles.colArticle")}</th>
-                <th>{t("articles.colCoutReel")}</th>
-                <th>{t("articles.colMargeUnitaire")}</th>
-                <th>{t("articles.colStock")}</th>
-                <th>{t("articles.colMargeTotale")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colCoutReel")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colMargeUnitaire")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colStock")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colMargeTotale")}</th>
               </tr>
             </thead>
             <tbody>
@@ -638,14 +638,14 @@ export default function ArticlesPage() {
                 return (
                   <tr key={a.id}>
                     <td className="sb-nom-tronque" title={a.nom}>{tronquerMilieuNom(a.nom)}</td>
-                    <td className="sb-mono">{fmt(coutReel)}</td>
-                    <td className="sb-mono" style={{ color: margeUnitaire >= 0 ? "var(--emerald)" : "var(--coral)" }}>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(coutReel)}</td>
+                    <td className="sb-mono" style={{ textAlign: "right", color: margeUnitaire >= 0 ? "var(--emerald)" : "var(--coral)" }}>
                       {fmt(margeUnitaire)}
                     </td>
-                    <td className="sb-mono">
+                    <td className="sb-mono" style={{ textAlign: "right" }}>
                       {a.stock} {uniteLabel(a.unite)}
                     </td>
-                    <td className="sb-mono" style={{ fontWeight: 600 }}>
+                    <td className="sb-mono" style={{ textAlign: "right", fontWeight: 600 }}>
                       {fmt(margeTotale)}
                     </td>
                   </tr>
@@ -658,7 +658,7 @@ export default function ArticlesPage() {
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
                 <td style={{ borderTop: "1px solid var(--line)" }}></td>
-                <td className="sb-mono" style={{ fontWeight: 700, borderTop: "1px solid var(--line)", color: "var(--accent-text)" }}>
+                <td className="sb-mono" style={{ textAlign: "right", fontWeight: 700, borderTop: "1px solid var(--line)", color: "var(--accent-text)" }}>
                   {fmt(margeTotaleFiltre)}
                 </td>
               </tr>
@@ -678,9 +678,9 @@ export default function ArticlesPage() {
                 <tr>
                   <th>{t("dashboard.colDate")}</th>
                   <th>{t("articles.colArticle")}</th>
-                  <th>{t("articles.colQuantiteAjoutee")}</th>
-                  <th>{t("articles.colCoutLot")}</th>
-                  <th>{t("articles.colCoutMoyenObtenu")}</th>
+                  <th style={{ textAlign: "right" }}>{t("articles.colQuantiteAjoutee")}</th>
+                  <th style={{ textAlign: "right" }}>{t("articles.colCoutLot")}</th>
+                  <th style={{ textAlign: "right" }}>{t("articles.colCoutMoyenObtenu")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -690,11 +690,11 @@ export default function ArticlesPage() {
                     <td className="sb-nom-tronque" title={r.articles?.nom ?? ""}>
                       {r.articles?.nom ? tronquerMilieuNom(r.articles.nom) : "—"}
                     </td>
-                    <td className="sb-mono">
+                    <td className="sb-mono" style={{ textAlign: "right" }}>
                       +{r.quantite} {uniteLabel(r.articles?.unite)}
                     </td>
-                    <td className="sb-mono">{fmt(r.prix_achat + (r.frais_annexes || 0))}</td>
-                    <td className="sb-mono">{r.prix_achat_moyen != null ? fmt(r.prix_achat_moyen + (r.frais_annexes_moyen || 0)) : "—"}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(r.prix_achat + (r.frais_annexes || 0))}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{r.prix_achat_moyen != null ? fmt(r.prix_achat_moyen + (r.frais_annexes_moyen || 0)) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -757,7 +757,7 @@ export default function ArticlesPage() {
               {printRows.map((a) => {
                 const enRupture = a.stock <= 0;
                 return (
-                  <tr key={a.id}>
+                  <tr key={a.id} className="sb-pdf-no-split">
                     <td className="sb-stock-print-table-photo">
                       {a.image_url ? (
                         <img src={a.image_url} alt="" />

@@ -523,15 +523,17 @@ export default function CommandeDetailPage() {
                       </div>
                     ) : null}
                   </td>
-                  <td style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span className="sb-nom-tronque" title={l.articles?.nom ?? ""} style={{ flex: 1, minWidth: 0 }}>
-                      {l.articles?.nom ? tronquerMilieuNom(l.articles.nom) : "—"}
-                    </span>
-                    {l.offert && (
-                      <span className="sb-badge sb-badge-amber" style={{ fontSize: 11, flexShrink: 0 }}>
-                        🎁 {t("receipt.cadeauOffertBadge")}
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span className="sb-nom-tronque" title={l.articles?.nom ?? ""} style={{ flex: 1, minWidth: 0 }}>
+                        {l.articles?.nom ? tronquerMilieuNom(l.articles.nom) : "—"}
                       </span>
-                    )}
+                      {l.offert && (
+                        <span className="sb-badge sb-badge-amber" style={{ fontSize: 11, flexShrink: 0 }}>
+                          🎁 {t("receipt.cadeauOffertBadge")}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="sb-mono" style={{ textAlign: "right" }}>
                     {fmt(l.prix_vente)}
@@ -789,8 +791,8 @@ export default function CommandeDetailPage() {
                   <thead>
                     <tr>
                       <th>{t("commandes.articleLabel")}</th>
-                      <th>{t("commandes.colQte")}</th>
-                      <th>{t("commandes.colSousTotal")}</th>
+                      <th style={{ textAlign: "right" }}>{t("commandes.colQte")}</th>
+                      <th style={{ textAlign: "right" }}>{t("commandes.colSousTotal")}</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -799,20 +801,22 @@ export default function CommandeDetailPage() {
                       const art = articles.find((a) => a.id === l.articleId);
                       return (
                         <tr key={i}>
-                          <td style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span className="sb-nom-tronque" title={art?.nom ?? ""} style={{ flex: 1, minWidth: 0 }}>
-                              {art?.nom ? tronquerMilieuNom(art.nom) : "—"}
-                            </span>
-                            {l.offert && (
-                              <span className="sb-badge sb-badge-amber" style={{ fontSize: 11, flexShrink: 0 }}>
-                                🎁 {t("receipt.cadeauOffertBadge")}
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span className="sb-nom-tronque" title={art?.nom ?? ""} style={{ flex: 1, minWidth: 0 }}>
+                                {art?.nom ? tronquerMilieuNom(art.nom) : "—"}
                               </span>
-                            )}
+                              {l.offert && (
+                                <span className="sb-badge sb-badge-amber" style={{ fontSize: 11, flexShrink: 0 }}>
+                                  🎁 {t("receipt.cadeauOffertBadge")}
+                                </span>
+                              )}
+                            </div>
                           </td>
-                          <td className="sb-mono">
+                          <td className="sb-mono" style={{ textAlign: "right" }}>
                             {l.quantite} {uniteLabel(art?.unite)}
                           </td>
-                          <td className="sb-mono">{fmt((l.offert ? 0 : art?.prix_vente || 0) * l.quantite)}</td>
+                          <td className="sb-mono" style={{ textAlign: "right" }}>{fmt((l.offert ? 0 : art?.prix_vente || 0) * l.quantite)}</td>
                           <td>
                             <button className="sb-btn sb-btn-ghost" style={{ padding: "3px 6px" }} onClick={() => removeEditLigne(l.articleId)}>
                               <Trash2 size={12} />

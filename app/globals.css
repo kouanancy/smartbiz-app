@@ -98,8 +98,13 @@ a {
   min-height: 100vh;
   display: flex;
 }
+/* white-space: nowrap : .sb-mono ne sert qu'à des valeurs courtes par
+   nature (codes article, numéros, montants, quantités, téléphone) —
+   jamais un texte libre — qui ne doivent jamais se couper au milieu
+   (ex. "ART-0023" en "ART-" / "0023" dans une colonne un peu étroite). */
 .sb-mono {
   font-family: "IBM Plex Mono", monospace;
+  white-space: nowrap;
 }
 .sb-display {
   font-family: "Space Grotesk", sans-serif;
@@ -895,15 +900,17 @@ a {
   grid-template-columns: 1.3fr 1fr;
   gap: 16px;
 }
-/* Page d'accueil du Stock une fois le module Achats actif (deux cartes
-   Article / Achats et approvisionnement, voir app/(app)/stock/page.js) —
-   une simple carte-lien, sans rapport avec .sb-plan-card (sélection de
-   formule, état actif/indisponible). */
+/* Page d'accueil du Stock une fois le module Achats actif (cartes Article
+   / Achats et approvisionnement / Inventaire, voir app/(app)/stock/page.js)
+   -- une simple carte-lien, sans rapport avec .sb-plan-card (sélection de
+   formule, état actif/indisponible). Les trois cartes partagent la même
+   condition d'affichage (module_achats_actif) : jamais un nombre
+   intermédiaire de cartes à prévoir. */
 .sb-choice-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  max-width: 720px;
+  max-width: 980px;
 }
 .sb-choice-card {
   display: flex;
@@ -1418,6 +1425,21 @@ a {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+/* Appliquée directement sur un <td> (tableaux Articles, Statistiques,
+   Achats, Nouvelle commande, Confirmation de commande imprimée...), pas
+   seulement sur un <span>/<p> à l'intérieur d'une cellule : display: block
+   ci-dessus sortait alors ce <td> de la mise en page de tableau, lui
+   faisant perdre vertical-align et sa pleine hauteur de ligne — bordure
+   de séparation décalée vers le haut par rapport aux autres cellules de
+   la même ligne (constaté sur la liste des articles). Remis en
+   display: table-cell pour les <td>, les <th> suivant par cohérence —
+   overflow/text-overflow/white-space continuent de s'appliquer
+   normalement sur une cellule de tableau, aucun des deux n'exige
+   display: block. */
+td.sb-nom-tronque,
+th.sb-nom-tronque {
+  display: table-cell;
 }
 
 /* Sélecteur d'article avec miniature (Nouvelle commande) — un <select>
@@ -2334,6 +2356,7 @@ a {
 .sb-stock-print-table-code {
   font-family: "IBM Plex Mono", monospace;
   font-size: 12px;
+  white-space: nowrap;
 }
 /* Même gabarit que .sb-receipt-print-table-photo (components/Receipt.js,
    juste au-dessus) : miniature carrée, ou pictogramme par défaut
