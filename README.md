@@ -1365,6 +1365,55 @@ Chromium est installé dans ce bac à sable, un comportement Safari/WebKit
 authentique ou un appareil Android/iOS physique ne peuvent pas être
 vérifiés directement ici).
 
+**Correctif — fenêtre « Partager » de Windows au lieu d'un téléchargement
+direct.** Régression introduite par ce changement lui-même : Chrome et
+Edge sur Windows ont commencé à exposer `navigator.canShare({ files })`
+à `true` même sur ordinateur, ce que `peutPartagerFichier()` prenait
+jusque-là comme seul critère pour choisir l'API Web Share plutôt que le
+téléchargement direct — un clic sur « Télécharger en PDF » ouvrait donc à
+tort le sélecteur « Partager » natif de Windows. `navigator.canShare` ne
+dit rien, à lui seul, sur le type d'appareil (téléphone/tablette vs
+ordinateur). Corrigé en ajoutant `estTelephoneOuTablette()`
+(`lib/pdfExport.js`) : `window.matchMedia('(pointer: coarse)').matches`
+(pointeur **principal**, donc toujours faux sur un ordinateur même équipé
+d'un écran tactile secondaire) **ou** un user-agent mobile explicite
+(`android|iphone|ipad|ipod|mobi`) — le second signal seul en complément
+du premier, pour couvrir un iPad récent dont l'UA par défaut imite celle
+d'un Mac (`pointer: coarse` le détecte quand même). `peutPartagerFichier()`
+exige désormais les deux conditions (appareil mobile **et** API
+supportée) avant de choisir l'API Web Share ; un ordinateur retombe
+systématiquement sur la fenêtre réservée (Safari bureau) ou le
+téléchargement direct (`<a download>`, Chrome/Edge/Firefox), jamais sur
+`navigator.share`. Un partage mobile annulé ou en échec (sélecteur fermé,
+application cible indisponible...) retombe désormais silencieusement sur
+le téléchargement direct plutôt que de ne rien faire ou de remonter une
+erreur — la personne a cliqué sur « Télécharger en PDF », pas sur
+« Partager », l'intention reste la même si le partage échoue. Toujours
+un seul point d'entrée (`telechargerPagesEnPdf()`), partagé par tous les
+documents via l'aperçu commun : aucun changement propre à une page.
+Vérifié avec Playwright, un `<button>` de test appelant directement
+`capturerPages()`/`telechargerPagesEnPdf()`, en simulant pour chaque
+appareil le viewport, le user-agent et `isMobile`/`hasTouch`
+(pilotant `pointer: coarse` côté Chromium) — `navigator.canShare` et
+`navigator.share` remplacés par des espions pour observer laquelle des
+trois voies (partage, fenêtre réservée, téléchargement direct) se
+déclenche réellement :
+
+| Appareil simulé | Méthode observée |
+| --- | --- |
+| Windows, Chrome | Téléchargement direct (`<a download>`) |
+| Windows, Edge | Téléchargement direct (`<a download>`) |
+| Mac, Safari | Fenêtre réservée, redirigée vers le `blob:` du PDF |
+| Android, Chrome | `navigator.share` |
+| iPhone, Safari | `navigator.share` |
+| iPad, Safari (UA bureau, tactile) | `navigator.share` |
+
+Dans chaque cas le fichier produit porte bien le nom déjà défini par le
+document (ex. `INV-0001-fiche.pdf`). Même limite que partout ailleurs
+dans ce fichier : seul Chromium est installé dans ce bac à sable — ces
+résultats viennent de la simulation de viewport/UA/tactile de Chromium,
+pas d'un vrai moteur Safari/WebKit ni d'un appareil physique.
+
 ## Articles offerts (cadeaux)
 
 Dans **Nouvelle commande**, une section « 🎁 Cadeaux offerts (facultatif) »
