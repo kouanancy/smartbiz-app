@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
 import { UNITES } from "@/lib/constants";
-import { exporterPdf } from "@/lib/pdfExport";
+import PrintPreviewModal from "@/components/PrintPreviewModal";
 import ArticleSelect from "@/components/ArticleSelect";
 import ClearableInput from "@/components/ClearableInput";
 import ImageUploadField from "@/components/ImageUploadField";
@@ -51,7 +51,7 @@ export default function ReceptionDetailPage() {
 
   const [validating, setValidating] = useState(false);
   const [actionError, setActionError] = useState("");
-  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const printRef = useRef(null);
 
   async function charger() {
@@ -215,23 +215,10 @@ export default function ReceptionDetailPage() {
     router.push("/achats");
   }
 
-  async function telechargerPdf() {
-    setGeneratingPdf(true);
+  function getElementImpression() {
     const el = printRef.current;
     el?.classList.add("sb-pdf-export-capture");
-    try {
-      await exporterPdf({
-        getElement: () => el,
-        nomFichier: `${reception.numero}.pdf`,
-        labelGeneration: t("achats.generationPdf"),
-        onCaptured: () => el?.classList.remove("sb-pdf-export-capture"),
-      });
-    } catch (err) {
-      window.alert(t("achats.impressionError", { message: err.message }));
-    } finally {
-      el?.classList.remove("sb-pdf-export-capture");
-      setGeneratingPdf(false);
-    }
+    return el;
   }
 
   if (reception === undefined) return <p className="sb-sub">{t("common.loading")}</p>;
@@ -418,8 +405,8 @@ export default function ReceptionDetailPage() {
           </button>
         )}
         {reception.statut !== "brouillon" && (
-          <button className="sb-btn sb-btn-ghost" onClick={telechargerPdf} disabled={generatingPdf}>
-            <Download size={15} /> {generatingPdf ? t("achats.generationPdf") : t("achats.telechargerPdf")}
+          <button className="sb-btn sb-btn-ghost" onClick={() => setPreviewOpen(true)}>
+            <Download size={15} /> {t("achats.telechargerPdf")}
           </button>
         )}
       </div>
@@ -545,6 +532,21 @@ export default function ReceptionDetailPage() {
           </div>
         </div>
       )}
+
+      <PrintPreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        title={t("achats.rapportTitle")}
+        nomFichier={`${reception.numero}.pdf`}
+        getElement={getElementImpression}
+        onCaptured={() => printRef.current?.classList.remove("sb-pdf-export-capture")}
+        labelFermer={t("common.apercuFermer")}
+        labelTelecharger={t("achats.telechargerPdf")}
+        labelTelechargement={t("common.apercuTelechargement")}
+        labelGeneration={t("achats.generationPdf")}
+        labelErreur={(err) => t("achats.impressionError", { message: err.message })}
+        labelPage={(p, total) => t("common.pageSur", { page: p, total })}
+      />
 
       {typeof document !== "undefined" &&
         createPortal(

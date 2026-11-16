@@ -752,6 +752,107 @@ a {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Aperçu avant impression (components/PrintPreviewModal.js) —         */
+/*  partagé par tous les documents imprimables de Doka. La carte elle-  */
+/*  même suit le thème clair/sombre comme les autres modales, mais la   */
+/*  zone d'affichage des pages (sb-print-preview-body) et les pages     */
+/*  elles-mêmes (sb-print-preview-page, fond blanc) restent TOUJOURS    */
+/*  couleur papier, quel que soit le thème — c'est le document tel      */
+/*  qu'il sera imprimé, pas un élément d'interface.                     */
+/*  Largeur en min(680px, 92vw) : page réduite à la largeur de l'écran  */
+/*  sur mobile (défilement + zoom tactile natif, aucun code dédié       */
+/*  nécessaire), fenêtre centrée sur ordinateur.                        */
+/* ------------------------------------------------------------------ */
+.sb-print-preview-card {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, 92vw);
+  max-height: 92vh;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+.sb-print-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.sb-print-preview-title {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+}
+.sb-print-preview-options {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--ink);
+}
+.sb-print-preview-body {
+  flex: 1;
+  overflow: auto;
+  padding: 18px;
+  /* Toujours ce gris neutre, jamais var(--card)/var(--muted) : la zone
+     autour des pages ne doit pas changer avec le thème. */
+  background: #e8e6e2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+.sb-print-preview-status {
+  padding: 40px 0;
+  color: #6e6b68;
+  font-size: 13.5px;
+  text-align: center;
+}
+.sb-print-preview-page-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 600px;
+}
+.sb-print-preview-page {
+  width: 100%;
+  /* Ratio A4 + marge de 16mm sur 210mm (7.619%) répartie en padding :
+     le padding haut/bas en % se calcule lui aussi sur la largeur (règle
+     CSS), ce qui donne ici exactement la même proportion que la marge
+     verticale réelle grâce au ratio fixe de la page — même pourcentage
+     des deux côtés sans calcul séparé. */
+  aspect-ratio: 210 / 297;
+  background: #fff;
+  padding: 7.62%;
+  box-sizing: border-box;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+}
+.sb-print-preview-page canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.sb-print-preview-page-label {
+  font-size: 12px;
+  color: #6e6b68;
+}
+.sb-print-preview-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+}
+
+/* ------------------------------------------------------------------ */
 /*  Visite guidée (components/OnboardingTour.js) — coachmark : anneau   */
 /*  lumineux positionné sur l'élément visé (spotlight, obtenu par un     */
 /*  simple box-shadow géant plutôt qu'un clip-path/masque SVG) + bulle   */
@@ -2025,7 +2126,37 @@ th.sb-nom-tronque {
   break-inside: avoid;
   page-break-inside: avoid;
 }
-.sb-receipt-print-stamp span {
+/* Cette version nichée dans .sb-receipt-print ne sert plus qu'à
+   l'impression native (Ctrl+P, @media print, pagination du navigateur) —
+   masquée pendant la capture html2canvas (aperçu + PDF téléchargé), qui
+   utilise exclusivement .sb-receipt-print-stamp-standalone plus bas,
+   capturée séparément et placée dans l'espace libre de la dernière page
+   par composerTamponIntelligent (lib/pdfExport.js). */
+.sb-receipt-print.sb-pdf-export-capture .sb-receipt-print-stamp {
+  display: none !important;
+}
+/* Tampon capturé seul (jamais niché dans .sb-receipt-print, voir
+   components/Receipt.js) : composerTamponIntelligent doit pouvoir le
+   mesurer indépendamment du reste du document pour le composer après coup
+   dans le bon canevas de page. display: none par défaut (jamais visible à
+   l'écran ni à l'impression native, qui garde sa propre version ci-dessus
+   inchangée) ; .sb-pdf-export-capture (classe commune, voir plus haut) le
+   rend temporairement visible et le positionne à la même largeur que le
+   contenu principal, le temps de sa propre capture. text-align: right
+   (plutôt que justify-content sur un display: flex, qui entrerait en
+   conflit avec le display: block !important imposé par
+   .sb-pdf-export-capture) : aligné à droite, dans la zone libre sous les
+   totaux/les cadeaux, comme demandé. */
+.sb-receipt-print-stamp-standalone {
+  display: none;
+  width: 178mm;
+  margin: 0 auto;
+  padding: 20px 0;
+  box-sizing: border-box;
+  text-align: right;
+  font-family: "Inter", sans-serif;
+}
+.sb-receipt-print-stamp-mark {
   display: inline-block;
   transform: rotate(-6deg);
   border: 3px solid #c7601a;
@@ -2036,6 +2167,71 @@ th.sb-nom-tronque {
   padding: 10px 28px;
   border-radius: 10px;
   letter-spacing: 0.06em;
+}
+
+/* Articles offerts — carrés (components/Receipt.js), jamais un montant.
+   Chaque carré (sb-receipt-print-cadeau) est protégé individuellement par
+   sb-pdf-no-split : jamais coupé entre deux pages. La grille elle-même
+   (sb-receipt-print-cadeaux-grid) n'est volontairement pas protégée — elle
+   peut déborder sur plusieurs pages si les cadeaux sont nombreux, seul un
+   carré pris individuellement ne doit jamais être coupé. */
+.sb-receipt-print-cadeaux {
+  margin: 0 0 28px;
+}
+.sb-receipt-print-cadeaux-titre {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8a867f;
+  margin: 0 0 10px;
+}
+.sb-receipt-print-cadeaux-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.sb-receipt-print-cadeau {
+  width: 104px;
+  flex: 0 0 104px;
+  text-align: center;
+}
+.sb-receipt-print-cadeau-photo {
+  width: 104px;
+  height: 104px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e4e2d8;
+  background: #f8f7f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sb-receipt-print-cadeau-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.sb-receipt-print-cadeau-photo-fallback {
+  color: #a6a29d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Orange du thème (#c7601a, même teinte que le tampon ci-dessus) en gras :
+   reste lisible même imprimé en noir et blanc, le poids de police portant
+   la distinction là où la couleur disparaît. */
+.sb-receipt-print-cadeau-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #c7601a;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 8px 0 2px;
+}
+.sb-receipt-print-cadeau-nom {
+  font-size: 10.5px;
+  color: #2e2c2b;
+  margin: 0;
 }
 .sb-receipt-print-footer {
   text-align: center;

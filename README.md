@@ -909,6 +909,15 @@ textes déjà affichés ailleurs. Même principe pour le tampon : la mention
 « CONFIRMÉE » (`receipt.stampConfirmee`) n'a jamais repris le ✓ qu'elle
 portait à l'origine, seulement l'encart pivoté a été restauré.
 
+*(Paragraphe devenu partiellement obsolète — voir la section « Aperçu
+avant impression, cadeaux en carrés et tampon placé intelligemment » plus
+bas : la seconde table « CADEAUX OFFERTS » a été remplacée par des
+carrés, `CadeauBadge` et la modale compacte d'aperçu à l'écran ont été
+retirés au profit d'une modale d'aperçu commune à tous les documents de
+l'app, et le tampon « CONFIRMÉE » n'est plus niché dans
+`.sb-receipt-print` pour l'aperçu/le PDF — seulement pour l'impression
+native (Ctrl+P), qui garde la mise en page décrite ici.)*
+
 **Jamais de ligne ou de bloc coupé entre deux pages** — la seule
 contrainte de mise en page conservée de la tentative de compaction :
 `break-inside: avoid` (+ l'équivalent legacy `page-break-inside: avoid`)
@@ -1018,6 +1027,15 @@ trésorerie dès qu'ils partagent le même mécanisme (`lib/pdfExport.js`,
 nouveau fichier qui centralise désormais toute génération/tout
 téléchargement de PDF de l'app, plutôt que de dupliquer cette logique dans
 chaque page).
+
+*(Section devenue partiellement obsolète dans ses détails d'implémentation
+— voir « Aperçu avant impression, cadeaux en carrés et tampon placé
+intelligemment » plus bas : `exporterPdf()` et le cache plein écran qu'il
+posait pendant la capture ont été retirés ; chaque document ouvre
+désormais une modale d'aperçu commune (`components/PrintPreviewModal.js`)
+avant tout téléchargement, dont l'overlay joue lui-même ce rôle de cache.
+Les correctifs eux-mêmes (mode sombre, bouton unique, Safari/mobile,
+bordures) restent tous valables et décrits fidèlement ci-dessous.)*
 
 **1. Mode sombre de l'aperçu à l'écran.** La modale (`.sb-card`, fond
 blanc forcé en style inline) laissait `color` hériter de `.sb-root`
@@ -1195,6 +1213,157 @@ URL `blob:` dans cette fenêtre. Ce qui reste non vérifiable ici : le
 comportement réel d'un Safari/WebKit authentique (ouverture inline du PDF
 plutôt que téléchargement forcé, fenêtre de partage native) et tout
 appareil Android/iOS physique.
+
+## Aperçu avant impression, cadeaux en carrés et tampon placé intelligemment
+
+Trois changements regroupés, tous construits sur le même refactor de
+`lib/pdfExport.js` : plus aucun PDF de l'app ne se télécharge ou ne
+s'imprime directement au clic d'un bouton — le clic ouvre d'abord un
+aperçu commun, qui montre le document tel qu'il sera réellement produit.
+
+**Une seule source de rendu pour l'aperçu et le PDF téléchargé.**
+`capturerPages(el, { stampElement })` (nouvelle fonction, remplace
+l'ancien `genererPdfBlob()`) sépare ce qui était avant une seule fonction
+en deux étapes : elle capture `el` par `html2canvas` puis le découpe en
+pages A4 (même logique de zones protégées `.sb-pdf-no-split` et d'en-tête
+répété `.sb-pdf-repeat-header` qu'avant, inchangée), et renvoie un tableau
+de `<canvas>` autonomes — un par page — plutôt que directement un `Blob`
+PDF. `assemblerPdfDepuisPages(pages, pxParMm)` fait ensuite le seul travail
+qui reste à `jsPDF` : coller chaque canvas déjà découpé sur une page A4.
+`components/PrintPreviewModal.js` affiche ces mêmes `<canvas>` directement
+dans le DOM (jamais une copie via `toDataURL`, jamais un second rendu) ;
+son bouton « Télécharger en PDF » appelle `telechargerPagesEnPdf()`, qui
+assemble ces pages déjà capturées en PDF et le télécharge/le partage —
+aucune nouvelle capture `html2canvas` à ce moment-là. Aperçu et PDF
+proviennent donc strictement des mêmes pixels, par construction : aucune
+version séparée qui pourrait diverger.
+
+**`components/PrintPreviewModal.js`**, le composant d'aperçu commun :
+modale (`.sb-modal-overlay` + une carte dédiée, même idiome que
+`ConfirmDialog.js`) qui, à l'ouverture (`open` passe à `true`), appelle
+`getElement()` (le bloc d'impression de la page appelante, préparé/rendu
+visible exactement comme avant pour `html2canvas` — chaque appelant garde
+cette responsabilité, voir `onCaptured` ci-dessous) puis `capturerPages()`,
+et affiche chaque page obtenue dans un cadre blanc au ratio A4 (`210/297`,
+`PAGE_WIDTH_MM`/`PAGE_HEIGHT_MM` désormais exportées par `lib/pdfExport.js`
+pour cet usage), avec une étiquette « Page X / Y » (`common.pageSur`,
+réutilisée telle quelle) sous chacune. Cette zone d'affichage
+(`.sb-print-preview-body`, fond `#e8e6e2` fixe) et chaque page
+(`.sb-print-preview-page`, fond `#fff` fixe) restent toujours couleur
+papier, en dur, jamais via `var(--card)`/`var(--ink)` — indépendantes du
+thème clair/sombre de l'app, comme tous les documents imprimés déjà
+listés plus haut dans ce fichier ; seule la carte de la modale elle-même
+(en-tête, pied avec les boutons) suit le thème, comme une modale
+ordinaire. Deux boutons seulement, jamais plus : « Télécharger en PDF »
+(`.sb-btn-primary`) et « Fermer » (`.sb-btn-ghost`) — aucun doublon, même
+règle que pour la modale du reçu avant ce changement. Largeur de la carte
+`min(680px, 92vw)` : réduite à la largeur de l'écran sur téléphone (zoom
+tactile natif, aucune mécanique dédiée nécessaire — `app/layout.js` ne
+définit aucune balise `viewport` personnalisée qui l'empêcherait),
+centrée sur ordinateur, avec défilement vertical dans les deux cas.
+Options propres à un document (`renderOptions`, JSX fourni par
+l'appelant) et `dependencies` (tableau de valeurs qui, en changeant
+pendant que l'aperçu est ouvert, déclenchent une nouvelle capture) pour
+les cas comme la case « Afficher le stock » de la fiche d'inventaire
+ci-dessous, voir le détail dans ce fichier. `getStampElement` (optionnel)
+transmet le tampon de la confirmation de commande séparément, voir plus
+bas. `labelErreur` accepte un texte fixe ou une fonction `(err) => texte`,
+pour garder la formulation déjà en place par page (« Impossible de
+générer le PDF du stock : {message} », etc.) plutôt qu'un message
+générique imposé par le composant commun.
+
+**Documents qui passent désormais par cet aperçu** : confirmation de
+commande (`components/Receipt.js`, y compris la réimpression depuis
+`/commandes/<id>`, qui réutilise ce même composant), stock
+(`/articles`), catalogue (`/catalogue`), trésorerie (`/tresorerie`),
+réception d'achats (`/achats/<id>`), fiche d'inventaire et rapport
+d'écarts (`/inventaire/<id>`, deux documents distincts, chacun sa propre
+modale). Le rapport « Revenus Doka » de l'Administration (voir plus bas)
+n'en fait volontairement pas partie : il n'imprime que par `window.print()`
+natif, sans génération de PDF téléchargeable — une mécanique entièrement
+différente, hors du périmètre demandé pour ce changement. La page Clients
+ne gagne aucun nouveau document PDF à cette occasion non plus — elle
+n'avait jusqu'ici qu'un export Excel, resté tel quel.
+
+**`exporterPdf()` et le cache plein écran qu'il posait pendant la
+capture ont été retirés**, devenus sans appelant une fois chaque page
+migrée vers `PrintPreviewModal` : l'overlay de l'aperçu, déjà visible à
+ce moment-là (`z-index: 70`, au-dessus de `.sb-pdf-export-capture`,
+`z-index: 60`), joue maintenant ce rôle sans bloc dédié supplémentaire.
+`genererPdfBlob()` a été retiré avec lui (plus aucun appelant) ;
+`capturerPages()` + `assemblerPdfDepuisPages()` couvrent maintenant tout
+ce qu'il faisait. Chaque page a migré son `getElement`/ses classes de
+capture à l'identique (toujours `.sb-pdf-export-capture` posée/retirée au
+même moment), seul le point d'entrée change : un bouton ouvre l'aperçu
+(`setPreviewOpen(true)`) plutôt que d'appeler `exporterPdf()`
+directement.
+
+**Articles offerts en carrés, plus en tableau, sur la confirmation de
+commande.** La seconde `<table>` « CADEAUX OFFERTS » décrite plus haut
+dans ce fichier est retirée de `.sb-receipt-print` ; une nouvelle section
+« Articles offerts » (`receipt.cadeauxTitrePrint`, dont le texte devient
+« Articles offerts » — plus « Cadeaux offerts ») prend sa place, toujours
+sous les totaux : un carré par cadeau
+(`.sb-receipt-print-cadeau`, 104px de côté, tous identiques, côte à côte
+et passant à la ligne au besoin via `flex-wrap`), chacun avec la photo de
+l'article recadrée sans déformation (`object-fit: cover`) ou un symbole
+neutre (`ImageIcon`) si absente, la mention « Cadeau offert »
+(`receipt.cadeauOffertBadge`, déjà utilisée ailleurs dans l'app) en
+orange foncé du thème et en gras — lisible même en noir et blanc, le
+poids de police portant la distinction là où la couleur disparaît — puis
+le nom de l'article en petit, tronqué au milieu
+(`tronquerMilieuNom(l.nom, 18)`). Jamais de montant. La section entière
+ne s'affiche que si `lignesOffertes.length > 0` ; chaque carré porte
+`.sb-pdf-no-split` (jamais coupé entre deux pages), mais pas la grille qui
+les contient — avec de nombreux cadeaux, la section elle-même peut
+déborder sur une page suivante, seul un carré pris individuellement ne
+doit jamais l'être. L'ancien badge à emoji `CadeauBadge` et la modale
+compacte d'aperçu à l'écran qui l'affichait (voir plus haut) sont retirés
+avec elle, remplacés par l'aperçu commun ci-dessus ; les clés i18n
+devenues sans emploi (`receipt.confirmee`, `receipt.cadeauxTitle`,
+`receipt.offertPrint`) sont retirées en même temps.
+
+**Tampon « Confirmée » placé intelligemment, jamais superposé ni coupé.**
+Le tampon n'est plus niché dans `.sb-receipt-print` pour l'aperçu/le PDF
+— il devient un élément frère, capturé séparément par
+`composerTamponIntelligent(pages, stampElement, pageHeightPx)` : une fois
+le document découpé en pages par `capturerPages()`, cette fonction
+capture le tampon seul (`html2canvas` avec `backgroundColor: null`, même
+largeur que le contenu principal) puis calcule l'espace déjà libre sous
+le contenu de la dernière page (`pageHeightPx − lastPage.height`). S'il
+tient dans cet espace, la dernière page s'agrandit pour l'inclure juste
+en dessous du contenu existant, jamais par-dessus ; sinon, il part sur
+une nouvelle page plutôt que de chevaucher quoi que ce soit ; dans le cas
+limite (jamais atteint en pratique, le tampon tient largement dans une
+page entière) où il ne tiendrait même pas sur une page complète, il est
+réduit à l'échelle pour y tenir. Ce calcul se fait sur la hauteur réelle
+déjà mesurée du contenu — il s'adapte donc automatiquement au nombre
+d'articles, de cadeaux et de lignes d'acompte, sans aucune valeur
+calibrée à la main. Aligné à droite (`text-align: right`, plutôt que le
+centrage d'avant) dans l'espace libre, avec la même légère rotation
+qu'avant. `.sb-receipt-print-stamp` (nichée, centrée) reste utilisée telle
+quelle pour l'impression native (Ctrl+P, @media print, pagination du
+navigateur) — masquée seulement pendant la capture html2canvas
+(`.sb-receipt-print.sb-pdf-export-capture .sb-receipt-print-stamp`), qui
+utilise exclusivement la version autonome ci-dessus. Le style visuel du
+tampon lui-même (bordure, rotation, typographie) est désormais partagé
+par les deux versions via une seule classe (`.sb-receipt-print-stamp-mark`,
+posée sur le `<span>` intérieur dans les deux cas) plutôt que dupliqué.
+
+**Vérification** : `npm run lint` (0 erreur), `npm run build`. Scénarios
+couverts par capture Playwright : confirmation avec 0/1/4/12 cadeaux
+(avec et sans photo), confirmation très courte et confirmation très
+longue (plus de 2 pages d'articles), confirmation avec acompte versé —
+dans chaque cas le tampon reste dans l'espace libre, jamais superposé à
+un carré ou à une ligne de totaux, jamais coupé entre deux pages ;
+aperçu ouvert pour chacun des autres documents listés plus haut ;
+ordinateur et téléphone, mode clair et mode sombre (seule la carte de la
+modale change, jamais le contenu des pages affichées) ; téléchargement
+depuis l'aperçu avec un user-agent Safari iOS simulé et l'API Web Share
+désactivée de force (même limite qu'ailleurs dans ce fichier : seul
+Chromium est installé dans ce bac à sable, un comportement Safari/WebKit
+authentique ou un appareil Android/iOS physique ne peuvent pas être
+vérifiés directement ici).
 
 ## Articles offerts (cadeaux)
 
@@ -1664,7 +1833,7 @@ marge**, qui ne lisent ni `inventaires` ni `inventaire_lignes`.
 **En-tête de tableau répété sur chaque page** : les deux PDF
 d'inventaire peuvent être longs (tous les articles d'une boutique) — un
 vrai cas que les autres exports PDF de l'app n'avaient encore jamais
-rencontré en pratique. `lib/pdfExport.js` (`genererPdfBlob()`) gagne donc
+rencontré en pratique. `lib/pdfExport.js` (`capturerPages()`) gagne donc
 une capacité générique : un élément marqué `.sb-pdf-repeat-header`
 (ici le `<thead>`) est redécoupé depuis le canvas déjà capturé et
 redessiné en haut de chaque page suivante, le budget de hauteur de ces
@@ -1673,10 +1842,13 @@ exactement comme avant (`headerCanvas` reste `null`), aucune régression
 sur les PDF existants. À cette occasion, un oubli réel a été corrigé sur
 plusieurs tableaux déjà en place (bon de réception, revenus Doka,
 trésorerie, rapport de stock) : leurs lignes n'étaient pas marquées
-`.sb-pdf-no-split`, le seul marqueur que `genererPdfBlob()` consulte pour
+`.sb-pdf-no-split`, le seul marqueur que `capturerPages()` consulte pour
 ne jamais couper une ligne en plein milieu entre deux pages — un simple
 `break-inside: avoid` en CSS ne protège que l'impression native
 (Ctrl+P), jamais ce chemin d'export (capture + découpe d'image).
+*(`genererPdfBlob()`, cité ici à l'origine, a depuis été retiré avec
+`exporterPdf()` — voir la section « Aperçu avant impression... » plus
+bas : `capturerPages()` reste la fonction qui porte cette logique.)*
 
 **Historique** (`/inventaire`, pagination à 10) : numéro, date,
 périmètre, nombre d'articles comptés, nombre d'écarts, statut. Tant qu'un

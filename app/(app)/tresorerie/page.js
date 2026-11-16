@@ -12,7 +12,7 @@ import useElementWidth from "@/lib/useElementWidth";
 import { THEMES } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import { exportToExcel, dateFichier } from "@/lib/exportExcel";
-import { exporterPdf } from "@/lib/pdfExport";
+import PrintPreviewModal from "@/components/PrintPreviewModal";
 
 const MOIS_A_AFFICHER = 12;
 const PERIODE_MOIS = { mois: 1, trimestre: 3, semestre: 6, annee: 12 };
@@ -144,7 +144,7 @@ export default function TresoreriePage() {
   const [periode, setPeriode] = useState("trimestre");
   const [platformLogo, setPlatformLogo] = useState("");
   const [acomptesEnAttente, setAcomptesEnAttente] = useState(0);
-  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const printRef = useRef(null);
 
   // Destination de la notification push hebdomadaire (voir
@@ -241,28 +241,15 @@ export default function TresoreriePage() {
     chartWidth
   );
 
-  // Capture .sb-tresorerie-print (déjà stylée pour l'A4, voir globals.css)
-  // et la télécharge/la partage de façon fiable sur téléphone — voir
+  // .sb-tresorerie-print (déjà stylée pour l'A4, voir globals.css) est
+  // capturée par l'aperçu (components/PrintPreviewModal.js), qui gère lui
+  // -même le téléchargement/le partage fiable sur téléphone — voir
   // lib/pdfExport.js pour la logique commune à tous les exports PDF de
   // l'app et la cause exacte du problème sur mobile qu'elle corrige.
-  async function telechargerPdf() {
-    setGeneratingPdf(true);
+  function getElementImpression() {
     const el = printRef.current;
     el?.classList.add("sb-pdf-export-capture");
-    try {
-      await exporterPdf({
-        getElement: () => el,
-        nomFichier: `tresorerie-${dateFichier()}.pdf`,
-        labelGeneration: t("tresorerie.generationPdf"),
-        onCaptured: () => el?.classList.remove("sb-pdf-export-capture"),
-      });
-    } catch (err) {
-      console.error("Échec de la génération du PDF :", err);
-      window.alert(t("tresorerie.pdfError"));
-    } finally {
-      el?.classList.remove("sb-pdf-export-capture");
-      setGeneratingPdf(false);
-    }
+    return el;
   }
 
   function exporterExcel() {
@@ -288,8 +275,8 @@ export default function TresoreriePage() {
             <button className="sb-btn sb-btn-ghost" onClick={exporterExcel}>
               <FileSpreadsheet size={13} /> {t("common.exporterExcel")}
             </button>
-            <button className="sb-btn sb-btn-primary" onClick={telechargerPdf} disabled={generatingPdf}>
-              <Download size={13} /> {generatingPdf ? t("tresorerie.generationPdf") : t("tresorerie.telechargerPdf")}
+            <button className="sb-btn sb-btn-primary" onClick={() => setPreviewOpen(true)}>
+              <Download size={13} /> {t("tresorerie.telechargerPdf")}
             </button>
           </div>
         </div>
@@ -393,6 +380,21 @@ export default function TresoreriePage() {
           </div>
         </div>
       </div>
+
+      <PrintPreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        title={t("tresorerie.rapportTitle")}
+        nomFichier={`tresorerie-${dateFichier()}.pdf`}
+        getElement={getElementImpression}
+        onCaptured={() => printRef.current?.classList.remove("sb-pdf-export-capture")}
+        labelFermer={t("common.apercuFermer")}
+        labelTelecharger={t("tresorerie.telechargerPdf")}
+        labelTelechargement={t("common.apercuTelechargement")}
+        labelGeneration={t("tresorerie.generationPdf")}
+        labelErreur={t("tresorerie.pdfError")}
+        labelPage={(p, total) => t("common.pageSur", { page: p, total })}
+      />
 
       {/* Mise en page dédiée à l'impression — pleine page A4, invisible à
           l'écran. Rendue via un portail directement dans <body> (comme

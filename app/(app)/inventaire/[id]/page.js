@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
 import { t as tBase } from "@/lib/i18n";
-import { exporterPdf } from "@/lib/pdfExport";
+import PrintPreviewModal from "@/components/PrintPreviewModal";
 
 const LONGUEUR_NOM_IMPRESSION = 40;
 
@@ -33,8 +33,8 @@ export default function InventaireDetailPage() {
   const [confirmStockModifie, setConfirmStockModifie] = useState(null); // tableau des articles concernés, ou null
 
   const [ficheAvecStock, setFicheAvecStock] = useState(false);
-  const [generatingFiche, setGeneratingFiche] = useState(false);
-  const [generatingRapport, setGeneratingRapport] = useState(false);
+  const [ficheOpen, setFicheOpen] = useState(false);
+  const [rapportOpen, setRapportOpen] = useState(false);
   const ficheRef = useRef(null);
   const rapportRef = useRef(null);
 
@@ -124,42 +124,16 @@ export default function InventaireDetailPage() {
     router.push("/inventaire");
   }
 
-  async function telechargerFiche() {
-    setGeneratingFiche(true);
+  function getElementFiche() {
     const el = ficheRef.current;
     el?.classList.add("sb-pdf-export-capture");
-    try {
-      await exporterPdf({
-        getElement: () => el,
-        nomFichier: `${inventaire.numero}-fiche.pdf`,
-        labelGeneration: t("achats.generationPdf"),
-        onCaptured: () => el?.classList.remove("sb-pdf-export-capture"),
-      });
-    } catch (err) {
-      window.alert(t("achats.impressionError", { message: err.message }));
-    } finally {
-      el?.classList.remove("sb-pdf-export-capture");
-      setGeneratingFiche(false);
-    }
+    return el;
   }
 
-  async function telechargerRapport() {
-    setGeneratingRapport(true);
+  function getElementRapport() {
     const el = rapportRef.current;
     el?.classList.add("sb-pdf-export-capture");
-    try {
-      await exporterPdf({
-        getElement: () => el,
-        nomFichier: `${inventaire.numero}-rapport.pdf`,
-        labelGeneration: t("achats.generationPdf"),
-        onCaptured: () => el?.classList.remove("sb-pdf-export-capture"),
-      });
-    } catch (err) {
-      window.alert(t("achats.impressionError", { message: err.message }));
-    } finally {
-      el?.classList.remove("sb-pdf-export-capture");
-      setGeneratingRapport(false);
-    }
+    return el;
   }
 
   if (inventaire === undefined) return <p className="sb-sub">{t("common.loading")}</p>;
@@ -221,12 +195,8 @@ export default function InventaireDetailPage() {
               </label>
             </div>
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}>
-                <input type="checkbox" checked={ficheAvecStock} onChange={(e) => setFicheAvecStock(e.target.checked)} />
-                {t("inventaire.ficheAvecStockLabel")}
-              </label>
-              <button className="sb-btn sb-btn-ghost" onClick={telechargerFiche} disabled={generatingFiche}>
-                <Download size={14} /> {generatingFiche ? t("achats.generationPdf") : t("inventaire.telechargerFiche")}
+              <button className="sb-btn sb-btn-ghost" onClick={() => setFicheOpen(true)}>
+                <Download size={14} /> {t("inventaire.telechargerFiche")}
               </button>
             </div>
           </div>
@@ -337,8 +307,8 @@ export default function InventaireDetailPage() {
             </button>
           </>
         ) : (
-          <button className="sb-btn sb-btn-ghost" onClick={telechargerRapport} disabled={generatingRapport}>
-            <Download size={15} /> {generatingRapport ? t("achats.generationPdf") : t("inventaire.telechargerRapport")}
+          <button className="sb-btn sb-btn-ghost" onClick={() => setRapportOpen(true)}>
+            <Download size={15} /> {t("inventaire.telechargerRapport")}
           </button>
         )}
       </div>
@@ -363,6 +333,47 @@ export default function InventaireDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {estBrouillon && (
+        <PrintPreviewModal
+          open={ficheOpen}
+          onClose={() => setFicheOpen(false)}
+          title={t("inventaire.ficheTitle")}
+          nomFichier={`${inventaire.numero}-fiche.pdf`}
+          getElement={getElementFiche}
+          onCaptured={() => ficheRef.current?.classList.remove("sb-pdf-export-capture")}
+          dependencies={[ficheAvecStock]}
+          renderOptions={
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input type="checkbox" checked={ficheAvecStock} onChange={(e) => setFicheAvecStock(e.target.checked)} />
+              {t("inventaire.ficheAvecStockLabel")}
+            </label>
+          }
+          labelFermer={t("common.apercuFermer")}
+          labelTelecharger={t("inventaire.telechargerFiche")}
+          labelTelechargement={t("common.apercuTelechargement")}
+          labelGeneration={t("achats.generationPdf")}
+          labelErreur={(err) => t("achats.impressionError", { message: err.message })}
+          labelPage={(p, total) => t("common.pageSur", { page: p, total })}
+        />
+      )}
+
+      {!estBrouillon && (
+        <PrintPreviewModal
+          open={rapportOpen}
+          onClose={() => setRapportOpen(false)}
+          title={t("inventaire.rapportTitle")}
+          nomFichier={`${inventaire.numero}-rapport.pdf`}
+          getElement={getElementRapport}
+          onCaptured={() => rapportRef.current?.classList.remove("sb-pdf-export-capture")}
+          labelFermer={t("common.apercuFermer")}
+          labelTelecharger={t("inventaire.telechargerRapport")}
+          labelTelechargement={t("common.apercuTelechargement")}
+          labelGeneration={t("achats.generationPdf")}
+          labelErreur={(err) => t("achats.impressionError", { message: err.message })}
+          labelPage={(p, total) => t("common.pageSur", { page: p, total })}
+        />
       )}
 
       {typeof document !== "undefined" &&
