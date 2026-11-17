@@ -85,7 +85,10 @@ export default function CataloguePage() {
     };
   }, [business?.id]);
 
-  const disponibles = articles.filter((a) => a.stock > 0);
+  // Désactivé ou sans prix de vente défini (voir supabase-articles-actif-
+  // migration.sql et supabase-articles-prix-vente-migration.sql) : exclu
+  // du catalogue, même principe que le stock épuisé déjà filtré ici.
+  const disponibles = articles.filter((a) => a.stock > 0 && a.actif !== false && a.prix_vente != null);
   const filtres =
     filtreCategorie === FILTRE_TOUTES
       ? disponibles
