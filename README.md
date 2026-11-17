@@ -2080,6 +2080,97 @@ l'article avec `prix_vente` à `null` ; un `insert` direct dans
 trigger, de même qu'un `insert` direct dans `commande_lignes` référençant
 un article sans prix de vente défini.
 
+## Coût de revient affiché comme un seul montant
+
+Avant ce changement, la fiche article et la liste des articles
+affichaient côte à côte deux colonnes distinctes — « Achat » et « Frais
+annexes » — là où l'utilisateur n'a besoin de connaître qu'un seul
+chiffre : ce qu'un article lui a réellement coûté, pour le comparer
+directement à son prix de vente. Purement un changement d'affichage,
+aucune migration SQL et aucun nouveau champ : `articles.prix_achat` et
+`articles.frais_annexes` restent exactement les deux colonnes déjà en
+place (chacune sa propre moyenne pondérée, voir « Coût moyen pondéré » et
+« Achats et approvisionnement » plus haut), seule leur présentation est
+regroupée.
+
+**Coût de revient = `prix_achat + frais_annexes`**, partout où un seul
+montant est affiché. Cette somme est déjà exactement ce que
+`valider_reception()` répartit ligne par ligne (`cout_revient_unitaire =
+cout_unitaire + frais_repartis / quantité`) et ce que l'ancien
+réapprovisionnement manuel (`appliquer_cout_moyen_pondere()`) pondère
+séparément pour chaque champ : qu'un article soit alimenté par des
+réceptions, par l'ancien réapprovisionnement, ou que ses frais annexes
+aient été saisis une fois pour toutes à la main (articles plus anciens,
+module Achats inactif), les deux colonnes s'additionnent toujours pour
+donner le même coût de revient que celui réellement utilisé dans la
+marge — aucune distinction de calcul à faire selon l'origine de
+l'article, la somme est la seule formule nécessaire.
+
+**Fiche article** (`app/(app)/articles/[id]/page.js`) : les deux
+`DetailField` « Achat » et « Frais annexes » sont remplacés par un seul,
+« Coût de revient ». Dans le formulaire d'édition, quand le module Achats
+est actif, les deux champs désactivés (lecture seule, coût non
+modifiable à la main) sont pareillement fusionnés en un seul champ « Coût
+de revient » désactivé, avec la même note explicative dessous. Quand le
+module Achats est inactif, les deux champs **restent séparés et
+modifiables** — c'est là le point de saisie manuel du coût, pas un simple
+affichage, et la règle métier (coûts non modifiables à la main une fois
+le module actif, calcul uniquement par les réceptions) ne change pas.
+
+**Liste des articles** (`app/(app)/articles/page.js`) : même fusion pour
+la colonne du tableau principal (« Achat » + « Frais annexes » →
+« Coût de revient ») et pour l'export Excel. La seconde table de cette
+page, « Marge réelle sur le stock actuel », affichait déjà une colonne
+`coutReel` regroupant les deux valeurs (`a.prix_achat + (a.frais_annexes
+|| 0)`) — elle n'a pas changé de calcul, seul son libellé devient « Coût
+de revient / unité » pour employer partout le même terme. Le rapport PDF
+du stock n'affiche de toute façon aucune donnée de coût ni de marge
+(volontairement limité à 5 colonnes, voir plus bas) : rien à y changer.
+
+**Le détail d'une réception ne change pas**
+(`app/(app)/achats/[id]/page.js`) : coût d'achat unitaire, frais
+répartis et coût de revient unitaire restent affichés ligne par ligne,
+séparément — ces écrans servent justement à vérifier comment le coût de
+revient final a été obtenu, le détail y reste donc nécessaire.
+
+**Vérification de la formule de marge (point de contrôle demandé) :
+aucun double comptage trouvé.** La règle reste `marge réelle = prix de
+vente − prix d'achat − frais annexes`
+(`app/(app)/nouvelle/page.js`, `app/(app)/commandes/[id]/page.js`,
+`app/(app)/articles/[id]/page.js`, `app/(app)/articles/page.js`). Cette
+formule soustrait `prix_achat` et `frais_annexes` séparément, chacun une
+seule fois — jamais le « coût de revient » déjà sommé puis `frais_annexes`
+une seconde fois — précisément parce que ces deux colonnes ne se
+recouvrent jamais : `prix_achat` ne contient que la moyenne pondérée des
+coûts d'achat des lots, `frais_annexes` que la moyenne pondérée des frais
+répartis, les deux calculées indépendamment à chaque réception
+(`calculer_cout_moyen_pondere()` appelée une fois pour chaque champ dans
+`valider_reception()`). Additionner les deux donne le coût de revient
+affiché ; les soustraire toutes les deux du prix de vente donne la marge
+réelle — la même opération vue sous deux angles, sans qu'aucun montant ne
+soit compté deux fois. Le tableau de bord, la trésorerie et le rapport
+hebdomadaire n'ont pas été touchés : ils additionnent uniquement
+`commandes.marge`, déjà figée par ligne de commande au moment de sa
+création (`commande_lignes.prix_achat`/`frais_annexes` captés à cet
+instant précis, jamais recalculés à la livraison) — les commandes déjà
+livrées conservent donc leurs valeurs historiques exactes, sans aucun
+recalcul rétroactif introduit par ce changement.
+
+**Vérifié** : article alimenté par une réception à frais groupés — le
+coût de revient affiché sur sa fiche égale exactement le
+`cout_revient_unitaire` calculé ligne par ligne dans le détail de cette
+réception ; réception à frais non groupés — même égalité ; article plus
+ancien avec `frais_annexes` saisis séparément (module Achats inactif) —
+coût de revient = somme des deux champs, comme pour tout autre article ;
+marge d'une commande nouvellement créée — aucun double comptage, vérifié
+par relecture de la formule et par un essai sur un article avec frais
+annexes non nuls ; commandes déjà livrées avant ce changement — valeurs
+historiques inchangées, `commande_lignes` jamais retouchée ; liste, export
+Excel et fiche — même montant affiché pour un même article ; réception
+ultérieure sur un article existant — le coût de revient affiché se met à
+jour avec le nouveau coût moyen pondéré, exactement comme avant pour
+`prix_achat`/`frais_annexes` pris séparément.
+
 ## Troncature des noms d'article à l'écran et à l'impression
 
 `lib/format.js` → `tronquerMilieuNom(nom, maxLen)` : raccourcit un nom
