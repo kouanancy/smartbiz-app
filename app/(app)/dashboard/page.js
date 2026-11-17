@@ -97,7 +97,10 @@ export default function DashboardPage() {
           .eq("business_id", business.id)
           .eq("statut", "livree")
           .order("created_at", { ascending: false }),
-        supabase.from("articles").select("*").eq("business_id", business.id),
+        // Un article désactivé n'est pas compté dans les indicateurs de
+        // stock (voir supabase-articles-actif-migration.sql) — jamais
+        // dans les alertes de rupture/seuil ci-dessous.
+        supabase.from("articles").select("*").eq("business_id", business.id).eq("actif", true),
         supabase.from("clients").select("id", { count: "exact", head: true }).eq("business_id", business.id),
       ]);
       if (!active) return;

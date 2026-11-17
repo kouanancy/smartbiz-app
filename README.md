@@ -1905,6 +1905,181 @@ brouillon existe pour la boutique, le bouton « Nouvel inventaire »
 devient « Reprendre le brouillon » plutôt que de laisser l'erreur de
 l'index unique remonter sans contexte.
 
+## Désactivation des articles (plutôt qu'une suppression)
+
+Même principe que les clients (`supabase-clients-actif-migration.sql`,
+voir plus haut) — `articles.actif` (booléen, vrai par défaut,
+`supabase-articles-actif-migration.sql`) — mais avec des garde-fous
+propres au stock, puisqu'un article reste engagé dans bien plus
+d'écrans qu'un client. Les catégories, elles, n'ont jamais eu de
+désactivation : `removeCategory()` (`app/(app)/articles/page.js`) reste
+une vraie suppression, refusée si au moins un article y est encore
+rattaché — rien à reprendre de ce côté-là.
+
+**Désactiver** (`desactiver_article(p_article_id)`, SECURITY DEFINER,
+vérifie elle-même la boutique de l'appelant comme `valider_reception()`)
+: refusée, message explicite à l'appui, si l'article figure encore dans
+au moins une commande **en attente** de livraison (ni livrée, ni
+annulée) — numéro(s) de commande concerné(s) listés dans le message
+lui-même (`string_agg`), pas besoin d'une seconde requête pour les
+afficher. Un acompte versé ne change rien à cette règle : il atteste
+seulement financièrement une réservation déjà portée par le simple
+statut `'en_attente'` (voir « Acomptes sur commande » plus haut) — aucun
+cas où un article serait réservé par un acompte sans être par ailleurs
+dans une commande en attente. **Réactiver**, à l'inverse, ne vérifie
+rien : un simple `update articles set actif = true`, suffisant puisque
+rien d'autre n'a été modifié à la désactivation — code `ART-xxxx`, coût
+moyen et stock restent tels quels, l'article retrouve donc exactement
+son état précédent.
+
+**Côté `app/(app)/articles/[id]/page.js`** : badge « Désactivé » à côté
+du nom, bouton qui bascule en trois états — « Réactiver » si déjà
+désactivé, « Désactiver » (confirmation via `ConfirmDialog`, avec un
+avertissement non bloquant si `stock > 0` : « Cet article a encore X en
+stock ») si l'article a déjà été vendu au moins une fois (peu importe le
+statut de ces commandes), sinon « Supprimer » reste proposé tel quel —
+la suppression réelle (`DELETE`) est de toute façon déjà sans risque
+dans ce dernier cas, la contrainte de clé étrangère sur
+`commande_lignes` n'ayant jamais rien à bloquer. Exactement le même
+arbitrage que `app/(app)/clients/[id]/page.js`.
+
+**Dans la liste** (`app/(app)/articles/page.js`) : un filtre à trois
+options — Actifs (par défaut), Désactivés, Tous — partagé par
+`appliquerFiltresArticles()` avec la recherche et le filtre catégorie
+déjà en place, donc par la pagination, le compteur, l'export Excel, le
+PDF et l'agrégat de marge totale affiché en bas de page : ouvrir
+« Désactivés » montre la marge immobilisée dans leur stock restant, pas
+celle des articles actifs. Une colonne Statut (badge Actif/Désactivé)
+s'ajoute à la table, dans ce filtre comme dans les deux autres.
+
+**Exclu partout où un article se vend ou se réceptionne**, toujours en
+filtrant la requête `articles` à la source plutôt qu'en grisant une
+option déjà affichée (contrairement au stock épuisé, lui toujours
+visible mais désactivé dans le sélecteur) — Nouvelle commande, modifier
+une commande (nouvelles lignes seulement, voir plus bas), catalogue,
+sélection d'article d'une nouvelle réception, périmètre d'un nouvel
+inventaire (`creer_inventaire()`, redéfinie dans la même migration), et
+indicateurs de stock/alertes du tableau de bord. **Historique
+intact** : commandes et confirmations déjà imprimées gardent le nom et
+la photo d'origine de l'article (déjà lus par jointure au moment de la
+commande, jamais par une requête `articles` filtrée après coup), tout
+comme les réceptions et inventaires déjà validés, la trésorerie et les
+marges déjà calculées.
+
+**Piège évité dans `app/(app)/commandes/[id]/page.js`** (modifier une
+commande déjà en attente) : filtrer la requête `articles` à la source,
+comme ailleurs, aurait fait disparaître la résolution du prix/coût des
+lignes **déjà présentes** dans la commande dès qu'un article y figurant
+est désactivé entre-temps — `editTotalCa`/`editTotalMarge` les auraient
+silencieusement comptées pour 0, et `validerEdition()` aurait tout
+simplement planté sur un `article introuvable`. La requête de base reste
+donc volontairement non filtrée ; seul un sous-ensemble dérivé,
+`articlesVendables` (`actif` et prix de vente définis), est transmis à
+l'`ArticleSelect` servant à choisir un **nouvel** article à ajouter — les
+lignes déjà présentes continuent de résoudre leur prix via la liste
+complète, quel que soit l'état actuel de leur article.
+
+**Règle appliquée aussi côté base de données**, pour qu'un appel direct
+à l'API ne puisse pas contourner l'écran de sélection : un trigger
+`BEFORE INSERT` sur `commande_lignes` et un autre sur `reception_lignes`
+refusent tous les deux l'ajout d'une ligne référençant un article
+désactivé, message explicite à l'appui. Ni l'un ni l'autre n'a besoin de
+`SECURITY DEFINER` — une simple lecture de `articles.actif`, déjà permise
+par la policy RLS existante pour la propriétaire de la boutique.
+
+**Vérifié avec PostgreSQL local** (les deux migrations rejouées sur une
+copie complète du schéma cumulatif de l'app, voir plus bas) : désactiver
+un article utilisé uniquement dans une commande livrée réussit ;
+désactiver un article encore dans une commande en attente échoue avec le
+numéro de la commande dans le message ; réactiver restaure l'état
+exact ; un `insert` direct dans `commande_lignes`/`reception_lignes` sur
+un article désactivé est rejeté par le trigger ; `creer_inventaire()`
+exclut bien l'article désactivé du nombre de lignes générées.
+
+## Prix de vente modifiable uniquement depuis la carte Article
+
+Avant ce changement, créer un nouvel article depuis une réception
+(`app/(app)/achats/[id]/page.js`, mode « Nouvel article ») demandait
+aussi son prix de vente, enregistré sur `reception_lignes.prix_vente`
+puis recopié tel quel sur le nouvel article par `valider_reception()`
+(`coalesce(v_ligne.prix_vente, 0)`) — le seul endroit de tout le module
+Achats où un prix de VENTE (pas d'achat) pouvait être saisi, en
+contradiction avec la règle voulue : ce prix ne se décide que dans la
+carte Article.
+
+**Retiré du formulaire de réception** (`supabase-articles-prix-vente-
+migration.sql`) : `articles.prix_vente` devient nullable (`alter column
+... drop not null`, `drop default`) — `null` signifie désormais « à
+définir », distinct d'un 0 qui resterait un prix explicite s'il était un
+jour saisi ainsi depuis la carte Article. `valider_reception()` est
+redéfinie à l'identique sauf sur un point : la création d'un nouvel
+article n'écrit plus du tout de `prix_vente` (colonne retirée de la
+liste insérée, valeur par défaut de la colonne : `null`). Le champ
+correspondant disparaît du formulaire de réception (`LIGNE_VIDE`,
+payload envoyé, JSX) ; ce module ne permet plus nulle part de saisir ou
+modifier un prix de vente, module actif ou non.
+
+**`reception_lignes.prix_vente` reste en base** pour les lignes déjà
+enregistrées (compatibilité, réceptions déjà validées inchangées), mais
+plus aucune **nouvelle** ligne ne peut la renseigner — impossible de
+poser un simple `check` ici (des lignes historiques ont déjà une valeur
+non nulle), d'où un trigger `BEFORE INSERT` qui ne s'applique qu'aux
+nouvelles lignes et laisse l'historique strictement intact.
+
+**Dans la carte Article** (`app/(app)/articles/[id]/page.js`) : le prix
+de vente reste le seul prix modifiable à la main, quel que soit l'état
+du module Achats — coût d'achat et coût moyen restent calculés
+uniquement par les réceptions, règle déjà en place (voir « Coût moyen
+pondéré » plus haut), inchangée. Le champ accepte désormais d'être
+laissé vide (`editForm.prix_vente.trim() === "" ? null : Number(...)`),
+avec une note sous le champ l'indiquant explicitement.
+
+**Badge « Prix de vente à définir »** tant que `prix_vente` est `null` —
+dans la fiche (à la place du montant, dans le champ Vente) et dans la
+liste (même colonne, même badge ; la colonne Marge réelle affiche un
+simple tiret plutôt qu'une marge négative trompeuse qui traiterait
+silencieusement le prix comme 0). Même logique pour l'agrégat de marge
+totale en bas de la liste des articles : un article sans prix de vente
+défini contribue pour 0, jamais une marge négative. Le PDF du stock
+affiche « (à définir) » en toutes lettres à la place du montant — aucun
+badge coloré à l'impression, comme pour tous les autres documents de
+l'app.
+
+**Exclu de la recherche et du catalogue tant que le prix n'est pas
+défini** : Nouvelle commande (sections vendus et offerts, qui partagent
+la même liste filtrée) et le catalogue partageable/imprimable — même
+filtre que les articles désactivés, un article peut cumuler les deux
+raisons d'être exclu. La réception, elle, n'applique aucun filtre sur le
+prix de vente : recevoir du stock n'a pas besoin d'un prix de vente déjà
+connu.
+
+**Règle appliquée aussi côté base de données** : un trigger `BEFORE
+INSERT` sur `commande_lignes`, indépendant de celui qui vérifie
+`actif` (chacun ne vérifie qu'une seule condition), refuse toute ligne
+référençant un article dont `prix_vente` est `null` — qu'elle soit
+vendue ou offerte, message explicite à l'appui.
+
+**Message après validation d'une réception** : si elle contenait des
+lignes « nouvel article » (`nom_nouvel_article` non vide), un bandeau
+apparaît sous les actions avec un lien direct vers la fiche de chacun
+des articles créés, pour y renseigner leur prix de vente tout de suite —
+`charger()` renvoie désormais les lignes rechargées pour construire ce
+bandeau sans requête supplémentaire.
+
+**Compatibilité** : les articles existants gardent leur prix de vente
+actuel, jamais touché par cette migration (`alter column` ne modifie que
+la contrainte, pas les valeurs). Les réceptions déjà validées ne
+changent pas. Module Achats inactif : comportement inchangé, ce module
+n'a jamais permis de saisir un prix de vente ailleurs que dans la carte
+Article.
+
+**Vérifié avec PostgreSQL local** : créer une ligne « nouvel article »
+sans prix de vente réussit, puis valider la réception crée bien
+l'article avec `prix_vente` à `null` ; un `insert` direct dans
+`reception_lignes` avec un `prix_vente` renseigné est rejeté par le
+trigger, de même qu'un `insert` direct dans `commande_lignes` référençant
+un article sans prix de vente défini.
+
 ## Troncature des noms d'article à l'écran et à l'impression
 
 `lib/format.js` → `tronquerMilieuNom(nom, maxLen)` : raccourcit un nom

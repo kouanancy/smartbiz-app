@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import { ArrowLeft, CheckCircle2, Download, Plus, Trash2, XCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
@@ -25,7 +26,6 @@ const LIGNE_VIDE = {
   categorieId: "",
   unite: "unite",
   imageUrl: "",
-  prixVente: "",
   quantite: "1",
   coutUnitaire: "",
   fraisAnnexes: "",
@@ -51,6 +51,7 @@ export default function ReceptionDetailPage() {
 
   const [validating, setValidating] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [articlesCreesSansPrix, setArticlesCreesSansPrix] = useState([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const printRef = useRef(null);
 
@@ -64,6 +65,7 @@ export default function ReceptionDetailPage() {
       .eq("reception_id", rec.id)
       .order("created_at", { ascending: true });
     setLignes(lig || []);
+    return lig || [];
   }
 
   useEffect(() => {
@@ -72,7 +74,11 @@ export default function ReceptionDetailPage() {
     async function load() {
       await charger();
       const [articlesRes, categoriesRes, logoRes] = await Promise.all([
-        supabase.from("articles").select("id, nom, code, unite, prix_achat, image_url").eq("business_id", business.id).order("nom"),
+        // Un article désactivé ne peut plus figurer dans une nouvelle
+        // réception (voir supabase-articles-actif-migration.sql) — exclu
+        // d'entrée du choix "article existant" plus bas. Le prix de vente,
+        // lui, n'a pas de sens ici : aucun filtre dessus.
+        supabase.from("articles").select("id, nom, code, unite, prix_achat, image_url").eq("business_id", business.id).eq("actif", true).order("nom"),
         supabase.from("categories").select("*").eq("business_id", business.id).order("nom"),
         supabase.from("parametres_globaux").select("logo_url").limit(1).maybeSingle(),
       ]);
@@ -138,7 +144,11 @@ export default function ReceptionDetailPage() {
       payload.categorie_id = ligneForm.categorieId || null;
       payload.unite = ligneForm.unite || "unite";
       payload.image_url = ligneForm.imageUrl || null;
-      payload.prix_vente = Number(ligneForm.prixVente) || 0;
+      // Jamais de prix de vente ici (voir supabase-articles-prix-vente-
+      // migration.sql) : il se renseigne désormais uniquement depuis la
+      // carte de l'article, après coup — un trigger refuse toute tentative
+      // de renseigner reception_lignes.prix_vente, y compris un appel
+      // direct qui contournerait ce formulaire.
     }
 
     const { error } = await supabase.from("reception_lignes").insert(payload);
@@ -192,7 +202,14 @@ export default function ReceptionDetailPage() {
       setValidating(false);
       return;
     }
-    await charger();
+    const lig = await charger();
+    // Les lignes "nouvel article" (nom_nouvel_article non vide) viennent
+    // de créer un article sans prix de vente (voir supabase-articles-
+    // prix-vente-migration.sql) -- à définir dans sa fiche avant qu'il ne
+    // devienne vendable n'importe où dans l'app.
+    setArticlesCreesSansPrix(
+      lig.filter((l) => l.nom_nouvel_article).map((l) => ({ id: l.article_id, nom: l.articles?.nom || l.nom_nouvel_article }))
+    );
   }
 
   async function annuler() {
@@ -411,6 +428,20 @@ export default function ReceptionDetailPage() {
         )}
       </div>
 
+      {articlesCreesSansPrix.length > 0 && (
+        <div className="sb-badge sb-badge-amber" style={{ marginTop: 12, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, padding: "8px 12px", fontSize: 12.5 }}>
+          <span>{t("achats.prixVenteADefinirMessage")}</span>
+          {articlesCreesSansPrix.map((a, i) => (
+            <span key={a.id}>
+              <Link href={`/articles/${a.id}`} style={{ textDecoration: "underline" }}>
+                {a.nom}
+              </Link>
+              {i < articlesCreesSansPrix.length - 1 ? "," : ""}
+            </span>
+          ))}
+        </div>
+      )}
+
       {ajoutOuvert && (
         <div className="sb-modal-overlay" onClick={() => setAjoutOuvert(false)}>
           <div className="sb-card" style={{ width: 420, background: "var(--card)", maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
@@ -468,16 +499,6 @@ export default function ReceptionDetailPage() {
                         ))}
                       </select>
                     </div>
-                  </div>
-                  <div className="sb-field">
-                    <label>{t("articles.prixVenteLabel")}</label>
-                    <input
-                      className="sb-input"
-                      type="number"
-                      placeholder={t("articles.prixVentePlaceholder")}
-                      value={ligneForm.prixVente}
-                      onChange={(e) => setLigneForm({ ...ligneForm, prixVente: e.target.value })}
-                    />
                   </div>
                   <ImageUploadField
                     label={t("articles.photoLabel")}

@@ -72,7 +72,12 @@ export default function NouvelleCommandePage() {
       setLoading(true);
       const [clientsRes, articlesRes, zonesRes, enAttenteRes] = await Promise.all([
         supabase.from("clients").select("*").eq("business_id", business.id).eq("actif", true).order("nom"),
-        supabase.from("articles").select("*").eq("business_id", business.id).order("nom"),
+        // Un article désactivé ou sans prix de vente défini (voir
+        // supabase-articles-actif-migration.sql et supabase-articles-
+        // prix-vente-migration.sql) n'est ni vendable ni offrable : exclu
+        // d'entrée de la recherche, pour les deux sections (vendus et
+        // offerts, qui partagent cette même liste).
+        supabase.from("articles").select("*").eq("business_id", business.id).eq("actif", true).not("prix_vente", "is", null).order("nom"),
         supabase.from("zones_livraison").select("*").eq("business_id", business.id).order("zone"),
         supabase
           .from("commande_lignes")

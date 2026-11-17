@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Image as ImageIcon, Pencil, RefreshCw, Trash2, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Image as ImageIcon, PackageX, Pencil, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
@@ -11,6 +11,7 @@ import { UNITES } from "@/lib/constants";
 import ImageUploadField from "@/components/ImageUploadField";
 import ClearableInput from "@/components/ClearableInput";
 import PrixAchatConvertible from "@/components/PrixAchatConvertible";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 // Une paire label/valeur de la fiche article — voir aussi
 // app/(app)/articles/page.js (même structure, avant son déplacement ici).
@@ -46,6 +47,9 @@ export default function ArticleDetailPage() {
   const [editForm, setEditForm] = useState(null);
   const [editError, setEditError] = useState("");
 
+  const [dejaUtilise, setDejaUtilise] = useState(false);
+  const [confirmDesactiverOpen, setConfirmDesactiverOpen] = useState(false);
+
   async function chargerArticle() {
     const { data } = await supabase.from("articles").select("*").eq("id", params.id).eq("business_id", business.id).maybeSingle();
     setArticle(data || null);
@@ -55,7 +59,7 @@ export default function ArticleDetailPage() {
     if (!business?.id || !params.id) return;
     let active = true;
     async function load() {
-      const [, categoriesRes, enAttenteRes, reapprosRes] = await Promise.all([
+      const [, categoriesRes, enAttenteRes, reapprosRes, utiliseRes] = await Promise.all([
         chargerArticle(),
         supabase.from("categories").select("*").eq("business_id", business.id).order("nom"),
         supabase
@@ -71,11 +75,18 @@ export default function ArticleDetailPage() {
           .eq("business_id", business.id)
           .order("created_at", { ascending: false })
           .limit(10),
+        // Détermine si Supprimer (jamais utilisé, la contrainte de clé
+        // étrangère sur commande_lignes ne bloquera donc rien) ou
+        // Désactiver (déjà présent dans au moins une commande, peu
+        // importe son statut) doit s'afficher — même principe que
+        // stats.count sur app/(app)/clients/[id]/page.js.
+        supabase.from("commande_lignes").select("id", { count: "exact", head: true }).eq("article_id", params.id),
       ]);
       if (!active) return;
       setCategories(categoriesRes.data || []);
       setEnAttente((enAttenteRes.data || []).reduce((s, l) => s + l.quantite, 0));
       setReappros(reapprosRes.data || []);
+      setDejaUtilise((utiliseRes.count || 0) > 0);
     }
     load();
     return () => {
@@ -144,7 +155,7 @@ export default function ArticleDetailPage() {
       // l'affichage, jamais renvoyés dans ce cas lors de l'enregistrement.
       prix_achat: String(article.prix_achat),
       frais_annexes: String(article.frais_annexes || 0),
-      prix_vente: String(article.prix_vente),
+      prix_vente: article.prix_vente != null ? String(article.prix_vente) : "",
       stock: String(article.stock),
       seuil: String(article.seuil),
       image_url: article.image_url || "",
@@ -154,7 +165,7 @@ export default function ArticleDetailPage() {
 
   async function validerEdition(e) {
     e.preventDefault();
-    if (!editForm.nom.trim() || !editForm.prix_vente) {
+    if (!editForm.nom.trim()) {
       setEditError(t("articles.nomRequiredError"));
       return;
     }
@@ -170,7 +181,12 @@ export default function ArticleDetailPage() {
         // approvisionnement-migration.sql), donc jamais envoyés ici dans
         // ce cas.
         ...(moduleAchatsActif ? {} : { prix_achat: Number(editForm.prix_achat) || 0, frais_annexes: Number(editForm.frais_annexes) || 0 }),
-        prix_vente: Number(editForm.prix_vente) || 0,
+        // Seul prix de vente modifiable à la main depuis cette carte,
+        // quel que soit l'état du module Achats (voir supabase-articles-
+        // prix-vente-migration.sql) — vide signifie « à définir » (null),
+        // jamais forcé à 0 : un article créé depuis une réception reste
+        // ainsi « à définir » tant que ce champ n'est pas rempli ici.
+        prix_vente: editForm.prix_vente.trim() === "" ? null : Number(editForm.prix_vente),
         stock: Math.max(0, Number(editForm.stock) || 0),
         seuil: Number(editForm.seuil) || 3,
         image_url: editForm.image_url.trim() || null,
@@ -182,6 +198,31 @@ export default function ArticleDetailPage() {
     }
     await chargerArticle();
     setEditOpen(false);
+  }
+
+  // Refusée (message clair, détail des commandes concernées via
+  // desactiver_article(), SECURITY DEFINER -- voir supabase-articles-
+  // actif-migration.sql) si l'article figure dans une commande en
+  // attente de livraison. Aucune vérification nécessaire pour réactiver
+  // -- un simple update, comme app/(app)/clients/[id]/page.js.
+  async function desactiverArticle() {
+    const { error } = await supabase.rpc("desactiver_article", { p_article_id: article.id }).single();
+    if (error) {
+      setConfirmDesactiverOpen(false);
+      window.alert(error.message);
+      return;
+    }
+    setConfirmDesactiverOpen(false);
+    await chargerArticle();
+  }
+
+  async function reactiverArticle() {
+    const { error } = await supabase.from("articles").update({ actif: true }).eq("id", article.id);
+    if (error) {
+      window.alert(t("articles.reactiverError", { message: error.message }));
+      return;
+    }
+    await chargerArticle();
   }
 
   async function supprimerArticle() {
@@ -212,8 +253,10 @@ export default function ArticleDetailPage() {
     );
   }
 
-  const margeReelle = article.prix_vente - article.prix_achat - (article.frais_annexes || 0);
+  const prixVenteDefini = article.prix_vente != null;
+  const margeReelle = prixVenteDefini ? article.prix_vente - article.prix_achat - (article.frais_annexes || 0) : null;
   const theorique = article.stock - enAttente;
+  const desactive = article.actif === false;
 
   return (
     <div>
@@ -244,8 +287,11 @@ export default function ArticleDetailPage() {
           </div>
         )}
 
-        <div className="sb-section-title" style={{ fontSize: 18, margin: "0 0 2px" }}>
-          {article.nom}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, margin: "0 0 2px" }}>
+          <div className="sb-section-title" style={{ fontSize: 18, margin: 0 }}>
+            {article.nom}
+          </div>
+          {desactive && <span className="sb-badge sb-badge-amber">{t("common.badgeDesactive")}</span>}
         </div>
         <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 16px" }}>{categorieName(article.categorie_id)}</p>
 
@@ -253,11 +299,20 @@ export default function ArticleDetailPage() {
           <DetailField label={t("articles.colCode")} value={article.code} />
           <DetailField label={t("articles.colAchat")} value={fmt(article.prix_achat)} />
           <DetailField label={t("articles.colFraisAnnexes")} value={fmt(article.frais_annexes || 0)} />
-          <DetailField label={t("articles.colVente")} value={fmt(article.prix_vente)} />
+          {prixVenteDefini ? (
+            <DetailField label={t("articles.colVente")} value={fmt(article.prix_vente)} />
+          ) : (
+            <div>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
+                {t("articles.colVente")}
+              </div>
+              <span className="sb-badge sb-badge-amber">{t("articles.badgePrixVenteADefinir")}</span>
+            </div>
+          )}
           <DetailField
             label={t("articles.colMargeReelle")}
-            value={fmt(margeReelle)}
-            valueColor={margeReelle >= 0 ? "var(--emerald)" : "var(--coral)"}
+            value={prixVenteDefini ? fmt(margeReelle) : "—"}
+            valueColor={!prixVenteDefini ? undefined : margeReelle >= 0 ? "var(--emerald)" : "var(--coral)"}
           />
           <DetailField label={t("articles.colStock")} value={`${article.stock} ${uniteLabel(article.unite)}`} />
           <DetailField label={t("articles.colStockTheorique")} value={`${theorique} ${uniteLabel(article.unite)}`} />
@@ -286,11 +341,35 @@ export default function ArticleDetailPage() {
           <button className="sb-btn sb-btn-primary" onClick={ouvrirEdition}>
             <Pencil size={15} /> {t("articles.modifier")}
           </button>
-          <button className="sb-btn sb-btn-ghost" style={{ color: "var(--coral)" }} onClick={supprimerArticle}>
-            <Trash2 size={15} /> {t("articles.supprimer")}
-          </button>
+          {desactive ? (
+            <button className="sb-btn sb-btn-ghost" onClick={reactiverArticle}>
+              <RotateCcw size={15} /> {t("articles.reactiver")}
+            </button>
+          ) : dejaUtilise ? (
+            <button className="sb-btn sb-btn-ghost" onClick={() => setConfirmDesactiverOpen(true)}>
+              <PackageX size={15} /> {t("articles.desactiver")}
+            </button>
+          ) : (
+            <button className="sb-btn sb-btn-ghost" style={{ color: "var(--coral)" }} onClick={supprimerArticle}>
+              <Trash2 size={15} /> {t("articles.supprimer")}
+            </button>
+          )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDesactiverOpen}
+        title={t("articles.confirmDesactiverTitle")}
+        message={
+          article.stock > 0
+            ? t("articles.confirmDesactiverStockMessage", { nom: article.nom, stock: article.stock, unite: uniteLabel(article.unite) })
+            : t("articles.confirmDesactiverMessage", { nom: article.nom })
+        }
+        confirmLabel={t("articles.desactiver")}
+        cancelLabel={t("common.confirmLogoutCancel")}
+        onConfirm={desactiverArticle}
+        onCancel={() => setConfirmDesactiverOpen(false)}
+      />
 
       {reappros.length > 0 && (
         <div className="sb-card" style={{ maxWidth: 480, marginTop: 16 }}>
@@ -472,6 +551,7 @@ export default function ArticleDetailPage() {
                     value={editForm.prix_vente}
                     onChange={(e) => setEditForm({ ...editForm, prix_vente: e.target.value })}
                   />
+                  <p style={{ fontSize: 11, color: "var(--muted)", margin: "4px 2px 0" }}>{t("articles.prixVenteVideNote")}</p>
                 </div>
                 <div className="sb-field">
                   <label>{t("articles.seuilLabel")}</label>

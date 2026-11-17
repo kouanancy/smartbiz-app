@@ -32,6 +32,10 @@ const emptyForm = {
 const FILTRE_TOUTES = "toutes";
 const FILTRE_SANS_CATEGORIE = "sans-categorie";
 
+const FILTRE_ACTIFS = "actifs";
+const FILTRE_DESACTIVES = "desactives";
+const FILTRE_TOUS_STATUTS = "tous";
+
 // Seuil de troncature du nom d'article dans le tableau imprimé/PDF du
 // stock — volontairement limité à 5 colonnes (photo, code, article, prix
 // de vente, stock), aucune donnée de coût/rentabilité, voir plus bas —
@@ -75,6 +79,7 @@ export default function ArticlesPage() {
   const [newCat, setNewCat] = useState("");
   const [catMsg, setCatMsg] = useState("");
   const [filtreCategorie, setFiltreCategorie] = useState(FILTRE_TOUTES);
+  const [filtreActif, setFiltreActif] = useState(FILTRE_ACTIFS);
   const [recherche, setRecherche] = useState("");
   const [rechercheDebounced, setRechercheDebounced] = useState("");
   const [enAttenteParArticle, setEnAttenteParArticle] = useState({});
@@ -117,6 +122,8 @@ export default function ArticlesPage() {
       let q = query;
       if (filtreCategorie === FILTRE_SANS_CATEGORIE) q = q.is("categorie_id", null);
       else if (filtreCategorie !== FILTRE_TOUTES) q = q.eq("categorie_id", filtreCategorie);
+      if (filtreActif === FILTRE_ACTIFS) q = q.eq("actif", true);
+      else if (filtreActif === FILTRE_DESACTIVES) q = q.eq("actif", false);
       if (rechercheDebounced) {
         // Le terme peut contenir des caractères spéciaux pour la syntaxe
         // .or() de PostgREST (virgule = séparateur de conditions,
@@ -127,7 +134,7 @@ export default function ArticlesPage() {
       }
       return q;
     },
-    [filtreCategorie, rechercheDebounced]
+    [filtreCategorie, filtreActif, rechercheDebounced]
   );
 
   // Données indépendantes de la pagination du stock : catégories (peu
@@ -210,7 +217,12 @@ export default function ArticlesPage() {
         supabase.from("articles").select("prix_vente,prix_achat,frais_annexes,stock").eq("business_id", business.id)
       );
       if (!active) return;
-      setMargeTotaleFiltre((data || []).reduce((s, a) => s + (a.prix_vente - a.prix_achat - (a.frais_annexes || 0)) * a.stock, 0));
+      // Prix de vente pas encore défini (null, voir supabase-articles-
+      // prix-vente-migration.sql) : contribution nulle plutôt qu'une
+      // marge négative trompeuse (prix traité comme 0 sans ce garde-fou).
+      setMargeTotaleFiltre(
+        (data || []).reduce((s, a) => (a.prix_vente == null ? s : s + (a.prix_vente - a.prix_achat - (a.frais_annexes || 0)) * a.stock), 0)
+      );
     }
     loadMargeTotale();
     return () => {
@@ -293,6 +305,12 @@ export default function ArticlesPage() {
     ...categories.map((c) => ({ key: c.id, label: c.nom })),
   ];
 
+  const filtresActif = [
+    { key: FILTRE_ACTIFS, label: t("articles.filtreActifs") },
+    { key: FILTRE_DESACTIVES, label: t("articles.filtreDesactives") },
+    { key: FILTRE_TOUS_STATUTS, label: t("common.toutes") },
+  ];
+
   // L'export doit couvrir tout le stock filtré, pas seulement la page
   // affichée à l'écran — nouvelle requête dédiée, sans pagination.
   async function exporterExcel() {
@@ -303,10 +321,11 @@ export default function ArticlesPage() {
       [t("articles.colCategorie")]: categorieName(a.categorie_id),
       [t("articles.colAchat")]: a.prix_achat,
       [t("articles.colFraisAnnexes")]: a.frais_annexes || 0,
-      [t("articles.colVente")]: a.prix_vente,
-      [t("articles.colMargeReelle")]: a.prix_vente - a.prix_achat - (a.frais_annexes || 0),
+      [t("articles.colVente")]: a.prix_vente ?? "",
+      [t("articles.colMargeReelle")]: a.prix_vente == null ? "" : a.prix_vente - a.prix_achat - (a.frais_annexes || 0),
       [t("articles.colStock")]: a.stock,
       [t("articles.uniteLabel")]: uniteLabel(a.unite),
+      [t("articles.colStatut")]: a.actif === false ? t("common.badgeDesactive") : t("common.badgeActif"),
     }));
     exportToExcel(`stock-${dateFichier()}.xlsx`, "Stock", rows);
   }
@@ -506,6 +525,21 @@ export default function ArticlesPage() {
         clearLabel={t("common.clearField")}
       />
 
+      <div className="sb-toggle-group" style={{ marginBottom: 10, flexWrap: "wrap", display: "inline-flex" }}>
+        {filtresActif.map((opt) => (
+          <button
+            key={opt.key}
+            className={`sb-toggle-item${filtreActif === opt.key ? " active" : ""}`}
+            onClick={() => {
+              setFiltreActif(opt.key);
+              setPage(0);
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
       <div className="sb-toggle-group" style={{ marginBottom: 14, flexWrap: "wrap", display: "inline-flex" }}>
         {filtresCategorie.map((opt) => (
           <button
@@ -537,11 +571,13 @@ export default function ArticlesPage() {
                 <th style={{ textAlign: "right" }}>{t("articles.colStock")}</th>
                 <th style={{ textAlign: "right" }}>{t("articles.colStockTheorique")}</th>
                 <th></th>
+                <th>{t("articles.colStatut")}</th>
               </tr>
             </thead>
             <tbody>
               {articles.map((a) => {
-                const margeReelle = a.prix_vente - a.prix_achat - (a.frais_annexes || 0);
+                const prixVenteDefini = a.prix_vente != null;
+                const margeReelle = prixVenteDefini ? a.prix_vente - a.prix_achat - (a.frais_annexes || 0) : null;
                 const theorique = stockTheorique(a);
                 return (
                   <tr key={a.id} className="sb-row-clickable" onClick={() => router.push(`/articles/${a.id}`)}>
@@ -557,9 +593,15 @@ export default function ArticlesPage() {
                     <td className="sb-nom-tronque" style={{ color: "var(--muted)" }}>{categorieName(a.categorie_id)}</td>
                     <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(a.prix_achat)}</td>
                     <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(a.frais_annexes || 0)}</td>
-                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(a.prix_vente)}</td>
-                    <td className="sb-mono" style={{ textAlign: "right", color: margeReelle >= 0 ? "var(--emerald)" : "var(--coral)" }}>
-                      {fmt(margeReelle)}
+                    <td style={{ textAlign: "right" }}>
+                      {prixVenteDefini ? (
+                        <span className="sb-mono">{fmt(a.prix_vente)}</span>
+                      ) : (
+                        <span className="sb-badge sb-badge-amber">{t("articles.badgePrixVenteADefinir")}</span>
+                      )}
+                    </td>
+                    <td className="sb-mono" style={{ textAlign: "right", color: !prixVenteDefini ? undefined : margeReelle >= 0 ? "var(--emerald)" : "var(--coral)" }}>
+                      {prixVenteDefini ? fmt(margeReelle) : "—"}
                     </td>
                     <td className="sb-mono" style={{ textAlign: "right" }}>
                       {a.stock} {uniteLabel(a.unite)}
@@ -588,6 +630,13 @@ export default function ArticlesPage() {
                         <span className="sb-badge sb-badge-emerald">{t("common.badgeOk")}</span>
                       )}
                     </td>
+                    <td>
+                      {a.actif === false ? (
+                        <span className="sb-badge sb-badge-amber">{t("common.badgeDesactive")}</span>
+                      ) : (
+                        <span className="sb-badge sb-badge-emerald">{t("common.badgeActif")}</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -613,21 +662,22 @@ export default function ArticlesPage() {
             </thead>
             <tbody>
               {articles.map((a) => {
+                const prixVenteDefini = a.prix_vente != null;
                 const coutReel = a.prix_achat + (a.frais_annexes || 0);
-                const margeUnitaire = a.prix_vente - coutReel;
-                const margeTotale = margeUnitaire * a.stock;
+                const margeUnitaire = prixVenteDefini ? a.prix_vente - coutReel : null;
+                const margeTotale = prixVenteDefini ? margeUnitaire * a.stock : null;
                 return (
                   <tr key={a.id}>
                     <td className="sb-nom-tronque" title={a.nom}>{tronquerMilieuNom(a.nom)}</td>
                     <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(coutReel)}</td>
-                    <td className="sb-mono" style={{ textAlign: "right", color: margeUnitaire >= 0 ? "var(--emerald)" : "var(--coral)" }}>
-                      {fmt(margeUnitaire)}
+                    <td className="sb-mono" style={{ textAlign: "right", color: !prixVenteDefini ? undefined : margeUnitaire >= 0 ? "var(--emerald)" : "var(--coral)" }}>
+                      {prixVenteDefini ? fmt(margeUnitaire) : "—"}
                     </td>
                     <td className="sb-mono" style={{ textAlign: "right" }}>
                       {a.stock} {uniteLabel(a.unite)}
                     </td>
                     <td className="sb-mono" style={{ textAlign: "right", fontWeight: 600 }}>
-                      {fmt(margeTotale)}
+                      {prixVenteDefini ? fmt(margeTotale) : "—"}
                     </td>
                   </tr>
                 );
@@ -765,7 +815,7 @@ export default function ArticlesPage() {
                     </td>
                     <td className="sb-stock-print-table-code">{a.code}</td>
                     <td className="sb-nom-tronque" style={{ maxWidth: 360 }}>{tronquerMilieuNom(a.nom, LONGUEUR_NOM_IMPRESSION)}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(a.prix_vente)}</td>
+                    <td style={{ textAlign: "right" }}>{a.prix_vente != null ? fmt(a.prix_vente) : t("articles.prixVenteADefinirPrint")}</td>
                     <td style={{ textAlign: "right", color: enRupture ? COULEUR_RUPTURE_IMPRESSION : undefined }}>{a.stock}</td>
                   </tr>
                 );

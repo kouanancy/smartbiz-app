@@ -316,6 +316,14 @@ export default function CommandeDetailPage() {
     setEditLignes((prev) => prev.filter((l) => l.articleId !== articleId));
   }
 
+  // Uniquement pour proposer un NOUVEL article à ajouter (ArticleSelect
+  // plus bas) : les lignes déjà présentes dans la commande, elles,
+  // continuent de résoudre leur prix via `articles` au complet, jamais
+  // ce sous-ensemble — un article désactivé ou sans prix de vente défini
+  // depuis la création de cette commande ne doit jamais faire disparaître
+  // son prix déjà figuré sur une ligne existante.
+  const articlesVendables = articles.filter((a) => a.actif !== false && a.prix_vente != null);
+
   const editFraisLivraison =
     editTypeLivraison === "livraison" ? zones.find((z) => z.zone === editZoneLivraison)?.frais || 0 : 0;
   const editTotalCa = editLignes.reduce((s, l) => {
@@ -754,7 +762,7 @@ export default function CommandeDetailPage() {
               <div className="sb-field" style={{ flex: 2, minWidth: 160 }}>
                 <label>{t("commandes.articleLabel")}</label>
                 <ArticleSelect
-                  articles={articles}
+                  articles={articlesVendables}
                   value={editArticleSel}
                   onChange={setEditArticleSel}
                   isDisabled={(a) => stockDispoEdition(a.id) < 1}
