@@ -1325,9 +1325,11 @@ devenues sans emploi (`receipt.confirmee`, `receipt.cadeauxTitle`,
 
 **Tampon « Confirmée » placé intelligemment, jamais superposé ni coupé.**
 Le tampon n'est plus niché dans `.sb-receipt-print` pour l'aperçu/le PDF
-— il devient un élément frère, capturé séparément par
-`composerTamponIntelligent(pages, stampElement, pageHeightPx)` : une fois
-le document découpé en pages par `capturerPages()`, cette fonction
+— il devient un élément frère, capturé séparément par la fonction
+`composerTamponEtPiedDePage(pages, stampElement, footerElement,
+pageHeightPx)` de `lib/pdfExport.js` (renommée depuis, voir « Corrections
+visuelles » plus bas — elle compose aussi le pied de page désormais) : une
+fois le document découpé en pages par `capturerPages()`, cette fonction
 capture le tampon seul (`html2canvas` avec `backgroundColor: null`, même
 largeur que le contenu principal) puis calcule l'espace déjà libre sous
 le contenu de la dernière page (`pageHeightPx − lastPage.height`). S'il
@@ -1413,6 +1415,107 @@ document (ex. `INV-0001-fiche.pdf`). Même limite que partout ailleurs
 dans ce fichier : seul Chromium est installé dans ce bac à sable — ces
 résultats viennent de la simulation de viewport/UA/tactile de Chromium,
 pas d'un vrai moteur Safari/WebKit ni d'un appareil physique.
+
+## Corrections visuelles : tampon sur fond noir, cases de cadeaux, filtre statut/catégories
+
+Trois défauts constatés sur des captures réelles (confirmation de
+commande en PDF ouvert sur iPhone, liste des articles), corrigés
+ensemble.
+
+**1. Tampon « Confirmée » sur un bandeau noir — cause exacte trouvée dans
+`lib/pdfExport.js`, pas un problème de thème.** `composerTamponIntelligent`
+(voir « Aperçu avant impression... » plus haut) composait le tampon sur un
+`canvas` fraîchement créé — transparent par défaut partout où rien n'est
+dessiné — par-dessus un `stampCanvas` lui-même capturé avec
+`backgroundColor: null` (transparent hors du tracé réel du tampon, pour
+se fondre avec n'importe quel fond). Cette transparence ne posait aucun
+problème à l'écran (l'aperçu insère directement le `<canvas>` dans
+`.sb-print-preview-page`, qui a son propre fond blanc opaque en CSS — la
+zone transparente s'y fond naturellement) mais `assemblerPdfDepuisPages`
+encode chaque page en **JPEG** (`canvas.toDataURL("image/jpeg", ...)`) —
+un format sans canal alpha : un navigateur qui aplatit un canvas
+semi-transparent vers ce format le fait sur un fond **noir**, jamais
+blanc. D'où le bandeau noir, uniquement visible dans le PDF
+téléchargé/ouvert sur téléphone, jamais dans l'aperçu — aucune variable
+CSS de thème en cause (vérifié : aucun `var(--...)` n'existe nulle part
+dans tout le bloc `.sb-receipt-print*` de `globals.css`, toutes les
+couleurs y sont déjà en dur, volontairement indépendantes du thème).
+**Corrigé** en remplissant explicitement un fond blanc opaque
+(`ctx.fillStyle = "#fff"; ctx.fillRect(...)`) sur chaque `canvas`
+nouvellement créé par la fonction, avant tout `drawImage` — reste
+désormais blanc (couleur du papier) quelle que soit la zone, y compris
+une fois encodé en JPEG.
+
+**Repositionné au passage** : le tampon apparaissait auparavant après
+TOUT le contenu capturé, pied de page « Propulsé par Doka » inclus
+(celui-ci faisait partie du même `canvas` principal, jamais exclu). La
+fonction, renommée `composerTamponEtPiedDePage`, capture désormais aussi
+le pied de page séparément (`footerRef`/`getFooterElement`, même
+principe que le tampon — masqué par
+`.sb-receipt-print.sb-pdf-export-capture .sb-receipt-print-footer` pendant
+la capture du contenu principal, visible uniquement le temps de sa propre
+capture autonome via `.sb-receipt-print-footer-standalone`) et compose
+les deux, dans cet ordre, dans l'espace libre de la dernière page : le
+tampon d'abord, juste sous les totaux/cadeaux, puis le pied de page
+juste en dessous — qui reste ainsi toujours le tout dernier élément du
+document. L'impression native (Ctrl+P) n'a pas eu besoin de ce
+changement : ses propres versions nichées (`.sb-receipt-print-stamp`,
+`.sb-receipt-print-footer`) étaient déjà dans le bon ordre dans le DOM.
+
+**2. Cases « Articles offerts » trop grandes, fond gris incohérent.**
+`.sb-receipt-print-cadeau-photo` passe de 104px à 40px (×1,18 par rapport
+à la case photo du tableau, `.sb-receipt-print-table-photo img`, 34px —
+sous le maximum ×1,25 demandé), même rayon de bordure (6px) et même
+recadrage (`object-fit: cover`) que cette référence. **Fond passé de
+`#f8f7f5` (gris) à `#fff` (blanc)** sur toutes les cases, photo ou
+non : c'est précisément ce fond gris, visible par transparence derrière
+une photo au format PNG avec canal alpha, qui faisait paraître une case
+différente des autres (ex. « Pince à cheveux ») alors que la règle CSS
+était déjà strictement identique pour toutes les cases — un fond blanc se
+fond avec le papier du document dans ce même cas, invisible quelle que
+soit la photo. Mention « Cadeau offert » et nom réduits en proportion
+(10px/10,5px → 8,5px/9px), `LONGUEUR_NOM_CADEAU` recalibrée (18 → 12
+caractères) pour cette largeur plus étroite, espacement de la grille
+resserré (14px → 10px). Vérifié avec un harnais Playwright isolé (trois
+cases : photo normale, photo avec fond transparent, sans photo) : les
+trois montrent désormais exactement le même fond blanc, la même taille et
+la même bordure.
+
+**3. Filtre Actifs/Désactivés/Tous mélangé aux pastilles de catégorie,
+dans `app/(app)/articles/page.js`.** Un statut n'est pas une catégorie :
+les deux vivaient pourtant sur la même rangée de pastilles
+(`.sb-toggle-group`), ce qui pouvait laisser croire que « Désactivés »
+était une catégorie parmi d'autres. **Isolé dans un menu déroulant dédié**
+(`.sb-filtre-statut`, à droite de la recherche sur la ligne 1) — chaque
+`<option>` porte déjà le préfixe « Statut : » (`articles.filtreStatutOption`,
+`(v) => "Statut : " + v.label`), donc le menu fermé affiche toujours la
+valeur choisie avec ce préfixe, sans élément de mise en page séparé pour
+lui. **Mis en évidence** (`.sb-filtre-statut-applique` : bordure et texte
+à la couleur du thème, `var(--accent)`/`var(--accent-text)`) dès qu'une
+valeur autre que « Actifs » (la valeur par défaut) est choisie. La ligne 2
+ne contient plus que les catégories, inchangées, sur une rangée qui
+défile désormais horizontalement (`.sb-toggle-group-scroll` : `flex-wrap:
+nowrap`, `overflow-x: auto`) plutôt que de passer à la ligne, utile
+surtout sur téléphone si elles sont nombreuses. Les deux filtres restent
+combinés par la même fonction `appliquerFiltresArticles()` qu'avant
+(compteur, pagination, export Excel, PDF, agrégat de marge) — seule
+l'interface change, aucune logique de filtrage retouchée. Sur téléphone
+(testé à 390px de large), la recherche prend toute la largeur et le menu
+de statut passe en dessous d'elle (`flex-wrap: wrap` sur leur conteneur
+commun) ; rien ne déborde de l'écran à aucune des largeurs testées.
+
+**Vérifié avec un harnais Playwright isolé** (CSS réel du projet servi en
+local, sans dépendre de Supabase) plutôt qu'avec l'app elle-même — ce bac
+à sable n'a pas de connexion Supabase réelle pour afficher la confirmation
+d'une vraie commande ou la vraie liste d'articles (limite déjà documentée
+ailleurs dans ce fichier) : pour le point 1, un test de pixel (lecture de
+`getImageData` après encodage JPEG, à l'endroit exact où un fond
+transparent subsistait auparavant) confirme `rgb(255, 255, 255)` avec le
+correctif, contre `rgb(0, 0, 0)` sans lui (vérifié en rejouant
+volontairement la version non corrigée) — preuve directe, pas seulement
+visuelle, que le bandeau noir ne peut plus apparaître. Pour les points 2
+et 3, captures d'écran en mode clair/sombre et aux largeurs
+ordinateur/téléphone (1000px et 390px).
 
 ## Articles offerts (cadeaux)
 
@@ -1944,13 +2047,17 @@ dans ce dernier cas, la contrainte de clé étrangère sur
 arbitrage que `app/(app)/clients/[id]/page.js`.
 
 **Dans la liste** (`app/(app)/articles/page.js`) : un filtre à trois
-options — Actifs (par défaut), Désactivés, Tous — partagé par
+options — Actifs (par défaut), Désactivés, Tous les statuts — partagé par
 `appliquerFiltresArticles()` avec la recherche et le filtre catégorie
 déjà en place, donc par la pagination, le compteur, l'export Excel, le
 PDF et l'agrégat de marge totale affiché en bas de page : ouvrir
 « Désactivés » montre la marge immobilisée dans leur stock restant, pas
 celle des articles actifs. Une colonne Statut (badge Actif/Désactivé)
 s'ajoute à la table, dans ce filtre comme dans les deux autres.
+**Isolé des catégories dans un menu déroulant dédié** (`.sb-filtre-statut`,
+corrigé après coup — voir « Corrections visuelles » plus bas) : un statut
+n'est pas une catégorie, les deux ne doivent jamais apparaître comme des
+pastilles interchangeables sur la même ligne.
 
 **Exclu partout où un article se vend ou se réceptionne**, toujours en
 filtrant la requête `articles` à la source plutôt qu'en grisant une

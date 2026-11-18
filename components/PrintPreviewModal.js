@@ -33,6 +33,7 @@ export default function PrintPreviewModal({
   nomFichier,
   getElement,
   getStampElement,
+  getFooterElement,
   onCaptured,
   renderOptions,
   dependencies = [],
@@ -72,7 +73,8 @@ export default function PrintPreviewModal({
       try {
         const el = await getElement();
         const stampElement = getStampElement ? await getStampElement() : null;
-        const resultat = await capturerPages(el, { stampElement });
+        const footerElement = getFooterElement ? await getFooterElement() : null;
+        const resultat = await capturerPages(el, { stampElement, footerElement });
         onCaptured?.();
         if (annule) return;
         setPages(resultat.pages);
