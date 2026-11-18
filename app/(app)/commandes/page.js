@@ -32,12 +32,20 @@ export default function CommandesPage() {
   const [nbEnAttente, setNbEnAttente] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filtreStatut, setFiltreStatut] = useState("toutes");
+  // Indépendant du filtre statut (une source n'est pas un statut) —
+  // combiné avec lui, jamais mélangé dans la même rangée de pastilles.
+  const [filtreBoutiqueEnLigne, setFiltreBoutiqueEnLigne] = useState(false);
 
-  // Filtre statut appliqué côté serveur — partagé entre le chargement
-  // paginé et l'export Excel, qui doivent respecter le même filtre.
+  // Filtres statut + source appliqués côté serveur — partagés entre le
+  // chargement paginé et l'export Excel, qui doivent respecter les mêmes
+  // filtres.
   const appliquerFiltreStatut = useCallback(
-    (query) => (filtreStatut === "toutes" ? query : query.eq("statut", filtreStatut)),
-    [filtreStatut]
+    (query) => {
+      let q = filtreStatut === "toutes" ? query : query.eq("statut", filtreStatut);
+      if (filtreBoutiqueEnLigne) q = q.eq("source", "boutique_en_ligne");
+      return q;
+    },
+    [filtreStatut, filtreBoutiqueEnLigne]
   );
 
   // Compteur "en attente" du badge, toujours global (indépendant du filtre
@@ -138,19 +146,34 @@ export default function CommandesPage() {
         </div>
       </div>
 
-      <div className="sb-toggle-group" style={{ margin: "14px 0", flexWrap: "wrap", display: "inline-flex" }}>
-        {filtresStatut.map((opt) => (
-          <button
-            key={opt.key}
-            className={`sb-toggle-item${filtreStatut === opt.key ? " active" : ""}`}
-            onClick={() => {
-              setFiltreStatut(opt.key);
-              setPage(0);
-            }}
-          >
-            {opt.label}
-          </button>
-        ))}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", margin: "14px 0" }}>
+        <div className="sb-toggle-group" style={{ flexWrap: "wrap", display: "inline-flex" }}>
+          {filtresStatut.map((opt) => (
+            <button
+              key={opt.key}
+              className={`sb-toggle-item${filtreStatut === opt.key ? " active" : ""}`}
+              onClick={() => {
+                setFiltreStatut(opt.key);
+                setPage(0);
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        {business?.module_boutique_en_ligne_actif && (
+          <div className="sb-toggle-group" style={{ display: "inline-flex" }}>
+            <button
+              className={`sb-toggle-item${filtreBoutiqueEnLigne ? " active" : ""}`}
+              onClick={() => {
+                setFiltreBoutiqueEnLigne((v) => !v);
+                setPage(0);
+              }}
+            >
+              {t("commandes.filtreBoutiqueEnLigne")}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="sb-card">
@@ -175,7 +198,14 @@ export default function CommandesPage() {
                 >
                   <td className="sb-mono">{c.numero}</td>
                   <td>{new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
-                  <td className="sb-nom-tronque">{c.clients?.nom ?? "—"}</td>
+                  <td className="sb-nom-tronque">
+                    {c.clients?.nom ?? "—"}
+                    {c.source === "boutique_en_ligne" && (
+                      <span className="sb-badge sb-badge-muted" style={{ marginLeft: 6, fontSize: 10.5 }}>
+                        {t("commandes.badgeBoutiqueEnLigne", { reference: c.reference_externe })}
+                      </span>
+                    )}
+                  </td>
                   <td>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <span className={`sb-badge ${STATUT_BADGE_CLASS[c.statut] || "sb-badge-amber"}`}>

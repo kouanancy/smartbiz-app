@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, ShieldCheck, ShieldOff, Trash2, Truck, X, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Globe, ShieldCheck, ShieldOff, Trash2, Truck, X, XCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale } from "@/lib/format";
@@ -156,6 +156,18 @@ export default function CommercantDetailPage() {
     if (commercant.owner_id === moi.owner_id) refreshBusiness();
   }
 
+  async function toggleModuleBoutique() {
+    const { data, error } = await supabase
+      .rpc("admin_set_module_boutique_en_ligne_actif", { p_business_id: commercant.id, p_actif: !commercant.module_boutique_en_ligne_actif })
+      .single();
+    if (error) {
+      setMsg(t("admin.moduleBoutiqueToggleError", { message: error.message }));
+      return;
+    }
+    setCommercant(data);
+    if (commercant.owner_id === moi.owner_id) refreshBusiness();
+  }
+
   if (!moi?.is_admin) return null;
 
   if (commercant === undefined) return <p className="sb-sub">{t("common.loading")}</p>;
@@ -236,6 +248,14 @@ export default function CommercantDetailPage() {
               {t(commercant.module_achats_actif ? "admin.moduleAchatsActif" : "admin.moduleAchatsInactif")}
             </span>
           </div>
+          <div>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
+              {t("admin.colModuleBoutique")}
+            </div>
+            <span className={`sb-badge ${commercant.module_boutique_en_ligne_actif ? "sb-badge-emerald" : "sb-badge-amber"}`}>
+              {t(commercant.module_boutique_en_ligne_actif ? "admin.moduleBoutiqueActif" : "admin.moduleBoutiqueInactif")}
+            </span>
+          </div>
         </div>
 
         {paiementEnAttente && (
@@ -295,6 +315,10 @@ export default function CommercantDetailPage() {
           <button className="sb-btn sb-btn-ghost" onClick={toggleModuleAchats}>
             <Truck size={15} />{" "}
             {commercant.module_achats_actif ? t("admin.desactiverModuleAchats") : t("admin.activerModuleAchats")}
+          </button>
+          <button className="sb-btn sb-btn-ghost" onClick={toggleModuleBoutique}>
+            <Globe size={15} />{" "}
+            {commercant.module_boutique_en_ligne_actif ? t("admin.desactiverModuleBoutique") : t("admin.activerModuleBoutique")}
           </button>
           {!estMoi && (
             <button

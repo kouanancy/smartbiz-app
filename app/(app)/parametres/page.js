@@ -2,16 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell, CheckCircle2, Circle, FileText, Lock, Palette, Plus, Truck, X } from "lucide-react";
+import { Bell, CheckCircle2, Circle, Copy, FileText, Globe, KeyRound, Lock, Palette, Plus, Truck, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { activerNotificationsPush, verifierAbonnementPushActif } from "@/lib/push";
-import { fmt as fmtBase } from "@/lib/format";
+import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { THEMES, MODES_AFFICHAGE, DEVISES_TAUX_CHANGE } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import { getAuthErrorMessage } from "@/lib/authErrors";
 import ImageUploadField from "@/components/ImageUploadField";
 import PaiementAbonnement from "@/components/PaiementAbonnement";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 // Ordre d'affichage naturel (semaine française, commence lundi) — les
 // valeurs stockées suivent la convention PostgreSQL extract(dow from ...)
@@ -28,7 +29,7 @@ const JOURS_SEMAINE = [
 ];
 
 export default function ParametresPage() {
-  const { business, setBusiness } = useAuth();
+  const { business, setBusiness, session } = useAuth();
   const fmt = (n) => fmtBase(n, business?.devise);
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const [nameDraft, setNameDraft] = useState(business?.name || "");
@@ -102,6 +103,109 @@ export default function ParametresPage() {
       active = false;
     };
   }, [business?.id]);
+
+  // Boutique en ligne (module expérimental, badge « Test ») — section
+  // visible uniquement si business.module_boutique_en_ligne_actif (jamais
+  // modifiable par le commerçant lui-même, voir espace Administration).
+  const [boutiqueEtat, setBoutiqueEtat] = useState(null);
+  const [boutiqueUrlDraft, setBoutiqueUrlDraft] = useState("");
+  const [boutiqueUrlMsg, setBoutiqueUrlMsg] = useState({ texte: "", ok: false });
+  // Clé en clair : n'existe jamais que dans cet état local, le temps de la
+  // montrer une seule fois juste après génération — jamais relue depuis la
+  // base ensuite (boutique_en_ligne_etat() ne renvoie que cle_apercu).
+  const [boutiqueCleNouvelle, setBoutiqueCleNouvelle] = useState("");
+  const [boutiqueCleCopieMsg, setBoutiqueCleCopieMsg] = useState("");
+  const [boutiqueConfirmRegenOpen, setBoutiqueConfirmRegenOpen] = useState(false);
+  const [boutiqueTestMsg, setBoutiqueTestMsg] = useState({ texte: "", ok: false });
+  const [boutiqueTestEnCours, setBoutiqueTestEnCours] = useState(false);
+  const [boutiqueRenvoyerMsg, setBoutiqueRenvoyerMsg] = useState({ texte: "", ok: false });
+  const [boutiqueRenvoyerEnCours, setBoutiqueRenvoyerEnCours] = useState(false);
+
+  async function chargerBoutiqueEtat() {
+    const { data } = await supabase.rpc("boutique_en_ligne_etat").single();
+    if (data) {
+      setBoutiqueEtat(data);
+      setBoutiqueUrlDraft(data.site_url || "");
+    }
+  }
+
+  useEffect(() => {
+    if (!business?.module_boutique_en_ligne_actif) return;
+    let active = true;
+    supabase
+      .rpc("boutique_en_ligne_etat")
+      .single()
+      .then(({ data }) => {
+        if (active && data) {
+          setBoutiqueEtat(data);
+          setBoutiqueUrlDraft(data.site_url || "");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [business?.module_boutique_en_ligne_actif]);
+
+  async function enregistrerBoutiqueUrl() {
+    setBoutiqueUrlMsg({ texte: "", ok: false });
+    const { error } = await supabase.rpc("boutique_en_ligne_enregistrer_url", { p_site_url: boutiqueUrlDraft.trim() });
+    if (error) {
+      setBoutiqueUrlMsg({ texte: t("parametres.boutiqueUrlError", { message: error.message }), ok: false });
+      return;
+    }
+    setBoutiqueUrlMsg({ texte: t("parametres.boutiqueUrlSaved"), ok: true });
+    await chargerBoutiqueEtat();
+  }
+
+  async function genererCleBoutique() {
+    setBoutiqueConfirmRegenOpen(false);
+    const { data, error } = await supabase.rpc("boutique_en_ligne_generer_cle");
+    if (error) {
+      setBoutiqueUrlMsg({ texte: t("parametres.boutiqueCleError", { message: error.message }), ok: false });
+      return;
+    }
+    setBoutiqueCleNouvelle(data);
+    setBoutiqueCleCopieMsg("");
+    await chargerBoutiqueEtat();
+  }
+
+  async function copierCleBoutique() {
+    try {
+      await navigator.clipboard.writeText(boutiqueCleNouvelle);
+      setBoutiqueCleCopieMsg(t("parametres.boutiqueCleCopiee"));
+    } catch {
+      setBoutiqueCleCopieMsg(t("parametres.boutiqueCleCopieError"));
+    }
+  }
+
+  async function testerBoutique() {
+    setBoutiqueTestEnCours(true);
+    setBoutiqueTestMsg({ texte: "", ok: false });
+    try {
+      const res = await fetch("/api/boutique-en-ligne/tester", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      const data = await res.json();
+      setBoutiqueTestMsg({ texte: data.message, ok: data.ok });
+    } catch (err) {
+      setBoutiqueTestMsg({ texte: t("parametres.boutiqueTestErreurReseau", { message: err.message }), ok: false });
+    }
+    setBoutiqueTestEnCours(false);
+  }
+
+  async function renvoyerBoutique() {
+    setBoutiqueRenvoyerEnCours(true);
+    setBoutiqueRenvoyerMsg({ texte: "", ok: false });
+    const { data, error } = await supabase.rpc("boutique_en_ligne_tout_renvoyer");
+    setBoutiqueRenvoyerEnCours(false);
+    if (error) {
+      setBoutiqueRenvoyerMsg({ texte: t("parametres.boutiqueRenvoyerError", { message: error.message }), ok: false });
+      return;
+    }
+    setBoutiqueRenvoyerMsg({ texte: t("parametres.boutiqueRenvoyerSuccess", { n: data }), ok: true });
+    await chargerBoutiqueEtat();
+  }
 
   async function updateBusiness(patch) {
     const { data, error } = await supabase.from("businesses").update(patch).eq("id", business.id).select().single();
@@ -459,6 +563,147 @@ export default function ParametresPage() {
         </div>
         {zoneMsg && <p style={{ fontSize: 12, color: "var(--coral)", margin: "8px 2px 0" }}>{zoneMsg}</p>}
       </div>
+
+      {/* Module expérimental (badge « Test »), activable uniquement par
+          une administratrice (app/(app)/admin/commercants/[id]) — section
+          entièrement masquée tant que business.module_boutique_en_ligne_actif
+          n'est pas vrai, jamais modifiable par le commerçant lui-même. */}
+      {business?.module_boutique_en_ligne_actif && (
+        <div className="sb-card" style={{ marginBottom: 16 }}>
+          <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Globe size={15} /> {t("parametres.boutiqueEnLigneTitle")}
+            <span className="sb-badge sb-badge-amber" style={{ fontSize: 10.5, marginLeft: "auto" }}>{t("common.badgeTest")}</span>
+          </div>
+          <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 14px" }}>{t("parametres.boutiqueEnLigneSub")}</p>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+            <span
+              className="sb-badge"
+              style={
+                boutiqueEtat?.site_url
+                  ? { background: "var(--emerald-bg)", color: "var(--emerald)" }
+                  : { background: "var(--line)", color: "var(--muted)" }
+              }
+            >
+              {boutiqueEtat?.site_url ? t("parametres.boutiqueStatutConnecte") : t("parametres.boutiqueStatutNonConfigure")}
+            </span>
+            <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
+              {t("parametres.boutiqueDernierEnvoi", {
+                date: boutiqueEtat?.derniere_synchro_at
+                  ? new Date(boutiqueEtat.derniere_synchro_at).toLocaleString(dateLocale(business?.langue), {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : t("parametres.boutiqueDernierEnvoiJamais"),
+              })}
+            </span>
+          </div>
+
+          <div className="sb-detail-field-grid" style={{ marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
+                {t("parametres.boutiqueArticlesProposesLabel")}
+              </div>
+              <div className="sb-mono" style={{ fontSize: 14, fontWeight: 600 }}>{boutiqueEtat?.nb_articles_proposes ?? "—"}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)", marginBottom: 4 }}>
+                {t("parametres.boutiqueCommandesMoisLabel")}
+              </div>
+              <div className="sb-mono" style={{ fontSize: 14, fontWeight: 600 }}>{boutiqueEtat?.nb_commandes_mois ?? "—"}</div>
+            </div>
+          </div>
+
+          <div className="sb-field" style={{ marginBottom: 6 }}>
+            <label>{t("parametres.boutiqueUrlLabel")}</label>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <input
+                className="sb-input"
+                style={{ flex: 1, minWidth: 200 }}
+                placeholder="https://..."
+                value={boutiqueUrlDraft}
+                onChange={(e) => setBoutiqueUrlDraft(e.target.value)}
+              />
+              <button className="sb-btn sb-btn-primary" onClick={enregistrerBoutiqueUrl}>
+                {t("parametres.enregistrer")}
+              </button>
+            </div>
+          </div>
+          {boutiqueUrlMsg.texte && (
+            <p style={{ fontSize: 12, color: boutiqueUrlMsg.ok ? "var(--emerald)" : "var(--coral)", margin: "4px 2px 12px" }}>
+              {boutiqueUrlMsg.texte}
+            </p>
+          )}
+
+          <hr style={{ border: "none", borderTop: "1px solid var(--line)", margin: "4px 0 14px" }} />
+
+          {boutiqueCleNouvelle ? (
+            <div style={{ marginBottom: 12 }}>
+              <p style={{ fontSize: 12.5, color: "var(--coral)", margin: "0 0 8px", fontWeight: 600 }}>
+                {t("parametres.boutiqueCleAffichageUneFois")}
+              </p>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <code
+                  className="sb-mono"
+                  style={{ background: "var(--paper)", padding: "8px 10px", borderRadius: 7, fontSize: 12.5, wordBreak: "break-all" }}
+                >
+                  {boutiqueCleNouvelle}
+                </code>
+                <button className="sb-btn sb-btn-ghost" onClick={copierCleBoutique}>
+                  <Copy size={13} /> {t("parametres.copier")}
+                </button>
+              </div>
+              {boutiqueCleCopieMsg && <p style={{ fontSize: 12, color: "var(--muted)", margin: "6px 2px 0" }}>{boutiqueCleCopieMsg}</p>}
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, margin: "0 0 10px" }}>
+              {boutiqueEtat?.cle_apercu
+                ? t("parametres.boutiqueCleApercu", { apercu: boutiqueEtat.cle_apercu })
+                : t("parametres.boutiqueAucuneCle")}
+            </p>
+          )}
+          <button
+            className="sb-btn sb-btn-ghost"
+            onClick={() => (boutiqueEtat?.cle_apercu ? setBoutiqueConfirmRegenOpen(true) : genererCleBoutique())}
+          >
+            <KeyRound size={14} /> {boutiqueEtat?.cle_apercu ? t("parametres.boutiqueRegenererCle") : t("parametres.boutiqueGenererCle")}
+          </button>
+
+          <hr style={{ border: "none", borderTop: "1px solid var(--line)", margin: "16px 0 14px" }} />
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="sb-btn sb-btn-ghost" onClick={testerBoutique} disabled={boutiqueTestEnCours}>
+              {boutiqueTestEnCours ? t("parametres.boutiqueTesterEnCours") : t("parametres.boutiqueTesterBtn")}
+            </button>
+            <button className="sb-btn sb-btn-ghost" onClick={renvoyerBoutique} disabled={boutiqueRenvoyerEnCours}>
+              {boutiqueRenvoyerEnCours ? t("parametres.boutiqueRenvoyerEnCours") : t("parametres.boutiqueRenvoyerBtn")}
+            </button>
+          </div>
+          {boutiqueTestMsg.texte && (
+            <p style={{ fontSize: 12, color: boutiqueTestMsg.ok ? "var(--emerald)" : "var(--coral)", margin: "8px 2px 0" }}>
+              {boutiqueTestMsg.texte}
+            </p>
+          )}
+          {boutiqueRenvoyerMsg.texte && (
+            <p style={{ fontSize: 12, color: boutiqueRenvoyerMsg.ok ? "var(--emerald)" : "var(--coral)", margin: "8px 2px 0" }}>
+              {boutiqueRenvoyerMsg.texte}
+            </p>
+          )}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={boutiqueConfirmRegenOpen}
+        title={t("parametres.boutiqueConfirmRegenTitle")}
+        message={t("parametres.boutiqueConfirmRegenMessage")}
+        confirmLabel={t("parametres.boutiqueRegenererCle")}
+        cancelLabel={t("common.confirmLogoutCancel")}
+        onConfirm={genererCleBoutique}
+        onCancel={() => setBoutiqueConfirmRegenOpen(false)}
+      />
 
       {/* Une seule section pour tous les comptes (admin ou commerçant
           classique) — même bouton, même mécanisme d'activation

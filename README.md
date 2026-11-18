@@ -4764,6 +4764,72 @@ Implémentation en deux temps :
   n'existe déjà plus (boutique orpheline), la route supprime directement la
   ligne `businesses` en repli.
 
+## Boutique en ligne (module expérimental, connexion à un site e-commerce)
+
+Module expérimental réservé pour l'instant aux comptes admin, qui connecte
+Doka à un site e-commerce externe (vitrine, description détaillée, photos
+supplémentaires, promotions). Documentation complète du contrat d'échange
+(authentification, endpoints, formats, codes d'erreur, webhook sortant,
+procédure de mise en route) : [`docs/boutique-en-ligne-api.md`](docs/boutique-en-ligne-api.md).
+
+Principe : Doka reste la référence pour la marchandise (articles,
+réceptions, inventaire, stock, prix de vente, photo principale) ; le site
+gère la vitrine. Rien de saisi sur le site ne modifie jamais un article
+Doka. À chaque changement utile d'un article proposé en ligne, Doka
+l'envoie au site (webhook `pg_net`, jamais bloquant pour l'opération
+Doka d'origine). Chaque commande passée sur le site crée une commande
+Doka `en_attente` (stock réservé) ; le site envoie ensuite `livree` ou
+`annulee` — ces commandes restent en lecture seule dans Doka (des triggers
+de verrouillage bloquent toute autre écriture sur leur statut ou leurs
+lignes, même en direct dans la base).
+
+Activation : `businesses.module_boutique_en_ligne_actif`, même schéma que
+`module_achats_actif` — jamais modifiable par le commerçant, uniquement
+par un administrateur depuis `/admin/commercants/[id]` (bouton « Activer/
+Désactiver la Boutique en ligne »), via la fonction `admin_set_module_
+boutique_en_ligne_actif(p_business_id, p_actif)`. Tant que le module est
+inactif pour une boutique : aucun écran, bouton ou appel réseau
+supplémentaire côté commerçant, et l'API `/api/boutique/v1/*` répond
+`403 module_inactif`. Le code ne mentionne jamais un site en particulier
+("Boutique en ligne" générique), pour pouvoir proposer ce module à
+d'autres commerçants plus tard.
+
+Migration : `supabase-boutique-en-ligne-migration.sql`. Ajoute
+`articles.propose_en_ligne`, `commandes.source`/`reference_externe`
+(valeurs `'doka'`/`'boutique_en_ligne'`, idempotence par référence externe
+unique par boutique), la table `boutique_en_ligne_connexions` (RLS activée
+sans aucune policy — illisible même par le propriétaire de la boutique,
+accessible uniquement via les fonctions `security definer` ci-dessous ou
+`service_role`), les fonctions `boutique_en_ligne_etat/enregistrer_url/
+generer_cle/tout_renvoyer` (clé `"doka_bl_" + 48 caractères hexa`,
+affichée en clair une seule fois, seul `cle_apercu` restant consultable
+ensuite), les triggers d'envoi Doka → site, les triggers de verrouillage
+des commandes `boutique_en_ligne`, et les deux RPC réservées à
+`service_role` (jamais accordées à `authenticated`) `boutique_creer_
+commande`/`boutique_changer_statut`, appelées uniquement depuis les routes
+serveur `app/api/boutique/v1/*` après vérification de la clé d'API de la
+boutique. Testée de façon exhaustive sur une instance PostgreSQL locale
+rejouant l'intégralité de l'historique des migrations (21 scénarios :
+activation/désactivation du module, création idempotente de commande,
+articles inconnus/non proposés, livraison avec stock insuffisant,
+annulation, verrouillage direct des commandes `boutique_en_ligne`...).
+
+Interface (visible uniquement si le module est actif) : case « Proposer
+cet article sur la boutique en ligne » sur la fiche article et à la
+création ; section « Boutique en ligne » dans Paramètres (adresse du
+site, génération/régénération de la clé, test de connexion, renvoi complet
+des articles, statistiques de synchronisation) ; badge et filtre
+« Boutique en ligne » sur la liste des commandes ; encart informatif et
+boutons d'action masqués sur le détail d'une commande issue du site.
+
+**Note pour la mise en production réelle** : la migration suppose que
+l'extension `pgcrypto` est installée dans le schéma `extensions`
+(convention par défaut d'un projet Supabase) pour générer la clé de
+connexion — à vérifier/adapter si l'environnement cible diffère. Le test
+de bout en bout avec un vrai site e-commerce n'a pas pu être effectué dans
+cet environnement de développement (sandbox sans accès réseau vers un
+site externe) ; seule l'intégration côté Doka a été vérifiée.
+
 ## Limitations connues / suite
 
 - **Sécurité RLS à durcir avant la mise en prod payante** : la policy
