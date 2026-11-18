@@ -960,6 +960,49 @@ a {
   color: var(--accent-text);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
+/* Rangée de pastilles (catégories, typiquement) trop nombreuses pour tenir
+   sur une ligne : défile horizontalement plutôt que de passer à la ligne
+   (flex-wrap: wrap du .sb-toggle-group de base), surtout utile sur
+   téléphone — jamais mélangée à un autre filtre (statut, etc.), qui vit
+   dans son propre contrôle séparé (voir .sb-filtre-statut ci-dessous,
+   utilisé par app/(app)/articles/page.js). */
+.sb-toggle-group-scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+.sb-toggle-group-scroll .sb-toggle-item {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+/* Filtre de statut (actif/désactivé/tous) isolé dans son propre menu
+   déroulant — jamais une pastille parmi les catégories (.sb-toggle-group
+   ci-dessus), qui décrivent autre chose. Un <select> natif plutôt qu'un
+   composant personnalisé : chaque <option> porte déjà le préfixe
+   "Statut : " (voir articles.filtreStatutOption dans lib/i18n), donc le
+   menu fermé affiche toujours la valeur choisie avec ce préfixe, sans code
+   supplémentaire. */
+.sb-filtre-statut {
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 12px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  flex-shrink: 0;
+  max-width: 100%;
+}
+/* Mis en évidence (contour + texte à la couleur du thème) dès qu'un statut
+   autre que "Actifs" (la valeur par défaut) est choisi — signale qu'un
+   filtre est appliqué, exactement comme demandé. */
+.sb-filtre-statut-applique {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
 .sb-ticker {
   height: 168px;
   overflow: hidden;
@@ -2126,17 +2169,22 @@ th.sb-nom-tronque {
   break-inside: avoid;
   page-break-inside: avoid;
 }
-/* Cette version nichée dans .sb-receipt-print ne sert plus qu'à
+/* Ces versions nichées dans .sb-receipt-print ne servent plus qu'à
    l'impression native (Ctrl+P, @media print, pagination du navigateur) —
-   masquée pendant la capture html2canvas (aperçu + PDF téléchargé), qui
-   utilise exclusivement .sb-receipt-print-stamp-standalone plus bas,
-   capturée séparément et placée dans l'espace libre de la dernière page
-   par composerTamponIntelligent (lib/pdfExport.js). */
-.sb-receipt-print.sb-pdf-export-capture .sb-receipt-print-stamp {
+   masquées pendant la capture html2canvas (aperçu + PDF téléchargé), qui
+   utilise exclusivement les versions autonomes plus bas
+   (.sb-receipt-print-stamp-standalone, .sb-receipt-print-footer-standalone),
+   capturées séparément et composées, DANS CET ORDRE (tampon puis pied de
+   page), dans l'espace libre de la dernière page par
+   composerTamponEtPiedDePage (lib/pdfExport.js) : le pied de page reste
+   ainsi toujours le tout dernier élément du document, jamais le tampon
+   après lui. */
+.sb-receipt-print.sb-pdf-export-capture .sb-receipt-print-stamp,
+.sb-receipt-print.sb-pdf-export-capture .sb-receipt-print-footer {
   display: none !important;
 }
 /* Tampon capturé seul (jamais niché dans .sb-receipt-print, voir
-   components/Receipt.js) : composerTamponIntelligent doit pouvoir le
+   components/Receipt.js) : composerTamponEtPiedDePage doit pouvoir le
    mesurer indépendamment du reste du document pour le composer après coup
    dans le bon canevas de page. display: none par défaut (jamais visible à
    l'écran ni à l'impression native, qui garde sa propre version ci-dessus
@@ -2146,7 +2194,12 @@ th.sb-nom-tronque {
    (plutôt que justify-content sur un display: flex, qui entrerait en
    conflit avec le display: block !important imposé par
    .sb-pdf-export-capture) : aligné à droite, dans la zone libre sous les
-   totaux/les cadeaux, comme demandé. */
+   totaux/les cadeaux, comme demandé. backgroundColor: null au moment de la
+   capture (voir lib/pdfExport.js) laisse tout le reste de ce bloc
+   transparent, jamais une couleur de fond qui se superposerait au papier —
+   composerTamponEtPiedDePage remplit elle-même un fond blanc opaque avant
+   de le composer, pour éviter qu'un reste de transparence ne devienne un
+   bandeau noir une fois le canvas final encodé en JPEG (voir ce fichier). */
 .sb-receipt-print-stamp-standalone {
   display: none;
   width: 178mm;
@@ -2155,6 +2208,23 @@ th.sb-nom-tronque {
   box-sizing: border-box;
   text-align: right;
   font-family: "Inter", sans-serif;
+}
+/* Pied de page capturé seul, même principe exact que le tampon ci-dessus —
+   affiché juste après lui par composerTamponEtPiedDePage. Styles visuels
+   identiques à .sb-receipt-print-footer (texte centré, trait de séparation
+   au-dessus), seule la largeur/le box-sizing changent pour correspondre à
+   une capture autonome plutôt que nichée dans le flux normal du document. */
+.sb-receipt-print-footer-standalone {
+  display: none;
+  width: 178mm;
+  margin: 0 auto;
+  box-sizing: border-box;
+  text-align: center;
+  font-family: "Inter", sans-serif;
+  font-size: 11px;
+  color: #a6a29d;
+  border-top: 1px solid #e4e2d8;
+  padding-top: 18px;
 }
 .sb-receipt-print-stamp-mark {
   display: inline-block;
@@ -2188,20 +2258,36 @@ th.sb-nom-tronque {
 .sb-receipt-print-cadeaux-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 10px;
 }
+/* Case alignée sur la case photo des articles du tableau
+   (.sb-receipt-print-table-photo img, 34px, plus haut) — légèrement plus
+   grande (40px, ×1,18, sous le maximum ×1,25 demandé) pour rester lisible
+   une fois isolée dans son propre carré, plutôt que coincée dans une
+   cellule de tableau. width > largeur de la photo : la case déborde
+   volontairement un peu de part et d'autre de la photo (centrée via
+   margin: 0 auto ci-dessous) pour laisser au nom en dessous un peu de
+   place avant de tronquer. */
 .sb-receipt-print-cadeau {
-  width: 104px;
-  flex: 0 0 104px;
+  width: 64px;
+  flex: 0 0 64px;
   text-align: center;
 }
+/* Même fond blanc, même bordure fine et même recadrage que la case photo
+   du tableau — jamais le gris #f8f7f5 d'avant : c'est précisément ce
+   fond-là, visible par transparence derrière une photo de cadeau au fond
+   transparent (PNG), qui faisait paraître une case différente des autres
+   (gris au lieu de blanc) alors que la règle CSS était déjà identique pour
+   toutes les cases. Un fond blanc se fond avec le papier du document dans
+   ce même cas, invisible quelle que soit la photo. */
 .sb-receipt-print-cadeau-photo {
-  width: 104px;
-  height: 104px;
-  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  border-radius: 6px;
   overflow: hidden;
   border: 1px solid #e4e2d8;
-  background: #f8f7f5;
+  background: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2219,17 +2305,19 @@ th.sb-nom-tronque {
 }
 /* Orange du thème (#c7601a, même teinte que le tampon ci-dessus) en gras :
    reste lisible même imprimé en noir et blanc, le poids de police portant
-   la distinction là où la couleur disparaît. */
+   la distinction là où la couleur disparaît. Taille réduite avec la case
+   (voir LONGUEUR_NOM_CADEAU dans components/Receipt.js, recalibrée pour
+   cette même largeur plus étroite), pour rester proportionnée à elle. */
 .sb-receipt-print-cadeau-label {
-  font-size: 10px;
+  font-size: 8.5px;
   font-weight: 700;
   color: #c7601a;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  margin: 8px 0 2px;
+  margin: 5px 0 2px;
 }
 .sb-receipt-print-cadeau-nom {
-  font-size: 10.5px;
+  font-size: 9px;
   color: #2e2c2b;
   margin: 0;
 }

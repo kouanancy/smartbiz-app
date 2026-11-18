@@ -308,7 +308,7 @@ export default function ArticlesPage() {
   const filtresActif = [
     { key: FILTRE_ACTIFS, label: t("articles.filtreActifs") },
     { key: FILTRE_DESACTIVES, label: t("articles.filtreDesactives") },
-    { key: FILTRE_TOUS_STATUTS, label: t("common.toutes") },
+    { key: FILTRE_TOUS_STATUTS, label: t("articles.filtreTousStatuts") },
   ];
 
   // L'export doit couvrir tout le stock filtré, pas seulement la page
@@ -515,31 +515,43 @@ export default function ArticlesPage() {
         </form>
       )}
 
-      <ClearableInput
-        wrapStyle={{ marginBottom: 14, maxWidth: 280 }}
-        leftIcon={<Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "var(--muted)" }} />}
-        placeholder={t("articles.searchPlaceholder")}
-        value={recherche}
-        onChange={(e) => setRecherche(e.target.value)}
-        clearLabel={t("common.clearField")}
-      />
-
-      <div className="sb-toggle-group" style={{ marginBottom: 10, flexWrap: "wrap", display: "inline-flex" }}>
-        {filtresActif.map((opt) => (
-          <button
-            key={opt.key}
-            className={`sb-toggle-item${filtreActif === opt.key ? " active" : ""}`}
-            onClick={() => {
-              setFiltreActif(opt.key);
-              setPage(0);
-            }}
-          >
-            {opt.label}
-          </button>
-        ))}
+      {/* Ligne 1 : recherche + statut — un menu déroulant plutôt qu'une
+          pastille parmi d'autres, pour qu'il ne soit jamais confondu avec
+          les catégories (ligne 2, ci-dessous), qui n'ont rien à voir avec
+          le statut actif/désactivé d'un article. Chaque <option> porte déjà
+          le préfixe « Statut : » (articles.filtreStatutOption) : le menu
+          fermé affiche donc toujours « Statut : <valeur choisie> », comme
+          demandé, sans élément de mise en page séparé pour ce préfixe. */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+        <ClearableInput
+          wrapStyle={{ flex: "1 1 220px", maxWidth: 320 }}
+          leftIcon={<Search size={14} style={{ position: "absolute", left: 10, top: 10, color: "var(--muted)" }} />}
+          placeholder={t("articles.searchPlaceholder")}
+          value={recherche}
+          onChange={(e) => setRecherche(e.target.value)}
+          clearLabel={t("common.clearField")}
+        />
+        <select
+          className={`sb-filtre-statut${filtreActif !== FILTRE_ACTIFS ? " sb-filtre-statut-applique" : ""}`}
+          value={filtreActif}
+          onChange={(e) => {
+            setFiltreActif(e.target.value);
+            setPage(0);
+          }}
+        >
+          {filtresActif.map((opt) => (
+            <option key={opt.key} value={opt.key}>
+              {t("articles.filtreStatutOption", { label: opt.label })}
+            </option>
+          ))}
+        </select>
       </div>
 
-      <div className="sb-toggle-group" style={{ marginBottom: 14, flexWrap: "wrap", display: "inline-flex" }}>
+      {/* Ligne 2 : uniquement les catégories, sur une seule ligne qui
+          défile horizontalement plutôt que de passer à la ligne
+          (sb-toggle-group-scroll) si elles sont trop nombreuses pour la
+          largeur de l'écran — utile surtout sur téléphone. */}
+      <div className="sb-toggle-group sb-toggle-group-scroll" style={{ marginBottom: 14 }}>
         {filtresCategorie.map((opt) => (
           <button
             key={opt.key}

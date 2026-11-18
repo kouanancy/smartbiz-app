@@ -22,10 +22,11 @@ import PrintPreviewModal from "@/components/PrintPreviewModal";
 // contrairement à tronquerMilieuNom().
 const LONGUEUR_NOM_IMPRESSION = 42;
 
-// Seuil pour le nom d'article sous chaque carré de cadeau offert (carré de
-// 104px, police 10.5px) — plus court que LONGUEUR_NOM_IMPRESSION ci-dessus,
-// calibré sur cette largeur bien plus étroite qu'une cellule de tableau.
-const LONGUEUR_NOM_CADEAU = 18;
+// Seuil pour le nom d'article sous chaque carré de cadeau offert (case de
+// 64px, police 9px, voir .sb-receipt-print-cadeau dans globals.css) — plus
+// court que LONGUEUR_NOM_IMPRESSION ci-dessus, calibré sur cette largeur
+// bien plus étroite qu'une cellule de tableau.
+const LONGUEUR_NOM_CADEAU = 12;
 
 // Même principe que plus bas pour les carrés de cadeaux (couleurs
 // "emerald" recopiées en dur plutôt que var(--emerald)/var(--emerald-bg),
@@ -92,12 +93,19 @@ export default function Receipt({ commande, business, onClose }) {
   const [platformLogo, setPlatformLogo] = useState("");
   const printRef = useRef(null);
   // Tampon « Confirmée » capturé séparément du reste du document (jamais
-  // nichée dans printRef) : voir composerTamponIntelligent dans
+  // nichée dans printRef) : voir composerTamponEtPiedDePage dans
   // lib/pdfExport.js, qui le place lui-même dans l'espace libre de la
   // dernière page, jamais superposé au contenu ni coupé par un saut de
   // page — seul moyen de connaître cet espace libre une fois les autres
   // pages déjà découpées.
   const stampRef = useRef(null);
+  // Pied de page « Propulsé par Doka » capturé séparément, selon exactement
+  // le même principe que stampRef ci-dessus (jamais niché dans printRef
+  // pendant cette capture-là) : lib/pdfExport.js compose désormais le
+  // tampon PUIS ce pied de page, dans cet ordre, dans l'espace libre de la
+  // dernière page — le pied de page reste ainsi le tout dernier élément du
+  // document, avec le tampon juste au-dessus plutôt qu'en-dessous de lui.
+  const footerRef = useRef(null);
 
   // Logo Doka pour le pied de page "Propulsé par Doka" — indépendant du
   // logo de boutique (celui-ci reste géré par l'administratrice).
@@ -140,9 +148,15 @@ export default function Receipt({ commande, business, onClose }) {
           el?.classList.add("sb-pdf-export-capture");
           return el;
         }}
+        getFooterElement={() => {
+          const el = footerRef.current;
+          el?.classList.add("sb-pdf-export-capture");
+          return el;
+        }}
         onCaptured={() => {
           printRef.current?.classList.remove("sb-pdf-export-capture");
           stampRef.current?.classList.remove("sb-pdf-export-capture");
+          footerRef.current?.classList.remove("sb-pdf-export-capture");
         }}
         labelFermer={t("common.apercuFermer")}
         labelTelecharger={t("receipt.telechargerPdf")}
@@ -156,11 +170,15 @@ export default function Receipt({ commande, business, onClose }) {
           Rendue via un portail directement dans <body> pour ne dépendre d'aucune
           structure de page parente : le CSS @media print n'a qu'à masquer .sb-root
           et afficher ce bloc (impression native, Ctrl+P, indépendante de l'aperçu
-          et du PDF téléchargé ci-dessus). Le tampon (sb-receipt-print-stamp-standalone)
-          est un second bloc du même portail, frère de .sb-receipt-print plutôt que
-          niché dedans : capturé séparément par lib/pdfExport.js, jamais par
-          l'impression native, qui garde sa propre version nichée plus bas
-          (.sb-receipt-print-stamp), inchangée. */}
+          et du PDF téléchargé ci-dessus). Le tampon et le pied de page
+          (sb-receipt-print-stamp-standalone, sb-receipt-print-footer-standalone)
+          sont deux blocs supplémentaires du même portail, frères de
+          .sb-receipt-print plutôt que nichés dedans : capturés séparément par
+          lib/pdfExport.js (qui les compose dans cet ordre — tampon puis pied
+          de page — dans l'espace libre de la dernière page), jamais par
+          l'impression native, qui garde ses propres versions nichées plus bas
+          (.sb-receipt-print-stamp, .sb-receipt-print-footer), inchangées et
+          déjà dans le bon ordre. */}
       {createPortal(
         <>
           <div className="sb-receipt-print" ref={printRef}>
@@ -310,7 +328,7 @@ export default function Receipt({ commande, business, onClose }) {
                           <img src={l.image_url} alt="" />
                         ) : (
                           <div className="sb-receipt-print-cadeau-photo-fallback">
-                            <ImageIcon size={22} />
+                            <ImageIcon size={14} />
                           </div>
                         )}
                       </div>
@@ -324,12 +342,15 @@ export default function Receipt({ commande, business, onClose }) {
               </div>
             )}
 
-            {/* Version du tampon utilisée par l'impression native (Ctrl+P)
-                uniquement — masquée pendant la capture html2canvas (voir
-                .sb-receipt-print.sb-pdf-export-capture .sb-receipt-print-stamp
-                dans globals.css) : l'aperçu et le PDF téléchargé utilisent
-                exclusivement la version autonome plus bas, placée de façon
-                intelligente par composerTamponIntelligent. */}
+            {/* Versions du tampon et du pied de page utilisées par
+                l'impression native (Ctrl+P) uniquement — déjà dans le bon
+                ordre (tampon puis pied de page) — masquées pendant la
+                capture html2canvas (voir
+                .sb-receipt-print.sb-pdf-export-capture
+                .sb-receipt-print-stamp/-footer dans globals.css) : l'aperçu
+                et le PDF téléchargé utilisent exclusivement les versions
+                autonomes plus bas, composées par composerTamponEtPiedDePage
+                (lib/pdfExport.js). */}
             <div className="sb-receipt-print-stamp">
               <span className="sb-receipt-print-stamp-mark">{t("receipt.stampConfirmee")}</span>
             </div>
@@ -342,6 +363,21 @@ export default function Receipt({ commande, business, onClose }) {
 
           <div className="sb-receipt-print-stamp-standalone" ref={stampRef}>
             <span className="sb-receipt-print-stamp-mark">{t("receipt.stampConfirmee")}</span>
+          </div>
+
+          {/* display: flex posé ici sur un <span> intérieur plutôt que sur
+              .sb-receipt-print-footer-standalone elle-même : cette dernière
+              reçoit .sb-pdf-export-capture pendant sa capture, qui impose
+              display: block !important (voir globals.css) — un display:
+              flex sur l'élément racine capturé serait écrasé par cette
+              règle, même principe que text-align: right déjà utilisé pour
+              .sb-receipt-print-stamp-standalone plutôt qu'un flex sur sa
+              propre racine. */}
+          <div className="sb-receipt-print-footer-standalone" ref={footerRef}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+              {platformLogo && <img src={platformLogo} alt="" style={{ height: 12, width: 12, objectFit: "contain" }} />}
+              {t("common.poweredBy")}
+            </span>
           </div>
         </>,
         document.body
