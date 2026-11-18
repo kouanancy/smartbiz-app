@@ -297,8 +297,7 @@ export default function ArticleDetailPage() {
 
         <div className="sb-detail-field-grid" style={{ marginBottom: 12 }}>
           <DetailField label={t("articles.colCode")} value={article.code} />
-          <DetailField label={t("articles.colAchat")} value={fmt(article.prix_achat)} />
-          <DetailField label={t("articles.colFraisAnnexes")} value={fmt(article.frais_annexes || 0)} />
+          <DetailField label={t("articles.colCoutRevient")} value={fmt(article.prix_achat + (article.frais_annexes || 0))} />
           {prixVenteDefini ? (
             <DetailField label={t("articles.colVente")} value={fmt(article.prix_vente)} />
           ) : (
@@ -508,17 +507,11 @@ export default function ArticleDetailPage() {
               </div>
               <div className="sb-form-grid">
                 {moduleAchatsActif ? (
-                  <>
-                    <div className="sb-field">
-                      <label>{t("articles.prixAchatLabel")}</label>
-                      <input className="sb-input" value={fmt(article.prix_achat)} disabled />
-                      <p style={{ fontSize: 11, color: "var(--muted)", margin: "4px 2px 0" }}>{t("articles.coutAchatVerrouilleNote")}</p>
-                    </div>
-                    <div className="sb-field">
-                      <label>{t("articles.fraisAnnexesLabel")}</label>
-                      <input className="sb-input" value={fmt(article.frais_annexes || 0)} disabled />
-                    </div>
-                  </>
+                  <div className="sb-field">
+                    <label>{t("articles.coutRevientLabel")}</label>
+                    <input className="sb-input" value={fmt(article.prix_achat + (article.frais_annexes || 0))} disabled />
+                    <p style={{ fontSize: 11, color: "var(--muted)", margin: "4px 2px 0" }}>{t("articles.coutAchatVerrouilleNote")}</p>
+                  </div>
                 ) : (
                   <>
                     <PrixAchatConvertible

@@ -319,8 +319,7 @@ export default function ArticlesPage() {
       [t("articles.colCode")]: a.code,
       [t("articles.colArticle")]: a.nom,
       [t("articles.colCategorie")]: categorieName(a.categorie_id),
-      [t("articles.colAchat")]: a.prix_achat,
-      [t("articles.colFraisAnnexes")]: a.frais_annexes || 0,
+      [t("articles.colCoutRevient")]: a.prix_achat + (a.frais_annexes || 0),
       [t("articles.colVente")]: a.prix_vente ?? "",
       [t("articles.colMargeReelle")]: a.prix_vente == null ? "" : a.prix_vente - a.prix_achat - (a.frais_annexes || 0),
       [t("articles.colStock")]: a.stock,
@@ -564,8 +563,7 @@ export default function ArticlesPage() {
                 <th>{t("articles.colCode")}</th>
                 <th>{t("articles.colArticle")}</th>
                 <th>{t("articles.colCategorie")}</th>
-                <th style={{ textAlign: "right" }}>{t("articles.colAchat")}</th>
-                <th style={{ textAlign: "right" }}>{t("articles.colFraisAnnexes")}</th>
+                <th style={{ textAlign: "right" }}>{t("articles.colCoutRevient")}</th>
                 <th style={{ textAlign: "right" }}>{t("articles.colVente")}</th>
                 <th style={{ textAlign: "right" }}>{t("articles.colMargeReelle")}</th>
                 <th style={{ textAlign: "right" }}>{t("articles.colStock")}</th>
@@ -591,8 +589,7 @@ export default function ArticlesPage() {
                     <td className="sb-mono" style={{ color: "var(--muted)" }}>{a.code}</td>
                     <td className="sb-nom-tronque" title={a.nom}>{tronquerMilieuNom(a.nom)}</td>
                     <td className="sb-nom-tronque" style={{ color: "var(--muted)" }}>{categorieName(a.categorie_id)}</td>
-                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(a.prix_achat)}</td>
-                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(a.frais_annexes || 0)}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(a.prix_achat + (a.frais_annexes || 0))}</td>
                     <td style={{ textAlign: "right" }}>
                       {prixVenteDefini ? (
                         <span className="sb-mono">{fmt(a.prix_vente)}</span>
