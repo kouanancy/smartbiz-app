@@ -27,6 +27,10 @@ const emptyForm = {
   stock: "",
   seuil: "3",
   image_url: "",
+  // Activé par défaut (voir articles.propose_en_ligne, nouvelle colonne
+  // not null default true) : n'a d'effet visible que si le module
+  // Boutique en ligne est actif pour cette boutique (champ masqué sinon).
+  propose_en_ligne: true,
 };
 
 const FILTRE_TOUTES = "toutes";
@@ -248,6 +252,12 @@ export default function ArticlesPage() {
       stock: Math.max(0, Number(form.stock) || 0),
       seuil: Number(form.seuil) || 3,
       image_url: form.image_url || null,
+      // Toujours envoyé, module actif ou non : la colonne a de toute
+      // façon pour seule valeur par défaut true, et un module inactif
+      // n'en fait jamais rien (voir supabase-boutique-en-ligne-
+      // migration.sql) -- aucun comportement conditionnel à reproduire
+      // ici.
+      propose_en_ligne: form.propose_en_ligne,
     });
     if (error) return;
     setRefreshTick((t) => t + 1);
@@ -501,6 +511,16 @@ export default function ArticlesPage() {
               onChange={(e) => setForm({ ...form, seuil: e.target.value })}
             />
           </div>
+          {business?.module_boutique_en_ligne_actif && (
+            <label style={{ gridColumn: "1 / 3", display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={form.propose_en_ligne}
+                onChange={(e) => setForm({ ...form, propose_en_ligne: e.target.checked })}
+              />
+              {t("articles.proposeEnLigneLabel")}
+            </label>
+          )}
           <div style={{ gridColumn: "1 / 3" }}>
             <ImageUploadField
               label={t("articles.photoLabel")}

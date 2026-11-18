@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Image as ImageIcon, PackageX, Pencil, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Globe, Image as ImageIcon, PackageX, Pencil, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
@@ -225,6 +225,22 @@ export default function ArticleDetailPage() {
     await chargerArticle();
   }
 
+  // Interrupteur de la fiche, indépendant du formulaire « Modifier » --
+  // même principe que désactiver/réactiver juste au-dessus : un simple
+  // update direct, pas besoin de passer par le formulaire d'édition pour
+  // une bascule aussi ponctuelle. Déclenche côté base l'envoi de
+  // l'article au site (trg_boutique_en_ligne_article_update, voir
+  // supabase-boutique-en-ligne-migration.sql), y compris quand il vient
+  // de cesser d'être proposé (pour que le site le retire de la vitrine).
+  async function toggleProposeEnLigne(checked) {
+    const { error } = await supabase.from("articles").update({ propose_en_ligne: checked }).eq("id", article.id);
+    if (error) {
+      window.alert(t("articles.proposeEnLigneError", { message: error.message }));
+      return;
+    }
+    await chargerArticle();
+  }
+
   async function supprimerArticle() {
     const confirmed = window.confirm(t("articles.confirmDelete", { nom: article.nom }));
     if (!confirmed) return;
@@ -355,6 +371,24 @@ export default function ArticleDetailPage() {
           )}
         </div>
       </div>
+
+      {business?.module_boutique_en_ligne_actif && (
+        <div className="sb-card" style={{ maxWidth: 480, marginTop: 16 }}>
+          <div className="sb-section-title" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+            <Globe size={14} color="var(--accent-text)" /> {t("articles.boutiqueEnLigneTitle")}
+            <span className="sb-badge sb-badge-amber" style={{ fontSize: 10.5, marginLeft: "auto" }}>{t("common.badgeTest")}</span>
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, margin: "10px 0 6px", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={article.propose_en_ligne !== false}
+              onChange={(e) => toggleProposeEnLigne(e.target.checked)}
+            />
+            {t("articles.proposeEnLigneLabel")}
+          </label>
+          <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>{t("articles.boutiqueEnLigneInfo")}</p>
+        </div>
+      )}
 
       <ConfirmDialog
         open={confirmDesactiverOpen}

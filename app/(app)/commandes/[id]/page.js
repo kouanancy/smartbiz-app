@@ -441,6 +441,13 @@ export default function CommandeDetailPage() {
   // commande" (solderCommande() plus haut), même si des acomptes successifs
   // ont déjà couvert tout le total par ailleurs.
   const soldee = commande.solde === true;
+  // "Ces commandes sont gérées depuis l'admin du site et restent en
+  // lecture seule dans Doka" — même garde côté base (voir
+  // verrouiller_commande_boutique_en_ligne()/verrouiller_commande_ligne_
+  // boutique_en_ligne() dans supabase-boutique-en-ligne-migration.sql) :
+  // les boutons d'action ci-dessous sont masqués en miroir de ce que la
+  // base refuserait de toute façon.
+  const estBoutiqueEnLigne = commande.source === "boutique_en_ligne";
 
   return (
     <div>
@@ -453,7 +460,12 @@ export default function CommandeDetailPage() {
           <h1 className="sb-h1 sb-mono">{commande.numero}</h1>
           <p className="sb-sub">{new Date(commande.created_at).toLocaleDateString(dateLocale(business?.langue))}</p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {estBoutiqueEnLigne && (
+            <span className="sb-badge sb-badge-muted" style={{ fontSize: 13, padding: "7px 12px" }}>
+              {t("commandes.badgeBoutiqueEnLigne", { reference: commande.reference_externe })}
+            </span>
+          )}
           {enAttente && aUnAcompte && (
             <span className="sb-badge sb-badge-muted" style={{ fontSize: 13, padding: "7px 12px" }}>
               {t("commandes.reservee")}
@@ -464,6 +476,14 @@ export default function CommandeDetailPage() {
           </span>
         </div>
       </div>
+
+      {estBoutiqueEnLigne && (
+        <div className="sb-card" style={{ marginBottom: 16, borderLeft: "3px solid var(--accent)" }}>
+          <p style={{ fontSize: 13, margin: 0 }}>
+            {t("commandes.boutiqueEnLigneInfo", { reference: commande.reference_externe })}
+          </p>
+        </div>
+      )}
 
       <div className="sb-card" style={{ marginBottom: 16 }}>
         <div className="sb-receipt-print-info">
@@ -575,7 +595,7 @@ export default function CommandeDetailPage() {
           <div className="sb-section-title" style={{ margin: 0, fontSize: 13 }}>
             {t("commandes.acomptesTitle")}
           </div>
-          {enAttente && !commande.paye_totalite && !soldee && (
+          {enAttente && !commande.paye_totalite && !soldee && !estBoutiqueEnLigne && (
             <button className="sb-btn sb-btn-primary" onClick={ouvrirAcompte}>
               <Banknote size={14} /> {t("commandes.ajouterAcompte")}
             </button>
@@ -641,7 +661,7 @@ export default function CommandeDetailPage() {
                   {t("commandes.commandeSoldee")}
                 </span>
               ) : (
-                enAttente && (
+                enAttente && !estBoutiqueEnLigne && (
                   <button className="sb-btn sb-btn-emerald" style={{ fontSize: 12.5, padding: "6px 10px" }} onClick={solderCommande} disabled={solderSaving}>
                     <Banknote size={13} /> {solderSaving ? t("commandes.saving") : t("commandes.solderCommande")}
                   </button>
@@ -654,12 +674,12 @@ export default function CommandeDetailPage() {
       </div>
 
       <div className="sb-detail-actions">
-        {enAttente && (
+        {enAttente && !estBoutiqueEnLigne && (
           <button className="sb-btn sb-btn-emerald" onClick={marquerLivree} disabled={aUnAcompte && !soldee}>
             <TruckIcon size={15} /> {t("commandes.livre")}
           </button>
         )}
-        {enAttente && (
+        {enAttente && !estBoutiqueEnLigne && (
           <button className="sb-btn sb-btn-ghost" onClick={ouvrirEdition}>
             <Pencil size={15} /> {t("commandes.modifier")}
           </button>
@@ -667,7 +687,7 @@ export default function CommandeDetailPage() {
         <button className="sb-btn sb-btn-ghost" onClick={reprint}>
           <Printer size={15} /> {t("commandes.imprimerPdf")}
         </button>
-        {enAttente && (
+        {enAttente && !estBoutiqueEnLigne && (
           <button className="sb-btn sb-btn-ghost" style={{ color: "var(--coral)" }} onClick={annulerCommande}>
             <Ban size={15} /> {t("commandes.annuler")}
           </button>
