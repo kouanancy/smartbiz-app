@@ -52,6 +52,13 @@ a {
   --accent-text: var(--accent-deep);
   --toggle-bg: #eeecea;
   --toggle-color: #726e6c;
+  /* Permet aux contrôles natifs (case à cocher, listes déroulantes,
+     sélecteurs de date, ascenseurs des champs numériques) de suivre ce
+     même mode clair/sombre plutôt que la préférence du système — sans
+     cette déclaration, un commerçant dont l'appareil est en mode sombre
+     verrait ces contrôles rendus en sombre même avec le thème Doka réglé
+     sur clair (et inversement), indépendamment du color: ci-dessous. */
+  color-scheme: light;
 }
 
 /* ------------------------------------------------------------------ */
@@ -89,6 +96,7 @@ a {
   --accent-text: var(--accent-soft);
   --toggle-bg: #141311;
   --toggle-color: #b7b2ac;
+  color-scheme: dark;
 }
 
 .sb-root {
@@ -613,6 +621,30 @@ a {
   padding: 8px 10px;
   width: 100%;
   background: var(--card);
+  /* input/select/textarea n'héritent pas toujours color depuis .sb-root
+     selon le navigateur (contrairement à un simple texte) : sans cette
+     ligne, le texte saisi restait rendu dans la couleur par défaut du
+     navigateur (noir) quel que soit le thème — invisible une fois
+     background passé en sombre (voir README.md, section Mode sombre). */
+  color: var(--ink);
+}
+.sb-input::placeholder {
+  /* var(--muted), jamais var(--text-faint) (trop clair, sous 4,5:1 sur
+     fond clair) : un placeholder reste un texte lu, pas une décoration. */
+  color: var(--muted);
+}
+.sb-input:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+/* <option> est une boîte séparée du <select> qui la contient : certains
+   moteurs (Firefox notamment) rendent le menu déroulant ouvert avec ces
+   couleurs plutôt qu'avec celles, natives, du système — sans cette règle,
+   ce menu pouvait rester blanc/noir en mode sombre même une fois le
+   <select> fermé correctement thémé ci-dessus. */
+select.sb-input option {
+  background: var(--card);
+  color: var(--ink);
 }
 .sb-input:focus {
   outline: 2px solid var(--emerald);
@@ -1586,19 +1618,23 @@ th.sb-nom-tronque {
   display: table-cell;
 }
 
-/* Sélecteur d'article avec miniature (Nouvelle commande) — un <select>
-   natif ne peut pas afficher d'image dans ses <option>, d'où ce panneau
-   personnalisé qui reproduit la même interaction (bouton + liste). */
-.sb-article-select {
+/* Sélecteur avec recherche partagé par ArticleSelect (miniature photo,
+   Nouvelle commande/modification de commande) et ClientSelect (initiales,
+   choix d'un client existant) — un <select> natif ne peut ni filtrer en
+   tapant ni afficher une image/des initiales dans ses <option>, d'où ce
+   panneau personnalisé qui reproduit la même interaction (champ de
+   recherche + liste de suggestions), avec le même habillage visuel pour
+   les deux usages. */
+.sb-search-select {
   position: relative;
 }
-.sb-article-select-trigger {
+.sb-search-select-trigger {
   display: flex;
   align-items: center;
   gap: 8px;
   text-align: left;
 }
-.sb-article-select-input {
+.sb-search-select-input {
   flex: 1;
   min-width: 0;
   border: none;
@@ -1609,27 +1645,50 @@ th.sb-nom-tronque {
   font-size: 13px;
   color: var(--ink);
 }
-.sb-article-select-input::placeholder {
-  color: var(--text-faint);
+.sb-search-select-input::placeholder {
+  /* var(--muted), jamais var(--text-faint) (trop clair, sous 4,5:1 sur
+     fond clair) : un placeholder reste un texte lu, pas une décoration. */
+  color: var(--muted);
 }
-.sb-article-select-label {
+.sb-search-select-label {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sb-article-select-chevron {
+.sb-search-select-chevron {
   flex-shrink: 0;
   color: var(--text-faint);
 }
-.sb-article-select-empty {
+.sb-search-select-empty {
   padding: 10px 8px;
   font-size: 12.5px;
   color: var(--muted);
   text-align: center;
   margin: 0;
 }
-.sb-article-select-thumb {
+/* Bouton "Nouveau client" optionnel sous le message "Aucun client
+   trouvé" (ClientSelect uniquement, accès direct à la création) — même
+   habillage que .sb-search-select-item pour rester cohérent avec le
+   reste du panneau, bien qu'il ne sélectionne rien. */
+.sb-search-select-empty-action {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  border: none;
+  background: transparent;
+  color: var(--accent-text);
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 12.5px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.sb-search-select-empty-action:hover {
+  background: var(--card-soft);
+}
+.sb-search-select-thumb {
   width: 26px;
   height: 26px;
   border-radius: 6px;
@@ -1641,12 +1700,21 @@ th.sb-nom-tronque {
   overflow: hidden;
   flex-shrink: 0;
 }
-.sb-article-select-thumb img {
+.sb-search-select-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.sb-article-select-panel {
+/* Initiales du client (ClientSelect) à la place d'une photo (clients n'en
+   ont pas) — même boîte .sb-search-select-thumb, juste un contenu texte
+   plutôt qu'une image/icône. */
+.sb-search-select-thumb-initiales {
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  color: var(--accent-text);
+}
+.sb-search-select-panel {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
@@ -1660,7 +1728,7 @@ th.sb-nom-tronque {
   overflow-y: auto;
   padding: 4px;
 }
-.sb-article-select-item {
+.sb-search-select-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1674,15 +1742,53 @@ th.sb-nom-tronque {
   text-align: left;
   cursor: pointer;
 }
-.sb-article-select-item:hover:not(:disabled) {
+.sb-search-select-item:hover:not(:disabled) {
   background: var(--card-soft);
 }
-.sb-article-select-item.active {
+.sb-search-select-item.active {
   background: var(--accent-soft);
 }
-.sb-article-select-item:disabled {
+.sb-search-select-item:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+/* Nom + téléphone sur deux lignes (ClientSelect) plutôt qu'un seul
+   libellé — l'ArticleSelect continue d'utiliser .sb-search-select-label
+   (une seule ligne : code · nom — prix) pour ses suggestions. */
+.sb-search-select-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+.sb-search-select-item-nom {
+  font-size: 13px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-search-select-item-tel {
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* État "sélectionné" (ClientSelect) : remplace le champ de recherche par
+   une carte compacte une fois un client choisi, avec un bouton "Changer"
+   pour rouvrir la recherche — ArticleSelect, lui, garde toujours son
+   champ de recherche visible (voir le composant), ce panneau est donc
+   propre à ClientSelect. */
+.sb-search-select-selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-search-select-selected-changer {
+  flex-shrink: 0;
 }
 
 @media print {

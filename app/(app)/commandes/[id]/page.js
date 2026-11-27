@@ -10,6 +10,7 @@ import { OPERATEURS_MOBILE_MONEY, MODES_PAIEMENT_ACOMPTE } from "@/lib/constants
 import { t as tBase } from "@/lib/i18n";
 import Receipt from "@/components/Receipt";
 import ArticleSelect from "@/components/ArticleSelect";
+import ClientSelect from "@/components/ClientSelect";
 import ResumeCommandeTotaux from "@/components/ResumeCommandeTotaux";
 
 const STATUT_BADGE_CLASS = {
@@ -766,13 +767,14 @@ export default function CommandeDetailPage() {
 
             <div className="sb-field" style={{ marginBottom: 16 }}>
               <label>{t("commandes.clienteLabel")}</label>
-              <select className="sb-input" value={editClientId} onChange={(e) => setEditClientId(e.target.value)}>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nom} — {c.telephone}
-                  </option>
-                ))}
-              </select>
+              <ClientSelect
+                clients={clients}
+                value={editClientId}
+                onChange={setEditClientId}
+                placeholder={t("nouvelle.selectCliente")}
+                emptyLabel={t("nouvelle.aucuneClienteTrouvee")}
+                changerLabel={t("nouvelle.changerCliente")}
+              />
             </div>
 
             <div className="sb-section-title" style={{ fontSize: 13 }}>

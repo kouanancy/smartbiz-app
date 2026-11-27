@@ -1646,6 +1646,31 @@ clic/tactile (choisir une suggestion). Utilisé à la fois dans Nouvelle
 commande et dans la modale d'édition d'une commande (Commandes) — même
 composant, même comportement de recherche aux deux endroits.
 
+**Sélecteur de client avec recherche** : `components/ClientSelect.js`
+remplace, sur le même principe, le `<select>` natif utilisé pour choisir
+un **client déjà enregistré** (Nouvelle commande, et la modale de
+modification d'une commande) — même panneau de suggestions, mêmes classes
+CSS partagées (`app/globals.css`, `.sb-search-select-*`, renommées depuis
+`.sb-article-select-*` pour refléter ce partage), recherche filtrant sur
+`clients.nom` **et `clients.telephone`** (comparaison du téléphone sur les
+chiffres seuls, préfixes/espaces ignorés). Deux différences propres au
+choix d'un client, plutôt qu'un article :
+- une fois un résultat choisi, le champ de recherche est remplacé par une
+  carte compacte (initiales + nom + téléphone, les clients n'ayant pas de
+  photo) avec un bouton « Changer » qui rouvre la recherche — plutôt que
+  de rester éditable comme pour un article ;
+- les clients désactivés (`clients.actif = false`) ne sont jamais proposés
+  dans les suggestions ; un client déjà choisi puis désactivé depuis (la
+  modale de modification d'une commande peut se retrouver dans ce cas)
+  continue cependant de s'afficher correctement dans la carte "sélectionné"
+  — seul un **nouveau** choix vers un autre client désactivé est exclu.
+
+Le message « Aucun client trouvé » propose, dans Nouvelle commande, un
+accès direct au formulaire « Nouveau client » (même parcours de création
+qu'avant, inchangé) ; la modale de modification d'une commande, elle, ne
+permet déjà de choisir que parmi des clients existants, donc pas de ce
+raccourci à cet endroit.
+
 ## Code article
 
 Chaque article reçoit à sa création un code unique et définitif au
@@ -2897,6 +2922,41 @@ les mises en page d'impression (Trésorerie, Revenus Doka, Catalogue, reçu)
 dans son ensemble (aperçu à l'écran inclus), traité comme un document
 prévu pour l'impression/le partage WhatsApp plutôt que comme un écran de
 navigation, donc cohérent quel que soit le thème de l'app.
+
+### Correctif : texte noir sur fond noir dans les champs de saisie
+
+Un deuxième audit a révélé que l'audit ci-dessus (couleurs écrites en dur
+en JSX/CSS) ne couvrait pas une autre catégorie de bug : `.sb-input`
+(classe commune à tous les `<input>`/`<select>`/`<textarea>` de l'app) ne
+définissait aucune propriété `color` — contrairement à un texte normal,
+un champ de formulaire n'hérite pas forcément `color` depuis `.sb-root`
+selon le moteur de rendu. Le texte y restait donc affiché dans la couleur
+par défaut du navigateur (noir), invisible une fois `background: var(--card)`
+passé en sombre. Comme `.sb-input` est la classe universelle de tous les
+champs de l'app (recherche, formulaires, filtres, menus déroulants,
+modales, écrans d'administration, Paramètres...), ce seul oubli expliquait
+la quasi-totalité des textes illisibles signalés en mode sombre.
+
+Corrigé dans `app/globals.css` :
+- `.sb-input { color: var(--ink); }` — le correctif principal.
+- `.sb-input::placeholder { color: var(--muted); }` — un placeholder
+  reste un texte lu, pas une décoration (`var(--text-faint)`, utilisé par
+  endroits ailleurs dans l'app pour des légendes vraiment secondaires,
+  tombe sous 4,5:1 de contraste en mode clair).
+- `.sb-input:disabled { color: var(--muted); }` — ex. le champ "Coût de
+  revient" en lecture seule de la fiche article.
+- `select.sb-input option { background: var(--card); color: var(--ink); }`
+  — certains moteurs (Firefox) rendent le menu déroulant ouvert avec ces
+  couleurs plutôt qu'avec celles, natives, du système.
+- `color-scheme: light` (`:root`) / `color-scheme: dark`
+  (`:root[data-theme="dark"]`) — pour que les contrôles natifs
+  (case à cocher, ascenseurs des champs numériques, sélecteurs de date)
+  suivent eux aussi le mode choisi dans l'app plutôt que la préférence du
+  système de l'appareil.
+
+Vérifié par capture d'écran comparative (avant/après, clair/sombre) sur un
+panneau de test reprenant les classes `.sb-input`/`.sb-search-select-*`
+réelles de l'app.
 
 ## Langue
 

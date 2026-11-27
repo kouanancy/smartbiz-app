@@ -65,14 +65,14 @@ export default function ArticleSelect({ articles, value, onChange, getLabel, isD
   }
 
   return (
-    <div className="sb-article-select" ref={ref}>
-      <div className="sb-input sb-article-select-trigger">
-        <span className="sb-article-select-thumb">
+    <div className="sb-search-select" ref={ref}>
+      <div className="sb-input sb-search-select-trigger">
+        <span className="sb-search-select-thumb">
           {selected?.image_url ? <img src={selected.image_url} alt="" /> : <Search size={14} />}
         </span>
         <input
           type="text"
-          className="sb-article-select-input"
+          className="sb-search-select-input"
           value={query}
           placeholder={placeholder}
           onFocus={() => setOpen(true)}
@@ -84,22 +84,22 @@ export default function ArticleSelect({ articles, value, onChange, getLabel, isD
         />
       </div>
       {open && (
-        <div className="sb-article-select-panel">
+        <div className="sb-search-select-panel">
           {resultats.length === 0 ? (
-            <p className="sb-article-select-empty">{emptyLabel}</p>
+            <p className="sb-search-select-empty">{emptyLabel}</p>
           ) : (
             resultats.map((a) => (
               <button
                 type="button"
                 key={a.id}
-                className={`sb-article-select-item${a.id === value ? " active" : ""}`}
+                className={`sb-search-select-item${a.id === value ? " active" : ""}`}
                 disabled={isDisabled(a)}
                 onClick={() => selectionner(a)}
               >
-                <span className="sb-article-select-thumb">
+                <span className="sb-search-select-thumb">
                   {a.image_url ? <img src={a.image_url} alt="" /> : <ImageIcon size={14} />}
                 </span>
-                <span className="sb-article-select-label">{getLabel(a)}</span>
+                <span className="sb-search-select-label">{getLabel(a)}</span>
               </button>
             ))
           )}
