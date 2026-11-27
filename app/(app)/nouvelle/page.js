@@ -10,6 +10,7 @@ import { OPERATEURS_MOBILE_MONEY, MODES_PAIEMENT_ACOMPTE } from "@/lib/constants
 import { t as tBase } from "@/lib/i18n";
 import Receipt from "@/components/Receipt";
 import ArticleSelect from "@/components/ArticleSelect";
+import ClientSelect from "@/components/ClientSelect";
 import ResumeCommandeTotaux from "@/components/ResumeCommandeTotaux";
 
 export default function NouvelleCommandePage() {
@@ -449,14 +450,19 @@ export default function NouvelleCommandePage() {
             <>
               <div className="sb-field">
                 <label>{t("nouvelle.clienteLabel")}</label>
-                <select className="sb-input" value={clientId} onChange={(e) => setClientId(e.target.value)}>
-                  <option value="">{t("nouvelle.selectCliente")}</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nom} — {c.telephone}
-                    </option>
-                  ))}
-                </select>
+                <ClientSelect
+                  clients={clients}
+                  value={clientId}
+                  onChange={setClientId}
+                  placeholder={t("nouvelle.selectCliente")}
+                  emptyLabel={t("nouvelle.aucuneClienteTrouvee")}
+                  changerLabel={t("nouvelle.changerCliente")}
+                  nouveauClientLabel={t("nouvelle.nouvelleCliente")}
+                  onNouveauClient={() => {
+                    setMode("nouveau");
+                    setClientMsg("");
+                  }}
+                />
               </div>
               {clientSelectionne && (
                 <div className="sb-client-fiche">
