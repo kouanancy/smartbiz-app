@@ -18,11 +18,31 @@ const MOIS_A_AFFICHER = 12;
 const PERIODE_MOIS = { mois: 1, trimestre: 3, semestre: 6, annee: 12 };
 const PERIODES = ["semaine", "mois", "trimestre", "semestre", "annee"];
 
+// Un retour est compté à sa propre date (r.created_at), jamais sur la
+// période de la commande d'origine : il diminue le CA et la marge de SA
+// propre période (voir supabase-retours-migration.sql, enregistrer_retour())
+// sans jamais réécrire le bucket déjà posé par la commande elle-même —
+// les périodes passées restent donc inchangées tant qu'aucun nouveau
+// retour n'y est enregistré. "b.retours" cumule séparément le montant
+// remboursé, affiché comme une ligne "Retours" distincte (sortie), sans
+// jamais être lui-même soustrait une deuxième fois.
+function appliquerRetours(buckets, retours, getKey) {
+  retours.forEach((r) => {
+    const key = getKey(new Date(r.created_at));
+    const b = buckets.find((x) => x.key === key);
+    if (b) {
+      b.ca -= r.montant;
+      b.marge -= r.marge;
+      b.retours += r.montant;
+    }
+  });
+}
+
 // Un mois par entrée, du plus ancien (11 mois avant aujourd'hui) au plus
 // récent (mois courant) — sert à la fois de source pour le tableau des 12
 // derniers mois et pour les périodes du graphique (trimestre/semestre/année
 // en prennent simplement les N dernières entrées).
-function buildMonthlyBuckets(commandes, lang) {
+function buildMonthlyBuckets(commandes, retours, lang) {
   const now = new Date();
   const buckets = [];
   for (let i = MOIS_A_AFFICHER - 1; i >= 0; i--) {
@@ -33,6 +53,7 @@ function buildMonthlyBuckets(commandes, lang) {
       labelFull: d.toLocaleDateString(dateLocale(lang), { month: "short", year: "numeric" }),
       ca: 0,
       marge: 0,
+      retours: 0,
     });
   }
   commandes.forEach((c) => {
@@ -44,14 +65,21 @@ function buildMonthlyBuckets(commandes, lang) {
       b.marge += c.marge;
     }
   });
+  appliquerRetours(buckets, retours, (d) => `${d.getFullYear()}-${d.getMonth()}`);
   return buckets;
 }
 
-function buildSemaines(commandes, t) {
+function buildSemaines(commandes, retours, t) {
   const now = new Date();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const weeksCount = Math.ceil(daysInMonth / 7);
-  const buckets = Array.from({ length: weeksCount }, (_, i) => ({ label: t("dashboard.semaine", { n: i + 1 }), ca: 0, marge: 0 }));
+  const buckets = Array.from({ length: weeksCount }, (_, i) => ({
+    key: i,
+    label: t("dashboard.semaine", { n: i + 1 }),
+    ca: 0,
+    marge: 0,
+    retours: 0,
+  }));
   commandes.forEach((c) => {
     const d = new Date(c.created_at);
     if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
@@ -60,6 +88,14 @@ function buildSemaines(commandes, t) {
       buckets[w - 1].marge += c.marge;
     }
   });
+  appliquerRetours(
+    buckets,
+    retours.filter((r) => {
+      const d = new Date(r.created_at);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }),
+    (d) => Math.min(weeksCount, Math.ceil(d.getDate() / 7)) - 1
+  );
   return buckets;
 }
 
@@ -68,7 +104,7 @@ function buildSemaines(commandes, t) {
 // qu'offre buildSemaines() pour le mois courant (semaine -> jours, comme
 // mois -> semaines). "labelFull" (ex. "22 août") sert à construire la
 // plage affichée dans l'en-tête du rapport imprimé (periodeRangeLabel).
-function buildJoursSemaine(commandes, lang) {
+function buildJoursSemaine(commandes, retours, lang) {
   const now = new Date();
   const buckets = [];
   for (let i = 6; i >= 0; i--) {
@@ -79,6 +115,7 @@ function buildJoursSemaine(commandes, lang) {
       labelFull: d.toLocaleDateString(dateLocale(lang), { day: "2-digit", month: "long" }),
       ca: 0,
       marge: 0,
+      retours: 0,
     });
   }
   commandes.forEach((c) => {
@@ -90,6 +127,7 @@ function buildJoursSemaine(commandes, lang) {
       b.marge += c.marge;
     }
   });
+  appliquerRetours(buckets, retours, (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
   return buckets;
 }
 
@@ -140,6 +178,7 @@ export default function TresoreriePage() {
   const t = (key, vars) => tBase(business?.langue, key, vars);
   const accent = THEMES[business?.theme_key || "orange"].accent;
   const [commandes, setCommandes] = useState([]);
+  const [retours, setRetours] = useState([]);
   const [loading, setLoading] = useState(true);
   const [periode, setPeriode] = useState("trimestre");
   const [platformLogo, setPlatformLogo] = useState("");
@@ -204,15 +243,29 @@ export default function TresoreriePage() {
       setLoading(true);
       const now = new Date();
       const depuis = new Date(now.getFullYear(), now.getMonth() - (MOIS_A_AFFICHER - 1), 1).toISOString();
-      const { data } = await supabase
-        .from("commandes")
-        .select("created_at, ca, marge")
-        .eq("business_id", business.id)
-        .eq("statut", "livree")
-        .gte("created_at", depuis)
-        .order("created_at", { ascending: true });
+      const [commandesRes, retoursRes] = await Promise.all([
+        supabase
+          .from("commandes")
+          .select("created_at, ca, marge")
+          .eq("business_id", business.id)
+          .eq("statut", "livree")
+          .gte("created_at", depuis)
+          .order("created_at", { ascending: true }),
+        // Comptabilisé à sa propre date (r.created_at), jamais sur le mois
+        // de la commande d'origine — voir appliquerRetours() plus haut et
+        // supabase-retours-migration.sql (enregistrer_retour()). montant/
+        // marge sont des totaux déjà figés sur la ligne, pas besoin de
+        // joindre retour_lignes.
+        supabase
+          .from("retours")
+          .select("created_at, montant, marge")
+          .eq("business_id", business.id)
+          .gte("created_at", depuis)
+          .order("created_at", { ascending: true }),
+      ]);
       if (!active) return;
-      setCommandes(data || []);
+      setCommandes(commandesRes.data || []);
+      setRetours(retoursRes.data || []);
       setLoading(false);
     }
     load();
@@ -221,16 +274,19 @@ export default function TresoreriePage() {
     };
   }, [business?.id]);
 
-  const moisBuckets = useMemo(() => buildMonthlyBuckets(commandes, business?.langue), [commandes, business?.langue]);
+  const moisBuckets = useMemo(() => buildMonthlyBuckets(commandes, retours, business?.langue), [commandes, retours, business?.langue]);
   const semaineBuckets = useMemo(
-    () => buildSemaines(commandes, t),
+    () => buildSemaines(commandes, retours, t),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- t change de comportement en même temps que business?.langue
-    [commandes, business?.langue]
+    [commandes, retours, business?.langue]
   );
-  const joursSemaineBuckets = useMemo(() => buildJoursSemaine(commandes, business?.langue), [commandes, business?.langue]);
+  const joursSemaineBuckets = useMemo(() => buildJoursSemaine(commandes, retours, business?.langue), [commandes, retours, business?.langue]);
 
   const chartData = periode === "semaine" ? joursSemaineBuckets : periode === "mois" ? semaineBuckets : moisBuckets.slice(-PERIODE_MOIS[periode]);
-  const totaux = chartData.reduce((acc, b) => ({ ca: acc.ca + b.ca, marge: acc.marge + b.marge }), { ca: 0, marge: 0 });
+  const totaux = chartData.reduce(
+    (acc, b) => ({ ca: acc.ca + b.ca, marge: acc.marge + b.marge, retours: acc.retours + b.retours }),
+    { ca: 0, marge: 0, retours: 0 }
+  );
   const tableRows = [...moisBuckets].reverse();
   const aucuneDonnee = chartData.every((b) => b.ca === 0 && b.marge === 0);
   const [chartRef, chartWidth] = useElementWidth();
@@ -257,6 +313,7 @@ export default function TresoreriePage() {
       [t("tresorerie.colMois")]: b.labelFull,
       [t("tresorerie.colCa")]: b.ca,
       [t("tresorerie.colMarge")]: b.marge,
+      [t("tresorerie.colRetours")]: b.retours,
     }));
     exportToExcel(`tresorerie-${dateFichier()}.xlsx`, "Tresorerie", rows);
   }
@@ -281,7 +338,7 @@ export default function TresoreriePage() {
           </div>
         </div>
 
-        <div className="sb-grid-stats" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+        <div className="sb-grid-stats">
           <div className="sb-card">
             <div className="sb-stat-label">{t("tresorerie.caTotal")}</div>
             <div className="sb-stat-value" style={{ color: accent }}>
@@ -292,6 +349,17 @@ export default function TresoreriePage() {
             <div className="sb-stat-label">{t("tresorerie.margeTotale")}</div>
             <div className="sb-stat-value" style={{ color: "var(--emerald)" }}>
               {fmt(totaux.marge)}
+            </div>
+          </div>
+          {/* Sortie distincte, jamais déjà re-soustraite de caTotal/margeTotale
+              ci-dessus (c'est fait une seule fois, dans les buckets
+              eux-mêmes, voir appliquerRetours() plus haut) : cette carte
+              n'est qu'un récapitulatif informatif de ce qui a déjà été
+              déduit pour la période affichée. */}
+          <div className="sb-card">
+            <div className="sb-stat-label">{t("tresorerie.retoursTotal")}</div>
+            <div className="sb-stat-value" style={{ color: "var(--coral)" }}>
+              {fmt(totaux.retours)}
             </div>
           </div>
         </div>
@@ -365,6 +433,7 @@ export default function TresoreriePage() {
                   <th>{t("tresorerie.colMois")}</th>
                   <th style={{ textAlign: "right" }}>{t("tresorerie.colCa")}</th>
                   <th style={{ textAlign: "right" }}>{t("tresorerie.colMarge")}</th>
+                  <th style={{ textAlign: "right" }}>{t("tresorerie.colRetours")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -373,6 +442,7 @@ export default function TresoreriePage() {
                     <td>{b.labelFull}</td>
                     <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(b.ca)}</td>
                     <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(b.marge)}</td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{b.retours > 0 ? fmt(b.retours) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -438,6 +508,10 @@ export default function TresoreriePage() {
                 <div className="label">{t("tresorerie.margeTotale")}</div>
                 <div className="value">{fmt(totaux.marge)}</div>
               </div>
+              <div>
+                <div className="label">{t("tresorerie.retoursTotal")}</div>
+                <div className="value">{fmt(totaux.retours)}</div>
+              </div>
             </div>
 
             <table className="sb-tresorerie-print-table">
@@ -446,6 +520,7 @@ export default function TresoreriePage() {
                   <th>{t("tresorerie.colMois")}</th>
                   <th style={{ textAlign: "right" }}>{t("tresorerie.colCa")}</th>
                   <th style={{ textAlign: "right" }}>{t("tresorerie.colMarge")}</th>
+                  <th style={{ textAlign: "right" }}>{t("tresorerie.colRetours")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -454,6 +529,7 @@ export default function TresoreriePage() {
                     <td>{b.labelFull}</td>
                     <td style={{ textAlign: "right" }}>{fmt(b.ca)}</td>
                     <td style={{ textAlign: "right" }}>{fmt(b.marge)}</td>
+                    <td style={{ textAlign: "right" }}>{b.retours > 0 ? fmt(b.retours) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
