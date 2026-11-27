@@ -4890,6 +4890,80 @@ de bout en bout avec un vrai site e-commerce n'a pas pu être effectué dans
 cet environnement de développement (sandbox sans accès réseau vers un
 site externe) ; seule l'intégration côté Doka a été vérifiée.
 
+## Retour d'articles livrés
+
+Permet de retourner un ou plusieurs articles d'une commande déjà **livrée**,
+sans jamais réécrire le passé comptable déjà affiché (Trésorerie, historique
+client, rapports des périodes antérieures).
+
+**Accès** : bouton « Retour » (`app/(app)/commandes/[id]/page.js`), à
+l'emplacement du bouton « Livré » dans `.sb-detail-actions` — les deux ne
+s'affichent jamais ensemble (une commande est soit en attente de livraison,
+soit déjà livrée). N'apparaît que si la commande est livrée **et** qu'il lui
+reste au moins un article retournable (`lib/retours.js`,
+`quantiteRetournable()`) ; masqué pour une commande `source =
+'boutique_en_ligne'`, par le même principe que Livré/Modifier/Annuler déjà
+masqués pour ces commandes-là (gérées depuis le site, voir la section
+Boutique en ligne plus haut) — un remboursement de ce type se coordonnerait
+autrement avec un système que Doka ne contrôle pas.
+
+**Formulaire de retour** (`app/(app)/commandes/[id]/retour/page.js`) :
+reprend la présentation de la commande (en-tête client/livraison/paiement,
+tableau des articles avec photo/nom/prix unitaire/quantité livrée/
+sous-total), avec deux colonnes supplémentaires (quantité déjà retournée,
+quantité encore retournable) et un bouton « Retour » par ligne — remplacé
+par la mention « Retourné » une fois la ligne épuisée, absent pour un
+article offert (cadeau, jamais retournable). Clique sur « Retour » : une
+fenêtre demande la quantité si plus d'une unité est retournable, sinon
+passage direct à la confirmation (article, quantité, prix unitaire figé,
+montant à rembourser non modifiable, mode de remboursement présélectionné
+selon le paiement d'origine, motif facultatif) — bouton désactivé dès le
+premier clic. Plusieurs retours successifs restent possibles sur la même
+commande sans quitter la page.
+
+**Migration** : `supabase-retours-migration.sql`. Tables `retours`/
+`retour_lignes` (une seule ligne par retour dans cette version, structure
+prête pour plusieurs), numérotation `RET-0001` (même mécanisme que
+`ART-xxxx`/`REC-xxxx`), RLS identique aux autres tables métier, et un
+verrouillage total — INSERT compris, pas seulement UPDATE/DELETE comme pour
+les réceptions — puisqu'un retour n'a ici aucun état brouillon : la seule
+voie légitime de création est `enregistrer_retour()` (SECURITY DEFINER),
+seule à distinguer un appel direct (`current_user = 'authenticated'`,
+refusé) d'une écriture interne. Cette fonction, en une seule transaction
+(verrou de ligne sur `commande_lignes` pour empêcher deux retours
+simultanés sur la même ligne) : refuse une commande non livrée, un article
+offert, ou une quantité dépassant le retournable ; restaure le stock réel
+**sans** recalculer le coût moyen pondéré (même principe que
+`annuler_reception()`, qui restaure sans recalcul) — un article désactivé
+reste retournable, cette fonction ne touche jamais `articles.actif` ;
+conserve le statut `livree` de la commande. Testée intégralement sur une
+instance PostgreSQL locale (stub ciblé sur le cœur
+businesses/commandes/commande_lignes/articles, cette migration n'en
+dépendant pas davantage) : 15 scénarios couvrant chaque test demandé.
+
+**Comptabilité, sans réécrire le passé** : `retours.montant`/`retours.marge`
+sont des totaux figés à l'enregistrement (même dénormalisation que
+`commandes.ca`/`commandes.marge`), datés par `retours.created_at` — jamais
+la date de la commande d'origine. Trésorerie (`app/(app)/tresorerie/page.js`,
+`appliquerRetours()`) impute donc chaque retour sur **sa propre** période
+(mois/semaine/jour), en diminuant le CA et la marge de cette période précise
+et en cumulant à part une ligne « Retours » (sortie, carte dédiée + colonne
+du tableau + export Excel + PDF) — les périodes déjà affichées avant ce
+retour restent inchangées tant qu'aucun nouveau retour n'y est inscrit.
+Détail de la commande : badge « Retour partiel »/« Retour total »
+(`lib/retours.js`, `statutRetourCommande()`, ignore les lignes offertes) et
+liste des retours déjà effectués (numéro, date, article, quantité, montant,
+mode) ; même badge repris dans la liste des commandes
+(`app/(app)/commandes/page.js`) pour rester identifiable sans ouvrir le
+détail.
+
+**Bon de retour imprimable** : PDF A4 avec aperçu avant impression
+(`components/PrintPreviewModal.js`, `lib/pdfExport.js`), ouvert
+automatiquement après confirmation — même principe que
+`app/(app)/achats/[id]/page.js` (classes `.sb-retour-print-*`, fond blanc et
+textes foncés fixes quel que soit le thème, comme tous les documents de ce
+type).
+
 ## Limitations connues / suite
 
 - **Sécurité RLS à durcir avant la mise en prod payante** : la policy

@@ -9,6 +9,7 @@ import { fmt as fmtBase, dateLocale } from "@/lib/format";
 import { PAGE_SIZE } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
 import { exportToExcel, dateFichier } from "@/lib/exportExcel";
+import { quantiteRetourneeParLigne, statutRetourCommande } from "@/lib/retours";
 import Pagination from "@/components/Pagination";
 
 const STATUT_BADGE_CLASS = {
@@ -18,7 +19,7 @@ const STATUT_BADGE_CLASS = {
 };
 
 const COMMANDE_SELECT =
-  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, offert, articles(nom, unite, image_url)), commande_acomptes(montant, statut)";
+  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, offert, articles(nom, unite, image_url)), commande_acomptes(montant, statut), retours(id, retour_lignes(commande_ligne_id, quantite))";
 
 export default function CommandesPage() {
   const { business } = useAuth();
@@ -189,36 +190,42 @@ export default function CommandesPage() {
               </tr>
             </thead>
             <tbody>
-              {commandes.map((c) => (
-                <tr
-                  key={c.id}
-                  className="sb-row-clickable"
-                  onClick={() => router.push(`/commandes/${c.id}`)}
-                  style={c.statut === "annulee" ? { opacity: 0.55 } : undefined}
-                >
-                  <td className="sb-mono">{c.numero}</td>
-                  <td>{new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
-                  <td className="sb-nom-tronque">
-                    {c.clients?.nom ?? "—"}
-                    {c.source === "boutique_en_ligne" && (
-                      <span className="sb-badge sb-badge-muted" style={{ marginLeft: 6, fontSize: 10.5 }}>
-                        {t("commandes.badgeBoutiqueEnLigne", { reference: c.reference_externe })}
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <span className={`sb-badge ${STATUT_BADGE_CLASS[c.statut] || "sb-badge-amber"}`}>
-                        {t(`common.commandeStatut.${c.statut}`) || c.statut}
-                      </span>
-                      {c.statut === "en_attente" && (c.commande_acomptes || []).some((a) => a.statut === "verse") && (
-                        <span className="sb-badge sb-badge-muted">{t("commandes.reservee")}</span>
+              {commandes.map((c) => {
+                const statutRetour = statutRetourCommande(c, quantiteRetourneeParLigne(c.retours));
+                return (
+                  <tr
+                    key={c.id}
+                    className="sb-row-clickable"
+                    onClick={() => router.push(`/commandes/${c.id}`)}
+                    style={c.statut === "annulee" ? { opacity: 0.55 } : undefined}
+                  >
+                    <td className="sb-mono">{c.numero}</td>
+                    <td>{new Date(c.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
+                    <td className="sb-nom-tronque">
+                      {c.clients?.nom ?? "—"}
+                      {c.source === "boutique_en_ligne" && (
+                        <span className="sb-badge sb-badge-muted" style={{ marginLeft: 6, fontSize: 10.5 }}>
+                          {t("commandes.badgeBoutiqueEnLigne", { reference: c.reference_externe })}
+                        </span>
                       )}
-                    </span>
-                  </td>
-                  <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(c.ca)}</td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span className={`sb-badge ${STATUT_BADGE_CLASS[c.statut] || "sb-badge-amber"}`}>
+                          {t(`common.commandeStatut.${c.statut}`) || c.statut}
+                        </span>
+                        {c.statut === "en_attente" && (c.commande_acomptes || []).some((a) => a.statut === "verse") && (
+                          <span className="sb-badge sb-badge-muted">{t("commandes.reservee")}</span>
+                        )}
+                        {statutRetour !== "aucun" && (
+                          <span className="sb-badge sb-badge-coral">{t(`commandes.retourStatut.${statutRetour}`)}</span>
+                        )}
+                      </span>
+                    </td>
+                    <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(c.ca)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

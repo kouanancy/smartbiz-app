@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Ban, Banknote, CheckCircle2, Pencil, Plus, Printer, Trash2, TruckIcon, X } from "lucide-react";
+import { ArrowLeft, Ban, Banknote, CheckCircle2, Pencil, Plus, Printer, RotateCcw, Trash2, TruckIcon, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/AuthProvider";
 import { fmt as fmtBase, dateLocale, tronquerMilieuNom } from "@/lib/format";
 import { OPERATEURS_MOBILE_MONEY, MODES_PAIEMENT_ACOMPTE } from "@/lib/constants";
 import { t as tBase } from "@/lib/i18n";
+import { quantiteRetourneeParLigne, quantiteRetournable, statutRetourCommande } from "@/lib/retours";
 import Receipt from "@/components/Receipt";
 import ArticleSelect from "@/components/ArticleSelect";
 import ClientSelect from "@/components/ClientSelect";
@@ -20,7 +21,7 @@ const STATUT_BADGE_CLASS = {
 };
 
 const COMMANDE_SELECT =
-  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, offert, articles(nom, unite, image_url)), commande_acomptes(id, montant, mode_paiement, date_versement, statut, created_at)";
+  "*, clients(nom, telephone, adresse, email), commande_lignes(id, article_id, quantite, prix_vente, prix_achat, frais_annexes, offert, articles(nom, unite, image_url)), commande_acomptes(id, montant, mode_paiement, date_versement, statut, created_at), retours(id, numero, created_at, montant, mode_remboursement, retour_lignes(commande_ligne_id, article_id, quantite, montant, articles(nom)))";
 
 // Un acompte "remboursé" (uniquement après annulation de la commande, voir
 // supabase-commande-acomptes-migration.sql) n'est jamais compté comme
@@ -450,6 +451,17 @@ export default function CommandeDetailPage() {
   // base refuserait de toute façon.
   const estBoutiqueEnLigne = commande.source === "boutique_en_ligne";
 
+  // Un seul calcul partagé avec le formulaire de retour (lib/retours.js) :
+  // quantité déjà retournée par ligne, puis statut global de la commande
+  // ('aucun' | 'partiel' | 'total') et présence d'au moins un article
+  // encore retournable, qui conditionne à elle seule l'affichage du
+  // bouton Retour ci-dessous.
+  const retours = commande.retours || [];
+  const retourneParLigne = quantiteRetourneeParLigne(retours);
+  const statutRetour = statutRetourCommande(commande, retourneParLigne);
+  const auMoinsUnRetournable = commande.commande_lignes.some((l) => quantiteRetournable(l, retourneParLigne) > 0);
+  const livree = commande.statut === "livree";
+
   return (
     <div>
       <button className="sb-back-link" onClick={() => router.push("/commandes")}>
@@ -475,6 +487,11 @@ export default function CommandeDetailPage() {
           <span className={`sb-badge ${STATUT_BADGE_CLASS[commande.statut] || "sb-badge-amber"}`} style={{ fontSize: 13, padding: "7px 12px" }}>
             {t(`common.commandeStatut.${commande.statut}`) || commande.statut}
           </span>
+          {statutRetour !== "aucun" && (
+            <span className="sb-badge sb-badge-coral" style={{ fontSize: 13, padding: "7px 12px" }}>
+              {t(`commandes.retourStatut.${statutRetour}`)}
+            </span>
+          )}
         </div>
       </div>
 
@@ -674,10 +691,60 @@ export default function CommandeDetailPage() {
         {solderError && <p style={{ fontSize: 12, color: "var(--coral)", margin: "10px 0 0" }}>{solderError}</p>}
       </div>
 
+      {retours.length > 0 && (
+        <div className="sb-card" style={{ marginBottom: 16 }}>
+          <div className="sb-section-title" style={{ fontSize: 13 }}>
+            {t("commandes.retoursTitle")}
+          </div>
+          <div className="sb-table-scroll">
+            <table className="sb-table">
+              <thead>
+                <tr>
+                  <th>{t("commandes.colRetourNumero")}</th>
+                  <th>{t("dashboard.colDate")}</th>
+                  <th>{t("receipt.tableArticle")}</th>
+                  <th style={{ textAlign: "center" }}>{t("commandes.colQte")}</th>
+                  <th style={{ textAlign: "right" }}>{t("commandes.colSousTotal")}</th>
+                  <th>{t("commandes.colAcompteMode")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {retours.flatMap((r) =>
+                  (r.retour_lignes || []).map((rl) => (
+                    <tr key={rl.commande_ligne_id + r.id}>
+                      <td className="sb-mono">{r.numero}</td>
+                      <td>{new Date(r.created_at).toLocaleDateString(dateLocale(business?.langue))}</td>
+                      <td className="sb-nom-tronque" title={rl.articles?.nom ?? ""}>
+                        {rl.articles?.nom ? tronquerMilieuNom(rl.articles.nom) : "—"}
+                      </td>
+                      <td className="sb-mono" style={{ textAlign: "center" }}>{rl.quantite}</td>
+                      <td className="sb-mono" style={{ textAlign: "right" }}>{fmt(rl.montant)}</td>
+                      <td>{r.mode_remboursement === "especes" ? t("commandes.especes") : t("commandes.mobileMoney")}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="sb-detail-actions">
         {enAttente && !estBoutiqueEnLigne && (
           <button className="sb-btn sb-btn-emerald" onClick={marquerLivree} disabled={aUnAcompte && !soldee}>
             <TruckIcon size={15} /> {t("commandes.livre")}
+          </button>
+        )}
+        {/* Même emplacement que le bouton Livré ci-dessus (jamais affichés
+            ensemble : une commande est soit en attente de livraison, soit
+            déjà livrée) — n'apparaît que pour une commande livrée qui a
+            encore au moins un article retournable (lib/retours.js). Une
+            commande boutique en ligne reste en lecture seule ici, par le
+            même principe que Livré/Modifier/Annuler ci-dessus : son
+            remboursement éventuel se coordonne depuis le site. */}
+        {livree && !estBoutiqueEnLigne && auMoinsUnRetournable && (
+          <button className="sb-btn sb-btn-ghost" style={{ color: "var(--coral)" }} onClick={() => router.push(`/commandes/${commande.id}/retour`)}>
+            <RotateCcw size={15} /> {t("commandes.retour")}
           </button>
         )}
         {enAttente && !estBoutiqueEnLigne && (
